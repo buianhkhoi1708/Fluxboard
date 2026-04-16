@@ -23,6 +23,7 @@ app.get('/api/v1/health-check', (req, res) => {
 app.use('/api/v1/auth', require('./src/modules/auth/routes/auth.routes'));
 app.use('/api/v1/users', require('./src/modules/user/routes/user.routes'));
 app.use('/api/v1/rbac', require('./src/modules/rbac/routes/rbac.routes'));
+app.use('/api/v1/boards', require('./src/modules/board/routes/board.routes'));
 
 app.use(errorHandler);
 
