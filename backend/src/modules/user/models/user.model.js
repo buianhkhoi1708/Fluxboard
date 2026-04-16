@@ -9,7 +9,7 @@ const userSchema = new mongoose.Schema({
     system_role_ids: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Role' }],
     status: { type: String, enum: ['ACTIVE', 'INACTIVE'], default: 'ACTIVE' },
     reset_password_token: { type: String, select: false },
-    reset_password_expires: { type: Date, select: false },
+    reset_password_expires: { type: Date, select: false }
 }, {
     timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' }
 });
