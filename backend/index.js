@@ -1,12 +1,31 @@
-// backend/index.js
+require('dotenv').config();
 const express = require('express');
-const app = express();
-const port = 5000;
+const cors = require('cors');
+const connectDB = require('./src/common/config/db');
+const errorHandler = require('./src/common/middlewares/error.middleware');
 
-app.get('/', (req, res) => {
-  res.send('Hello from FluxBoard Backend!');
+const app = express();
+
+connectDB();
+
+app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Authorization', 'Content-Type']
+}));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+app.get('/api/v1/health-check', (req, res) => {
+    res.status(200).json({ status: 'UP', message: 'FluxBoard Node.js Backend is running' });
 });
 
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+app.use('/api/v1/auth', require('./src/modules/auth/routes/auth.routes'));
+app.use('/api/v1/users', require('./src/modules/user/routes/user.routes'));
+
+app.use(errorHandler);
+
+const PORT = process.env.SERVER_PORT || 8080;
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });
