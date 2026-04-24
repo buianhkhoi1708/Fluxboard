@@ -1,11 +1,14 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const http = require('http'); // Yêu cầu cho socket.io
+const http = require('http'); 
 const connectDB = require('./src/common/config/db');
 const socketConfig = require('./src/common/config/socket');
 const errorHandler = require('./src/common/middlewares/error.middleware');
 const requestIdMiddleware = require('./src/common/middlewares/requestId.middleware');
+
+// Import Cron Job 
+const scheduleTaskDeadlineCheck = require('./src/modules/notification/jobs/taskDeadline.job');
 
 const app = express();
 const server = http.createServer(app);
@@ -15,6 +18,10 @@ connectDB();
 
 // Khởi tạo Socket.io cho Real-time
 socketConfig.init(server);
+
+// Kích hoạt Cron Jobs chạy ngầm
+scheduleTaskDeadlineCheck();
+console.log('Cron Jobs scheduled.');
 
 // Cấu hình Middleware cơ bản
 app.use(cors({
@@ -64,6 +71,7 @@ app.use(errorHandler);
 
 const PORT = process.env.SERVER_PORT || 8080;
 
+// Khởi chạy máy chủ HTTP (Tích hợp cả Express và WebSocket)
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
