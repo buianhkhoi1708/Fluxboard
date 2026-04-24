@@ -1,25 +1,45 @@
 const AppError = require('../exceptions/AppError');
 
 const errorHandler = (err, req, res, next) => {
-    let error = { ...err };
-    error.message = err.message;
+    let statusCode = err.statusCode || 500;
+    let errorCode = err.errorCode || 'INTERNAL_SERVER_ERROR';
+    let message = err.message || 'Something went wrong';
+    let fieldErrors = null;
 
-    if (err.code === 11000) {
-        const message = 'Duplicate field value entered';
-        error = new AppError(message, 400, 'DUPLICATE_ERROR');
+    if (err.name === 'CastError') {
+        statusCode = 400;
+        errorCode = 'INVALID_FORMAT';
+        message = `Invalid format for field: ${err.path}`;
     }
 
     if (err.name === 'ValidationError') {
-        const message = Object.values(err.errors).map(val => val.message).join(', ');
-        error = new AppError(message, 400, 'VALIDATION_ERROR');
+        statusCode = 400;
+        errorCode = 'VALIDATION_FAILED';
+        message = 'Input data validation failed';
+        fieldErrors = Object.values(err.errors).map(val => ({
+            field: val.path,
+            message: val.message
+        }));
     }
 
-    const statusCode = error.statusCode || 500;
+    if (err.code === 11000) {
+        statusCode = 409;
+        errorCode = 'DUPLICATE_RESOURCE';
+        const field = Object.keys(err.keyValue)[0];
+        message = `The ${field} already exists`;
+    }
+
+    if (statusCode === 500) {
+        console.error('💥 [SERVER ERROR]:', err);
+    }
+
     res.status(statusCode).json({
         success: false,
         error: {
-            code: error.errorCode || 'INTERNAL_SERVER_ERROR',
-            message: error.message || 'Server Error'
+            code: errorCode,
+            message: message,
+            details: fieldErrors,
+            timestamp: new Date().toISOString()
         }
     });
 };

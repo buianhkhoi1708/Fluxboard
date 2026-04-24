@@ -1,6 +1,5 @@
-const mongoose = require('mongoose');
 const Task = require('../models/task.model');
-const Column = require('../models/column.model');
+const AppError = require('../../../common/exceptions/AppError');
 const socketConfig = require('../../../common/config/socket');
 
 exports.createTask = async (taskData) => {
@@ -13,58 +12,68 @@ exports.createTask = async (taskData) => {
     return task;
 };
 
-exports.moveTask = async (taskId, sourceColumnId, destColumnId, sourceIndex, destIndex) => {
-    const session = await mongoose.startSession();
-    session.startTransaction();
-    let taskBoardId = null;
+exports.updateTask = async (taskId, updateData) => {
+    const task = await Task.findByIdAndUpdate(
+        taskId, 
+        { $set: updateData }, 
+        { new: true, runValidators: true }
+    ).lean();
     
-    try {
-        const task = await Task.findById(taskId).session(session);
-        taskBoardId = task.board_id;
+    if (!task) throw new AppError('Task not found', 404, 'NOT_FOUND');
+    
+    const io = socketConfig.getIo();
+    io.to(task.board_id.toString()).emit('taskUpdated', task);
+    
+    return task;
+};
 
-        if (sourceColumnId === destColumnId) {
-            if (sourceIndex < destIndex) {
-                await Task.updateMany(
-                    { column_id: sourceColumnId, order: { $gt: sourceIndex, $lte: destIndex } },
-                    { $inc: { order: -1 } },
-                    { session }
-                );
-            } else if (sourceIndex > destIndex) {
-                await Task.updateMany(
-                    { column_id: sourceColumnId, order: { $gte: destIndex, $lt: sourceIndex } },
-                    { $inc: { order: 1 } },
-                    { session }
-                );
-            }
-            task.order = destIndex;
+exports.deleteTask = async (taskId) => {
+    const task = await Task.findByIdAndDelete(taskId).lean();
+    if (!task) throw new AppError('Task not found', 404, 'NOT_FOUND');
+
+    const io = socketConfig.getIo();
+    io.to(task.board_id.toString()).emit('taskDeleted', taskId);
+    
+    return true;
+};
+
+exports.moveTask = async (taskId, destColumnId, newOrder) => {
+    const task = await Task.findById(taskId);
+    if (!task) throw new AppError('Task not found', 404, 'NOT_FOUND');
+
+    const sourceColumnId = task.column_id;
+    const oldOrder = task.order;
+
+    if (sourceColumnId.toString() === destColumnId.toString()) {
+        if (oldOrder === newOrder) return task;
+        if (oldOrder < newOrder) {
+            await Task.updateMany(
+                { column_id: sourceColumnId, order: { $gt: oldOrder, $lte: newOrder } },
+                { $inc: { order: -1 } }
+            );
         } else {
             await Task.updateMany(
-                { column_id: sourceColumnId, order: { $gt: sourceIndex } },
-                { $inc: { order: -1 } },
-                { session }
+                { column_id: sourceColumnId, order: { $gte: newOrder, $lt: oldOrder } },
+                { $inc: { order: 1 } }
             );
-            await Task.updateMany(
-                { column_id: destColumnId, order: { $gte: destIndex } },
-                { $inc: { order: 1 } },
-                { session }
-            );
-            task.column_id = destColumnId;
-            task.order = destIndex;
         }
-
-        await task.save({ session });
-        await session.commitTransaction();
-    } catch (error) {
-        await session.abortTransaction();
-        throw error;
-    } finally {
-        session.endSession();
+    } else {
+        await Task.updateMany(
+            { column_id: sourceColumnId, order: { $gt: oldOrder } },
+            { $inc: { order: -1 } }
+        );
+        await Task.updateMany(
+            { column_id: destColumnId, order: { $gte: newOrder } },
+            { $inc: { order: 1 } }
+        );
     }
 
-    if (taskBoardId) {
-        const io = socketConfig.getIo();
-        io.to(taskBoardId.toString()).emit('taskMoved', { taskId, sourceColumnId, destColumnId, sourceIndex, destIndex });
-    }
+    task.column_id = destColumnId;
+    task.order = newOrder;
+    await task.save();
 
-    return true;
+    const io = socketConfig.getIo();
+    io.to(task.board_id.toString()).emit('taskMoved', { taskId: task._id, destColumnId, newOrder });
+
+    return task;
 };

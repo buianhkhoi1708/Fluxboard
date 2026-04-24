@@ -1,4 +1,5 @@
 const Activity = require('../models/activity.model');
+const { paginate } = require('../../../common/utils/pagination.util');
 
 exports.logActivity = async (data) => {
     try {
@@ -9,11 +10,5 @@ exports.logActivity = async (data) => {
 };
 
 exports.getProjectActivities = async (projectId, page = 1, limit = 20) => {
-    const skip = (page - 1) * limit;
-    return await Activity.find({ project_id: projectId })
-        .sort({ created_at: -1 })
-        .skip(skip)
-        .limit(limit)
-        .populate('actor_id', 'full_name avatar_url')
-        .lean();
+    return await paginate(Activity, { project_id: projectId }, page, limit, 'actor_id');
 };
