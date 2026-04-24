@@ -39,3 +39,24 @@ exports.generateBoardContext = async (promptText) => {
         throw new AppError('AI processing failed or returned invalid format', 500, 'AI_GENERATION_FAILED');
     }
 };
+
+exports.generateInsights = async (projectDataText) => {
+    try {
+        const systemPrompt = `You are an AI Agile Coach. Analyze the provided project data (completed tasks vs estimated, current bottlenecks).
+        CRITICAL RULE: Return ONLY a valid JSON string. Do NOT wrap it in markdown block quotes (like \`\`\`json). Do NOT add explanatory text.
+        Structure:
+        {
+          "overall_health": "string",
+          "bottlenecks": ["string"],
+          "recommendations": ["string"],
+          "velocity_trend": "IMPROVING" | "STABLE" | "DECLINING"
+        }`;
+
+        const result = await model.generateContent([systemPrompt, projectDataText]);
+        let textResponse = result.response.text();
+        textResponse = textResponse.replace(/```json/gi, '').replace(/```/gi, '').trim();
+        return JSON.parse(textResponse);
+    } catch (error) {
+        throw new AppError('AI Insight generation failed', 500, 'AI_ERROR');
+    }
+};

@@ -28,3 +28,17 @@ exports.resetPassword = async (req, res, next) => {
         next(error); 
     }
 };
+
+exports.refreshToken = async (req, res, next) => {
+    try {
+        const { refreshToken } = req.body;
+        if (!refreshToken) {
+            return res.status(400).json({ success: false, error: { message: 'Refresh token is required' }});
+        }
+        
+        const data = await authService.refreshToken(refreshToken);
+        res.status(200).json({ success: true, data });
+    } catch (error) { 
+        next(error); 
+    }
+};
