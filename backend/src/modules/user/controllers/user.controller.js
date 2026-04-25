@@ -31,11 +31,14 @@ exports.changePassword = async (req, res, next) => {
     try {
         const { oldPassword, newPassword } = req.body;
         if (!oldPassword || !newPassword) {
-            return res.status(400).json({ success: false, error: { message: 'Old and new passwords are required' }});
+            return res.status(400).json({ 
+                success: false, 
+                error: { message: 'Old and new passwords are required' }
+            });
         }
         
-        await userService.changePassword(req.user.id, oldPassword, newPassword);
-        res.status(200).json({ success: true, message: 'Password changed successfully' });
+        const result = await userService.changePassword(req.user.id, oldPassword, newPassword);
+        res.status(200).json(result);
     } catch (error) { 
         next(error); 
     }

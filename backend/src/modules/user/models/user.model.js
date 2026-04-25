@@ -2,7 +2,8 @@ const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
     email: { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
-    password_hash: { type: String, required: true, select: false },
+    password_hash: { type: String, required: true, select: false }, // Trường chuẩn Node.js
+    password: { type: String, select: false }, // Hỗ trợ dữ liệu cũ từ Java
     full_name: { type: String, required: true, trim: true },
     avatar_url: { type: String, default: null },
     department_id: { type: mongoose.Schema.Types.ObjectId, default: null },

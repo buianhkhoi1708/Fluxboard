@@ -1,35 +1,46 @@
-const User = require('../models/user.model');
-const bcrypt = require('bcrypt');
-const AppError = require('../../../common/exceptions/AppError');
+const userService = require('../services/user.service');
 
-exports.getUserById = async (userId) => {
-    const user = await User.findById(userId).populate('system_role_ids', 'name').lean();
-    if (!user) throw new AppError('User not found', 404, 'USER_NOT_FOUND');
-    return user;
+exports.getUserById = async (req, res, next) => {
+    try {
+        const user = await userService.getUserById(req.params.id);
+        res.status(200).json({ success: true, data: user });
+    } catch (error) { 
+        next(error); 
+    }
 };
 
-// Lấy thông tin chính mình
-exports.getCurrentProfile = async (userId) => {
-    const user = await User.findById(userId).populate('system_role_ids', 'name').lean();
-    if (!user) throw new AppError('User not found', 404, 'USER_NOT_FOUND');
-    return user;
+exports.getCurrentProfile = async (req, res, next) => {
+    try {
+        const user = await userService.getCurrentProfile(req.user.id);
+        res.status(200).json({ success: true, data: user });
+    } catch (error) { 
+        next(error); 
+    }
 };
 
-// Cập nhật thông tin cơ bản
-exports.updateProfile = async (userId, updateData) => {
-    const allowedUpdates = { full_name: updateData.full_name, avatar_url: updateData.avatar_url };
-    const user = await User.findByIdAndUpdate(userId, { $set: allowedUpdates }, { new: true }).lean();
-    return user;
+exports.updateProfile = async (req, res, next) => {
+    try {
+        const user = await userService.updateProfile(req.user.id, req.body);
+        res.status(200).json({ success: true, data: user });
+    } catch (error) { 
+        next(error); 
+    }
 };
 
-// Đổi mật khẩu chủ động
-exports.changePassword = async (userId, oldPassword, newPassword) => {
-    const user = await User.findById(userId).select('+password_hash');
-    const isMatch = await bcrypt.compare(oldPassword, user.password_hash);
-    
-    if (!isMatch) throw new AppError('Incorrect old password', 400, 'BAD_REQUEST');
-    
-    user.password_hash = await bcrypt.hash(newPassword, 10);
-    await user.save();
-    return true;
+exports.changePassword = async (req, res, next) => {
+    try {
+        const { oldPassword, newPassword } = req.body;
+        
+        if (!oldPassword || !newPassword) {
+            return res.status(400).json({ 
+                success: false, 
+                error: { message: 'Old and new passwords are required' }
+            });
+        }
+        
+        await userService.changePassword(req.user.id, oldPassword, newPassword);
+        res.status(200).json({ success: true, message: 'Password changed successfully' });
+    } catch (error) { 
+        next(error); 
+    }
 };

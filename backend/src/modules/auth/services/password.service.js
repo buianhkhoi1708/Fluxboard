@@ -10,13 +10,15 @@ exports.forgotPassword = async (email) => {
         throw new AppError('User not found or inactive', 404, 'NOT_FOUND');
     }
 
+    // Tạo token ngẫu nhiên và mã hóa để lưu vào DB
     const resetToken = crypto.randomBytes(32).toString('hex');
     const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
 
     user.reset_password_token = resetTokenHash;
-    user.reset_password_expires = Date.now() + 15 * 60 * 1000;
+    user.reset_password_expires = Date.now() + 15 * 60 * 1000; // Hết hạn sau 15 phút
     await user.save();
 
+    // Link dẫn tới giao diện Frontend (Mặc định cổng 5173 của Vite)
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     const resetLink = `${frontendUrl}/reset-password?token=${resetToken}&email=${email}`;
 
@@ -61,7 +63,9 @@ exports.resetPassword = async (email, token, newPassword) => {
 
     if (!user) throw new AppError('Token is invalid or has expired', 400, 'BAD_REQUEST');
 
+    // Cập nhật mật khẩu mới và dọn dẹp token
     user.password_hash = await bcrypt.hash(newPassword, 10);
+    user.password = undefined; // Xóa mật khẩu Java cũ nếu có
     user.reset_password_token = undefined;
     user.reset_password_expires = undefined;
     await user.save();

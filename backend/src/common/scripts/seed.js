@@ -17,10 +17,11 @@ const seedData = async () => {
         }
 
         const adminEmail = process.env.SEED_SYSTEM_ADMIN_EMAIL;
+        const password_hash = await bcrypt.hash(process.env.SEED_SYSTEM_ADMIN_PASSWORD, 10);
+        
         const existingAdmin = await User.findOne({ email: adminEmail });
         
         if (!existingAdmin) {
-            const password_hash = await bcrypt.hash(process.env.SEED_SYSTEM_ADMIN_PASSWORD, 10);
             await User.create({
                 email: adminEmail,
                 password_hash,
@@ -28,6 +29,12 @@ const seedData = async () => {
                 system_role_ids: [systemAdminRole._id]
             });
             console.log('Seed: SYSTEM_ADMIN user created successfully.');
+        } else {
+            await User.updateOne(
+                { email: adminEmail },
+                { $set: { password_hash: password_hash, system_role_ids: [systemAdminRole._id] } }
+            );
+            console.log('Seed: SYSTEM_ADMIN user password_hash fixed/updated successfully.');
         }
         process.exit(0);
     } catch (error) {
