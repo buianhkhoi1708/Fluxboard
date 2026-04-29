@@ -10,11 +10,17 @@ const requestIdMiddleware = require('./src/common/middlewares/requestId.middlewa
 // Import Cron Job 
 const scheduleTaskDeadlineCheck = require('./src/modules/notification/jobs/taskDeadline.job');
 
+// Import file seed RBAC
+const seedRbac = require('./src/modules/rbac/scripts/rbac.seed');
+
 const app = express();
 const server = http.createServer(app);
 
 // Kết nối Cơ sở dữ liệu MongoDB
 connectDB();
+
+// Khởi tạo dữ liệu phân quyền (Chạy ngầm bơm dữ liệu vào DB)
+seedRbac();
 
 // Khởi tạo Socket.io cho Real-time
 socketConfig.init(server);

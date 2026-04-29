@@ -10,7 +10,7 @@ const seedRbac = async () => {
     try {
         console.log('🔄 Starting RBAC data synchronization...');
 
-        // 1. CREATE CORE PERMISSIONS
+        // 1. TẠO CÁC QUYỀN (PERMISSIONS) CỐT LÕI
         const permissionsData = [
             { resource: Resources.PROJECT, action: Actions.CREATE, scope: Scopes.SYSTEM, description: 'Create new projects' },
             { resource: Resources.PROJECT, action: Actions.READ, scope: Scopes.PROJECT, description: 'View project details' },
@@ -29,7 +29,7 @@ const seedRbac = async () => {
             savedPermissions[`${p.resource}_${p.action}_${p.scope}`] = doc._id;
         }
 
-        // 2. CREATE ROLES & ASSIGN PERMISSIONS
+        // 2. TẠO CHỨC DANH (ROLES) & GẮN QUYỀN
         const rolesData = [
             {
                 name: Roles.SYSTEM_ADMIN, //[cite: 9]
@@ -60,6 +60,36 @@ const seedRbac = async () => {
                 scope: Scopes.PROJECT,    //[cite: 9]
                 description: 'Read-only access within project',
                 permission_ids: [
+                    savedPermissions[`${Resources.PROJECT}_${Actions.READ}_${Scopes.PROJECT}`]
+                ]
+            },
+            // ... (Tiếp nối bên dưới các Role đã có trong mảng rolesData)
+
+            {
+                name: Roles.MANAGER,      // Quyền hệ thống[cite: 5]
+                scope: Scopes.SYSTEM,     //[cite: 5]
+                description: 'Manage business operations',
+                permission_ids: [
+                    // Tùy bạn quyết định, ví dụ Manager được tạo project giống Admin
+                    savedPermissions[`${Resources.PROJECT}_${Actions.CREATE}_${Scopes.SYSTEM}`]
+                ]
+            },
+            {
+                name: Roles.LEAD,         // Quyền dự án[cite: 5]
+                scope: Scopes.PROJECT,    //[cite: 5]
+                description: 'Team lead role within project',
+                permission_ids: [
+                    // Lead được xem và sửa dự án, nhưng không được xóa hay mời người khác
+                    savedPermissions[`${Resources.PROJECT}_${Actions.READ}_${Scopes.PROJECT}`],
+                    savedPermissions[`${Resources.PROJECT}_${Actions.UPDATE}_${Scopes.PROJECT}`]
+                ]
+            },
+            {
+                name: Roles.MEMBER,       // Quyền dự án[cite: 5]
+                scope: Scopes.PROJECT,    //[cite: 5]
+                description: 'Basic member access',
+                permission_ids: [
+                    // Member chỉ được quyền xem thông tin dự án
                     savedPermissions[`${Resources.PROJECT}_${Actions.READ}_${Scopes.PROJECT}`]
                 ]
             }
