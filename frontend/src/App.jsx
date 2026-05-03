@@ -1,35 +1,52 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import MainLayout from "./layouts/MainLayout";
+import BoardPage from "./pages/BoardPage";
+import { SocketProvider } from "./context/SocketContext";
+import AdminRBACPage from "./pages/AdminRBACPage";
+import WorkspacesPage from "./pages/WorkspacesPage";
+import BoardView from "./features/board/components/BoardView";
+import AiBoardGeneratorPage from "./pages/AiBoardGeneratePage";
+import LoginPage from "./pages/LoginPage";
+import ProtectedRoute from "./routes/ProtectedRoute";
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
+import DashboardPage from "./pages/DashboardPage";
+import SettingsPage from "./pages/SettingsPage";
+import ActivityLogPage from "./pages/ActivityLogPage";
+import { OrganizationPage } from "./pages/OrganizationPage";
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <SocketProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* Route công khai: Ai cũng vào được */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+
+          <Route element={<ProtectedRoute />}>
+            <Route element={<MainLayout />}>
+              <Route path="/" element={<Navigate to="/login" replace />} />
+              <Route path="/board" element={<BoardPage />} />
+              <Route path="/adminrbac" element={<AdminRBACPage />} />
+              {/* Mốt Long làm trang Settings thì thêm vào đây: */}
+              <Route path="/workspaces" element={<WorkspacesPage />} />
+              <Route path="/board/:id" element={<BoardView />} />
+              <Route path="/aigenerateboard"element={<AiBoardGeneratorPage />}/>
+              <Route path="/dashboard"element={<DashboardPage/>}/>
+              <Route path="/settings"element={<SettingsPage/>}/>
+              <Route path="/activity"element={<ActivityLogPage/>}/>
+              <Route path="/organization"element={<OrganizationPage/>}/>
+
+            </Route>
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </SocketProvider>
+  );
 }
 
-export default App
+export default App;
