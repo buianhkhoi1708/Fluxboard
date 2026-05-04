@@ -3,14 +3,14 @@ const taskService = require('../services/task.service');
 exports.createTask = async (req, res, next) => {
     try {
         const task = await taskService.createTask(req.body);
-        res.status(201).json({ success: true, data: task });
+        res.status(201).json({ success: true, data: task, message: 'Task created successfully' });
     } catch (error) { next(error); }
 };
 
 exports.updateTask = async (req, res, next) => {
     try {
         const task = await taskService.updateTask(req.params.id, req.body);
-        res.status(200).json({ success: true, data: task });
+        res.status(200).json({ success: true, data: task, message: 'Task updated successfully' });
     } catch (error) { next(error); }
 };
 
