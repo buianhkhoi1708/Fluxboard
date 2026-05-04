@@ -2,31 +2,32 @@ const User = require('../../modules/user/models/user.model');
 const ProjectMember = require('../../modules/project/models/projectMember.model');
 const AppError = require('../exceptions/AppError');
 
-/**
- * Middleware kiểm tra quyền động (Dynamic RBAC)
- * @param {String} resource - Tài nguyên (VD: 'PROJECT', 'TASK')
- * @param {String} action - Hành động (VD: 'CREATE', 'DELETE')
- * @param {String} scope - Cấp độ ('SYSTEM' hoặc 'PROJECT')
- */
 const requirePermission = (resource, action, scope = 'SYSTEM') => {
     return async (req, res, next) => {
         try {
             const userId = req.user.id;
             let userRoles = [];
 
-            // 1. LẤY ROLE & PERMISSIONS DỰA TRÊN SCOPE
+            // 1. LẤY KIM BÀI BẰNG TRƯỜNG "role_id" CỦA JAVA
+            const user = await User.findById(userId).populate({
+                path: 'role_id',
+                populate: { path: 'permission_ids' }
+            }).lean();
+            
+            // Bọc role_id vào mảng để xử lý thống nhất với cấp độ dự án
+            const systemRoles = user?.role_id ? [user.role_id] : []; 
+            const isSystemAdmin = systemRoles.some(role => role.name === 'SYSTEM_ADMIN');
+            
+            if (isSystemAdmin) {
+                return next(); 
+            }
+
+            // 2. KIỂM TRA THEO SCOPE
             if (scope === 'SYSTEM') {
-                const user = await User.findById(userId).populate({
-                    path: 'system_role_ids',
-                    populate: { path: 'permission_ids' } // ✅ Đã sửa chuẩn theo schema
-                }).lean();
-                
-                if (user && user.system_role_ids) {
-                    userRoles = user.system_role_ids;
-                }
+                userRoles = systemRoles;
             } else if (scope === 'PROJECT') {
-                // Lấy ID dự án từ URL params (/:id hoặc /:projectId) hoặc từ Body
-                const projectId = req.params.id || req.params.projectId || req.body.projectId;
+                const projectId = req.params.id || req.params.projectId || req.body.projectId || req.body.project_id;
+                
                 if (!projectId) {
                     throw new AppError('Project ID is required for project-level permission check', 400);
                 }
@@ -34,33 +35,24 @@ const requirePermission = (resource, action, scope = 'SYSTEM') => {
                 const member = await ProjectMember.findOne({ project_id: projectId, user_id: userId })
                     .populate({
                         path: 'role_id',
-                        populate: { path: 'permission_ids' } // ✅ Đã sửa chuẩn theo schema
+                        populate: { path: 'permission_ids' }
                     }).lean();
 
-                if (member && member.role_id) {
-                    userRoles = [member.role_id];
-                } else {
+                if (!member || !member.role_id) {
                     throw new AppError('You are not a member of this project', 403, 'FORBIDDEN');
                 }
+                
+                userRoles = [member.role_id];
             }
 
-            // 2. KIM BÀI MIỄN TỬ: SYSTEM_ADMIN CÓ TOÀN QUYỀN
-            const isSystemAdmin = userRoles.some(role => role.name === 'SYSTEM_ADMIN');
-            if (isSystemAdmin) {
-                return next(); // Cho qua ngay lập tức
-            }
-
-            // 3. KIỂM TRA QUYỀN (DYNAMIC CHECK)
-            // Gộp tất cả permission từ các role mà user đang có
-            const userPermissions = userRoles.flatMap(role => role.permission_ids || []); // ✅ Đã sửa chuẩn theo schema
-
-            // Tìm xem có permission nào khớp với yêu cầu của API không
+            // 3. KIỂM TRA QUYỀN ĐỘNG
+            const userPermissions = userRoles.flatMap(role => role.permission_ids || []);
             const hasPermission = userPermissions.some(
                 p => p.resource === resource && p.action === action && p.scope === scope
             );
 
             if (!hasPermission) {
-                throw new AppError(`Forbidden: Missing ${action} permission for ${resource}`, 403, 'FORBIDDEN');
+                throw new AppError(`Forbidden: Missing ${action} permission for ${resource} at ${scope} scope`, 403, 'FORBIDDEN');
             }
 
             next();

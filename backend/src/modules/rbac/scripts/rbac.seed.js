@@ -24,7 +24,7 @@ const seedRbac = async () => {
             const doc = await Permission.findOneAndUpdate(
                 { resource: p.resource, action: p.action, scope: p.scope },
                 p,
-                { upsert: true, new: true }
+                { upsert: true, returnDocument: 'after' }
             );
             savedPermissions[`${p.resource}_${p.action}_${p.scope}`] = doc._id;
         }
