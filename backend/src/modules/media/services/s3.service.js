@@ -13,8 +13,9 @@ const s3Client = new S3Client({
 exports.uploadFile = async (file) => {
     const fileExtension = path.extname(file.originalname);
     const fileName = `${uuidv4()}${fileExtension}`;
+    
     const params = {
-        Bucket: process.env.AWS_BUCKET_NAME,
+        Bucket: process.env.AWS_S3_BUCKET, // Sửa thành AWS_S3_BUCKET cho khớp với file .env
         Key: `fluxboard/uploads/${fileName}`,
         Body: file.buffer,
         ContentType: file.mimetype,
@@ -22,5 +23,7 @@ exports.uploadFile = async (file) => {
     };
 
     await s3Client.send(new PutObjectCommand(params));
-    return `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/fluxboard/uploads/${fileName}`;
+    
+    // Sửa thành AWS_S3_BUCKET ở đường link trả về
+    return `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/fluxboard/uploads/${fileName}`;
 };

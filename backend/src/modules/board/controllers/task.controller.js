@@ -1,11 +1,20 @@
 const taskService = require('../services/task.service');
 const s3Service = require('../../media/services/s3.service');
+const activityService = require('../../activity/services/activity.service');
 
 exports.createTask = async (req, res, next) => {
     try {
         const task = await taskService.createTask(req.body);
 
-        await taskService.logActivity(task._id, req.user.id, 'CREATED', 'created this task');
+        await activityService.logActivity({
+            action: 'CREATE',
+            source: 'USER',
+            actor_id: req.user.id,
+            target_id: task._id,
+            target_type: 'Task',
+            project_id: task.project_id || null,
+            details: { message: 'Đã tạo thẻ công việc mới', title: task.title }
+        });
         
         res.status(201).json({ success: true, data: task, message: 'Task created successfully' });
     } catch (error) { next(error); }
@@ -15,7 +24,15 @@ exports.updateTask = async (req, res, next) => {
     try {
         const task = await taskService.updateTask(req.params.id, req.body);
 
-        await taskService.logActivity(req.params.id, req.user.id, 'UPDATED', 'updated task details');
+        await activityService.logActivity({
+            action: 'UPDATE',
+            source: 'USER',
+            actor_id: req.user.id,
+            target_id: task._id,
+            target_type: 'Task',
+            project_id: task.project_id || null,
+            details: { message: 'Đã cập nhật thông tin thẻ' }
+        });
         
         res.status(200).json({ success: true, data: task, message: 'Task updated successfully' });
     } catch (error) { next(error); }
@@ -24,6 +41,16 @@ exports.updateTask = async (req, res, next) => {
 exports.deleteTask = async (req, res, next) => {
     try {
         await taskService.deleteTask(req.params.id);
+        
+        await activityService.logActivity({
+            action: 'DELETE',
+            source: 'USER',
+            actor_id: req.user.id,
+            target_id: req.params.id,
+            target_type: 'Task',
+            details: { message: 'Đã xóa thẻ công việc' }
+        });
+
         res.status(200).json({ success: true, message: 'Task deleted successfully' });
     } catch (error) { next(error); }
 };
@@ -31,9 +58,17 @@ exports.deleteTask = async (req, res, next) => {
 exports.moveTask = async (req, res, next) => {
     try {
         const { destColumnId, newOrder } = req.body;
-        await taskService.moveTask(req.params.id, destColumnId, newOrder);
+        const task = await taskService.moveTask(req.params.id, destColumnId, newOrder);
         
-        await taskService.logActivity(req.params.id, req.user.id, 'MOVED', 'moved this task to a new position');
+        await activityService.logActivity({
+            action: 'MOVE',
+            source: 'USER',
+            actor_id: req.user.id,
+            target_id: task._id,
+            target_type: 'Task',
+            project_id: task.project_id || null,
+            details: { message: 'Đã di chuyển vị trí thẻ' }
+        });
 
         res.status(200).json({ success: true, message: 'Task moved successfully' });
     } catch (error) { next(error); }
@@ -91,17 +126,6 @@ exports.deleteComment = async (req, res, next) => {
 };
 
 // ==========================================
-// ĐỢT 3: LỊCH SỬ HOẠT ĐỘNG (ACTIVITY LOGS)
-// ==========================================
-
-exports.getTaskActivities = async (req, res, next) => {
-    try {
-        const activities = await taskService.getTaskActivities(req.params.id);
-        res.status(200).json({ success: true, data: activities });
-    } catch (error) { next(error); }
-};
-
-// ==========================================
 // ĐỢT 3: ĐÍNH KÈM FILE (AWS S3)
 // ==========================================
 
@@ -111,10 +135,8 @@ exports.uploadAttachment = async (req, res, next) => {
             return res.status(400).json({ success: false, message: 'No file provided' });
         }
         
-        // 1. Dùng S3 Service của bạn để đẩy file từ RAM lên AWS S3
         const fileUrl = await s3Service.uploadFile(req.file);
 
-        // 2. Lấy URL trả về và lưu vào MongoDB
         const fileData = {
             file_name: req.file.originalname,
             file_url: fileUrl,
@@ -122,6 +144,15 @@ exports.uploadAttachment = async (req, res, next) => {
         };
         const attachment = await taskService.addAttachment(req.params.id, req.user.id, fileData);
         
+        await activityService.logActivity({
+            action: 'UPDATE', 
+            source: 'USER',
+            actor_id: req.user.id,
+            target_id: req.params.id,
+            target_type: 'Task',
+            details: { message: `Uploaded file: ${req.file.originalname}` }
+        });
+
         res.status(201).json({ success: true, data: attachment, message: 'File uploaded to S3 successfully' });
     } catch (error) { next(error); }
 };
@@ -130,5 +161,19 @@ exports.getTaskAttachments = async (req, res, next) => {
     try {
         const attachments = await taskService.getTaskAttachments(req.params.id);
         res.status(200).json({ success: true, data: attachments });
+    } catch (error) { next(error); }
+};
+
+// ==========================================
+// ĐỢT 3: LỊCH SỬ HOẠT ĐỘNG (REAL ACTIVITY LOGS)
+// ==========================================
+
+exports.getTaskActivities = async (req, res, next) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        
+        const activities = await activityService.getTaskActivities(req.params.id, page, limit);
+        res.status(200).json({ success: true, data: activities });
     } catch (error) { next(error); }
 };
