@@ -3,6 +3,7 @@ const Column = require('../models/column.model');
 const AppError = require('../../../common/exceptions/AppError');
 const socketConfig = require('../../../common/config/socket');
 const Comment = require('../models/comment.model');
+const Activity = require('../models/activity.model');
 
 exports.createTask = async (taskData) => {
     // 1. Tạo Task mới (Không cần đếm order nữa)
@@ -174,4 +175,30 @@ exports.deleteComment = async (commentId, userId) => {
     io.to(task.board_id.toString()).emit('commentDeleted', commentId);
 
     return true;
+};
+
+// ==========================================
+// ĐỢT 3: LỊCH SỬ HOẠT ĐỘNG (ACTIVITY LOGS)
+// ==========================================
+
+// Hàm nội bộ để lưu Log (Dùng để gọi ké trong các hàm kéo thả, sửa, xóa...)
+exports.logActivity = async (taskId, userId, action, details) => {
+    const activity = await Activity.create({
+        task_id: taskId,
+        user_id: userId,
+        action,
+        details
+    });
+    
+    const task = await Task.findById(taskId);
+    // Bắn socket thông báo có log mới
+    const io = socketConfig.getIo();
+    io.to(task.board_id.toString()).emit('activityLogged', activity);
+};
+
+// Hàm lấy danh sách Log để FE hiển thị
+exports.getTaskActivities = async (taskId) => {
+    return await Activity.find({ task_id: taskId })
+        .populate('user_id', 'full_name avatar') // Lấy tên người thực hiện
+        .sort({ created_at: -1 }); // Mới nhất lên đầu
 };

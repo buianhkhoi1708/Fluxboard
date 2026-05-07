@@ -63,4 +63,11 @@ router.post('/tasks/:id/comments', taskController.addComment);
 // Xóa bình luận
 router.delete('/tasks/:id/comments/:commentId', taskController.deleteComment);
 
+// ==========================================
+// 5. LỊCH SỬ HOẠT ĐỘNG (ACTIVITY LOGS)
+// ==========================================
+
+// Lấy danh sách lịch sử hoạt động của 1 Task
+router.get('/tasks/:id/activities', taskController.getTaskActivities);
+
 module.exports = router;

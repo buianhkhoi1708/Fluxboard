@@ -3,6 +3,9 @@ const taskService = require('../services/task.service');
 exports.createTask = async (req, res, next) => {
     try {
         const task = await taskService.createTask(req.body);
+
+        await taskService.logActivity(task._id, req.user.id, 'CREATED', 'created this task');
+        
         res.status(201).json({ success: true, data: task, message: 'Task created successfully' });
     } catch (error) { next(error); }
 };
@@ -10,6 +13,9 @@ exports.createTask = async (req, res, next) => {
 exports.updateTask = async (req, res, next) => {
     try {
         const task = await taskService.updateTask(req.params.id, req.body);
+
+        await taskService.logActivity(req.params.id, req.user.id, 'UPDATED', 'updated task details');
+        
         res.status(200).json({ success: true, data: task, message: 'Task updated successfully' });
     } catch (error) { next(error); }
 };
@@ -25,6 +31,9 @@ exports.moveTask = async (req, res, next) => {
     try {
         const { destColumnId, newOrder } = req.body;
         await taskService.moveTask(req.params.id, destColumnId, newOrder);
+        
+        await taskService.logActivity(req.params.id, req.user.id, 'MOVED', 'moved this task to a new position');
+
         res.status(200).json({ success: true, message: 'Task moved successfully' });
     } catch (error) { next(error); }
 };
@@ -61,7 +70,6 @@ exports.deleteSubtask = async (req, res, next) => {
 
 exports.addComment = async (req, res, next) => {
     try {
-        // req.user.id được lấy từ middleware requireAuth
         const comment = await taskService.addComment(req.params.id, req.user.id, req.body.content);
         res.status(201).json({ success: true, data: comment, message: 'Comment added' });
     } catch (error) { next(error); }
@@ -78,5 +86,16 @@ exports.deleteComment = async (req, res, next) => {
     try {
         await taskService.deleteComment(req.params.commentId, req.user.id);
         res.status(200).json({ success: true, message: 'Comment deleted' });
+    } catch (error) { next(error); }
+};
+
+// ==========================================
+// ĐỢT 3: LỊCH SỬ HOẠT ĐỘNG (ACTIVITY LOGS)
+// ==========================================
+
+exports.getTaskActivities = async (req, res, next) => {
+    try {
+        const activities = await taskService.getTaskActivities(req.params.id);
+        res.status(200).json({ success: true, data: activities });
     } catch (error) { next(error); }
 };
