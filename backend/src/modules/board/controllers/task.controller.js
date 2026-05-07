@@ -1,4 +1,5 @@
 const taskService = require('../services/task.service');
+const s3Service = require('../../media/services/s3.service');
 
 exports.createTask = async (req, res, next) => {
     try {
@@ -97,5 +98,37 @@ exports.getTaskActivities = async (req, res, next) => {
     try {
         const activities = await taskService.getTaskActivities(req.params.id);
         res.status(200).json({ success: true, data: activities });
+    } catch (error) { next(error); }
+};
+
+// ==========================================
+// ĐỢT 3: ĐÍNH KÈM FILE (AWS S3)
+// ==========================================
+
+exports.uploadAttachment = async (req, res, next) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'No file provided' });
+        }
+        
+        // 1. Dùng S3 Service của bạn để đẩy file từ RAM lên AWS S3
+        const fileUrl = await s3Service.uploadFile(req.file);
+
+        // 2. Lấy URL trả về và lưu vào MongoDB
+        const fileData = {
+            file_name: req.file.originalname,
+            file_url: fileUrl,
+            mime_type: req.file.mimetype
+        };
+        const attachment = await taskService.addAttachment(req.params.id, req.user.id, fileData);
+        
+        res.status(201).json({ success: true, data: attachment, message: 'File uploaded to S3 successfully' });
+    } catch (error) { next(error); }
+};
+
+exports.getTaskAttachments = async (req, res, next) => {
+    try {
+        const attachments = await taskService.getTaskAttachments(req.params.id);
+        res.status(200).json({ success: true, data: attachments });
     } catch (error) { next(error); }
 };

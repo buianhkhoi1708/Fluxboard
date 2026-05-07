@@ -4,6 +4,8 @@ const boardController = require('../controllers/board.controller');
 const taskController = require('../controllers/task.controller'); 
 const requireAuth = require('../../auth/middlewares/requireAuth');
 const requirePermission = require('../../../common/middlewares/requirePermission');
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 // Mọi request phải đi qua check Auth (Bắt buộc phải đăng nhập)
 router.use(requireAuth);
@@ -69,5 +71,12 @@ router.delete('/tasks/:id/comments/:commentId', taskController.deleteComment);
 
 // Lấy danh sách lịch sử hoạt động của 1 Task
 router.get('/tasks/:id/activities', taskController.getTaskActivities);
+
+// ==========================================
+// 6. ĐÍNH KÈM FILE (ATTACHMENTS VIA S3)
+// ==========================================
+
+router.get('/tasks/:id/attachments', taskController.getTaskAttachments);
+router.post('/tasks/:id/attachments', upload.single('file'), taskController.uploadAttachment);
 
 module.exports = router;

@@ -4,6 +4,7 @@ const AppError = require('../../../common/exceptions/AppError');
 const socketConfig = require('../../../common/config/socket');
 const Comment = require('../models/comment.model');
 const Activity = require('../models/activity.model');
+const Attachment = require('../models/attachment.model');
 
 exports.createTask = async (taskData) => {
     // 1. Tạo Task mới (Không cần đếm order nữa)
@@ -201,4 +202,32 @@ exports.getTaskActivities = async (taskId) => {
     return await Activity.find({ task_id: taskId })
         .populate('user_id', 'full_name avatar') // Lấy tên người thực hiện
         .sort({ created_at: -1 }); // Mới nhất lên đầu
+};
+
+// ==========================================
+// ĐỢT 3: ĐÍNH KÈM FILE (AWS S3)
+// ==========================================
+
+exports.addAttachment = async (taskId, userId, fileData) => {
+    const task = await Task.findById(taskId);
+    if (!task) throw new AppError('Task not found', 404, 'NOT_FOUND');
+
+    const attachment = await Attachment.create({
+        task_id: taskId,
+        user_id: userId,
+        file_name: fileData.file_name,
+        file_url: fileData.file_url,
+        mime_type: fileData.mime_type
+    });
+
+    await exports.logActivity(taskId, userId, 'UPLOADED', `uploaded a file: ${fileData.file_name}`);
+
+    const io = socketConfig.getIo();
+    io.to(task.board_id.toString()).emit('attachmentAdded', attachment);
+
+    return attachment;
+};
+
+exports.getTaskAttachments = async (taskId) => {
+    return await Attachment.find({ task_id: taskId }).sort({ created_at: -1 });
 };
