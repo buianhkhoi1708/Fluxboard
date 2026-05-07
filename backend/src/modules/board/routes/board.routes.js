@@ -50,4 +50,17 @@ router.put('/tasks/:id/subtasks/:subtaskId', taskController.updateSubtask);
 // Xóa Subtask
 router.delete('/tasks/:id/subtasks/:subtaskId', taskController.deleteSubtask);
 
+// ==========================================
+// 4. QUẢN LÝ BÌNH LUẬN (COMMENTS)
+// ==========================================
+
+// Lấy danh sách bình luận của 1 Task
+router.get('/tasks/:id/comments', taskController.getTaskComments);
+
+// Thêm bình luận mới vào Task
+router.post('/tasks/:id/comments', taskController.addComment);
+
+// Xóa bình luận
+router.delete('/tasks/:id/comments/:commentId', taskController.deleteComment);
+
 module.exports = router;

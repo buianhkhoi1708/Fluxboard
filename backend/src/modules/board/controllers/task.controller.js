@@ -54,3 +54,29 @@ exports.deleteSubtask = async (req, res, next) => {
         res.status(200).json({ success: true, data: task, message: 'Subtask deleted successfully' });
     } catch (error) { next(error); }
 };
+
+// ==========================================
+// QUẢN LÝ BÌNH LUẬN (COMMENTS)
+// ==========================================
+
+exports.addComment = async (req, res, next) => {
+    try {
+        // req.user.id được lấy từ middleware requireAuth
+        const comment = await taskService.addComment(req.params.id, req.user.id, req.body.content);
+        res.status(201).json({ success: true, data: comment, message: 'Comment added' });
+    } catch (error) { next(error); }
+};
+
+exports.getTaskComments = async (req, res, next) => {
+    try {
+        const comments = await taskService.getTaskComments(req.params.id);
+        res.status(200).json({ success: true, data: comments });
+    } catch (error) { next(error); }
+};
+
+exports.deleteComment = async (req, res, next) => {
+    try {
+        await taskService.deleteComment(req.params.commentId, req.user.id);
+        res.status(200).json({ success: true, message: 'Comment deleted' });
+    } catch (error) { next(error); }
+};
