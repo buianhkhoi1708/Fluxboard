@@ -81,3 +81,51 @@ exports.moveTask = async (taskId, destColumnId, newOrder) => {
 
     return task;
 };
+
+// ==========================================
+// QUẢN LÝ CHECKLIST (SUBTASKS)
+// ==========================================
+
+exports.addSubtask = async (taskId, title) => {
+    const task = await Task.findById(taskId);
+    if (!task) throw new AppError('Task not found', 404, 'NOT_FOUND');
+
+    task.subtasks.push({ title, is_done: false });
+    await task.save();
+
+    const io = socketConfig.getIo();
+    io.to(task.board_id.toString()).emit('taskUpdated', task);
+
+    return task;
+};
+
+exports.updateSubtask = async (taskId, subtaskId, updateData) => {
+    const task = await Task.findById(taskId);
+    if (!task) throw new AppError('Task not found', 404, 'NOT_FOUND');
+
+    const subtask = task.subtasks.id(subtaskId);
+    if (!subtask) throw new AppError('Subtask not found', 404, 'NOT_FOUND');
+
+    if (updateData.title !== undefined) subtask.title = updateData.title;
+    if (updateData.is_done !== undefined) subtask.is_done = updateData.is_done;
+
+    await task.save();
+
+    const io = socketConfig.getIo();
+    io.to(task.board_id.toString()).emit('taskUpdated', task);
+
+    return task;
+};
+
+exports.deleteSubtask = async (taskId, subtaskId) => {
+    const task = await Task.findById(taskId);
+    if (!task) throw new AppError('Task not found', 404, 'NOT_FOUND');
+
+    task.subtasks.pull(subtaskId);
+    await task.save();
+
+    const io = socketConfig.getIo();
+    io.to(task.board_id.toString()).emit('taskUpdated', task);
+
+    return task;
+};

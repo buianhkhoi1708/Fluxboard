@@ -9,7 +9,7 @@ const requirePermission = require('../../../common/middlewares/requirePermission
 router.use(requireAuth);
 
 // ==========================================
-// 1. QUẢN LÝ BẢNG & CỘT (BOARD & COLUMN)
+// QUẢN LÝ BẢNG & CỘT (BOARD & COLUMN)
 // ==========================================
 
 // Tạo Bảng: Bắt buộc phải có quyền quản lý dự án (MANAGE_BOARDS hoặc UPDATE)
@@ -21,9 +21,8 @@ router.post('/columns', boardController.createColumn);
 // Lấy chi tiết Bảng (Kèm theo mảng Cột và Task bên trong)
 router.get('/:id', boardController.getBoardDetail);
 
-
 // ==========================================
-// 2. QUẢN LÝ THẺ CÔNG VIỆC (TASK)
+// QUẢN LÝ THẺ CÔNG VIỆC (TASK)
 // ==========================================
 
 // Tạo Task mới
@@ -37,5 +36,18 @@ router.delete('/tasks/:id', taskController.deleteTask);
 
 // Kéo thả Task (Di chuyển vị trí/đổi cột)
 router.put('/tasks/:id/move', taskController.moveTask);
+
+// ==========================================
+// QUẢN LÝ CHECKLIST (SUBTASKS)
+// ==========================================
+
+// Thêm Subtask mới vào Task
+router.post('/tasks/:id/subtasks', taskController.addSubtask);
+
+// Sửa trạng thái (Tick xanh) hoặc đổi tên Subtask
+router.put('/tasks/:id/subtasks/:subtaskId', taskController.updateSubtask);
+
+// Xóa Subtask
+router.delete('/tasks/:id/subtasks/:subtaskId', taskController.deleteSubtask);
 
 module.exports = router;
