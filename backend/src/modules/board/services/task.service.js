@@ -17,18 +17,28 @@ exports.createTask = async (taskData) => {
     return task;
 };
 
+// ==========================================
+// ĐÃ FIX: Hàm updateTask chuẩn của tầng Service
+// ==========================================
 exports.updateTask = async (taskId, updateData) => {
-    const task = await Task.findByIdAndUpdate(
-        taskId, 
-        { $set: updateData }, 
-        { new: true, runValidators: true }
-    ).lean();
-    
-    if (!task) throw new AppError('Task not found', 404, 'NOT_FOUND');
-    
-    const io = socketConfig.getIo();
-    io.to(task.board_id.toString()).emit('taskUpdated', task);
-    return task;
+    try {
+        const task = await Task.findByIdAndUpdate(
+            taskId,
+            { $set: updateData },
+            { returnDocument: 'after', runValidators: true }
+        );
+
+        if (!task) {
+            throw new AppError('Task not found', 404, 'NOT_FOUND');
+        }
+
+        const io = socketConfig.getIo();
+        io.to(task.board_id.toString()).emit('taskUpdated', task);
+
+        return task;
+    } catch (error) {
+        throw error; // Ném lỗi ra cho Controller tự bắt
+    }
 };
 
 exports.deleteTask = async (taskId) => {

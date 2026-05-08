@@ -7,8 +7,8 @@ const socketConfig = require('./src/common/config/socket');
 const errorHandler = require('./src/common/middlewares/error.middleware');
 const requestIdMiddleware = require('./src/common/middlewares/requestId.middleware');
 
-// Import Cron Job 
-const scheduleTaskDeadlineCheck = require('./src/modules/notification/jobs/taskDeadline.job');
+const scheduleTaskDeadlineCheck = require('./src/modules/notification/jobs/taskDeadline.job'); 
+require('./src/modules/notification/jobs/notificationQueue.job'); 
 
 // Import file seed RBAC
 const seedRbac = require('./src/modules/rbac/scripts/rbac.seed');
@@ -69,6 +69,7 @@ app.use('/api/v1/organization', require('./src/modules/organization/routes/organ
 // Nhật ký hoạt động & Thống kê
 app.use('/api/v1/activities', require('./src/modules/activity/routes/activity.routes'));
 app.use('/api/v1/dashboard', require('./src/modules/dashboard/routes/dashboard.routes'));
+app.use('/api/v1/notifications', require('./src/modules/notification/routes/notification.routes'));
 
 // ==========================================
 // Global Error Handler 

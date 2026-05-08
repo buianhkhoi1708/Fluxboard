@@ -1,6 +1,7 @@
 const taskService = require('../services/task.service');
 const s3Service = require('../../media/services/s3.service');
 const activityService = require('../../activity/services/activity.service');
+const notificationService = require('../../notification/services/notification.service');
 
 exports.createTask = async (req, res, next) => {
     try {
@@ -13,7 +14,7 @@ exports.createTask = async (req, res, next) => {
             target_id: task._id,
             target_type: 'Task',
             project_id: task.project_id || null,
-            details: { message: 'Đã tạo thẻ công việc mới', title: task.title }
+            details: { message: 'Created a new task', title: task.title }
         });
         
         res.status(201).json({ success: true, data: task, message: 'Task created successfully' });
@@ -24,6 +25,17 @@ exports.updateTask = async (req, res, next) => {
     try {
         const task = await taskService.updateTask(req.params.id, req.body);
 
+        if (req.body.assignee_id) {
+            await notificationService.queueNotification({
+                recipient_id: req.body.assignee_id,
+                sender_id: req.user.id,
+                title: 'New task assigned',
+                message: `You have been assigned to task: ${task.title}`,
+                type: 'ASSIGN_TASK',
+                reference_id: task._id
+            });
+        }
+
         await activityService.logActivity({
             action: 'UPDATE',
             source: 'USER',
@@ -31,11 +43,13 @@ exports.updateTask = async (req, res, next) => {
             target_id: task._id,
             target_type: 'Task',
             project_id: task.project_id || null,
-            details: { message: 'Đã cập nhật thông tin thẻ' }
+            details: { message: 'Updated task details' }
         });
         
         res.status(200).json({ success: true, data: task, message: 'Task updated successfully' });
-    } catch (error) { next(error); }
+    } catch (error) { 
+        next(error); 
+    }
 };
 
 exports.deleteTask = async (req, res, next) => {
@@ -48,7 +62,7 @@ exports.deleteTask = async (req, res, next) => {
             actor_id: req.user.id,
             target_id: req.params.id,
             target_type: 'Task',
-            details: { message: 'Đã xóa thẻ công việc' }
+            details: { message: 'Deleted a task' }
         });
 
         res.status(200).json({ success: true, message: 'Task deleted successfully' });
@@ -67,7 +81,7 @@ exports.moveTask = async (req, res, next) => {
             target_id: task._id,
             target_type: 'Task',
             project_id: task.project_id || null,
-            details: { message: 'Đã di chuyển vị trí thẻ' }
+            details: { message: 'Moved a task' }
         });
 
         res.status(200).json({ success: true, message: 'Task moved successfully' });
@@ -75,7 +89,7 @@ exports.moveTask = async (req, res, next) => {
 };
 
 // ==========================================
-// QUẢN LÝ CHECKLIST (SUBTASKS)
+// SUBTASKS
 // ==========================================
 
 exports.addSubtask = async (req, res, next) => {
@@ -101,13 +115,13 @@ exports.deleteSubtask = async (req, res, next) => {
 };
 
 // ==========================================
-// QUẢN LÝ BÌNH LUẬN (COMMENTS)
+// COMMENTS
 // ==========================================
 
 exports.addComment = async (req, res, next) => {
     try {
         const comment = await taskService.addComment(req.params.id, req.user.id, req.body.content);
-        res.status(201).json({ success: true, data: comment, message: 'Comment added' });
+        res.status(201).json({ success: true, data: comment, message: 'Comment added successfully' });
     } catch (error) { next(error); }
 };
 
@@ -121,12 +135,12 @@ exports.getTaskComments = async (req, res, next) => {
 exports.deleteComment = async (req, res, next) => {
     try {
         await taskService.deleteComment(req.params.commentId, req.user.id);
-        res.status(200).json({ success: true, message: 'Comment deleted' });
+        res.status(200).json({ success: true, message: 'Comment deleted successfully' });
     } catch (error) { next(error); }
 };
 
 // ==========================================
-// ĐỢT 3: ĐÍNH KÈM FILE (AWS S3)
+// ATTACHMENTS (AWS S3)
 // ==========================================
 
 exports.uploadAttachment = async (req, res, next) => {
@@ -165,7 +179,7 @@ exports.getTaskAttachments = async (req, res, next) => {
 };
 
 // ==========================================
-// ĐỢT 3: LỊCH SỬ HOẠT ĐỘNG (REAL ACTIVITY LOGS)
+// ACTIVITY LOGS
 // ==========================================
 
 exports.getTaskActivities = async (req, res, next) => {
