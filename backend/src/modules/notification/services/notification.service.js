@@ -6,7 +6,7 @@ const UserNotificationPref = require('../../user/models/userNotificationPref.mod
 // 1. QUEUE NOTIFICATION (10 MINUTES DELAY)
 exports.queueNotification = async (data) => {
     try {
-        const DELAY_MINUTES = 1;
+        const DELAY_MINUTES = 10;
         const sendTime = new Date(Date.now() + DELAY_MINUTES * 60000);
 
         const existingNotif = await Notification.findOne({
