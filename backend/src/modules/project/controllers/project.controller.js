@@ -2,9 +2,24 @@ const projectService = require('../services/project.service');
 
 exports.createProject = async (req, res, next) => {
     try {
-        const project = await projectService.createProject(req.user.id, req.body);
-        res.status(201).json({ success: true, data: project });
-    } catch (error) { next(error); }
+
+        console.log("📥 BODY:", req.body);
+        console.log("👤 USER:", req.user);
+
+        const project = await projectService.createProject(
+            req.user.id,
+            req.body
+        );
+
+        res.status(201).json({
+            success: true,
+            data: project
+        });
+
+    } catch (error) {
+        console.log("💥 CREATE PROJECT ERROR:", error);
+        next(error);
+    }
 };
 
 exports.getUserProjects = async (req, res, next) => {
@@ -34,3 +49,4 @@ exports.deleteProject = async (req, res, next) => {
         res.status(200).json({ success: true, message: 'Project deleted' });
     } catch (error) { next(error); }
 };
+

@@ -1,46 +1,106 @@
 require('dotenv').config();
+
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
+
 const Role = require('../../modules/rbac/models/role.model');
 const User = require('../../modules/user/models/user.model');
+
 const { Roles } = require('../../modules/rbac/constants/rbac.enum');
 
 const seedData = async () => {
-    if (process.env.SEED_DATA !== 'true') return;
+
+    if (process.env.SEED_DATA !== 'true') {
+        console.log('⏭️ Skip seed');
+        return;
+    }
 
     try {
-        await mongoose.connect(process.env.MONGODB_URI);
-        
-        let systemAdminRole = await Role.findOne({ name: Roles.SYSTEM_ADMIN });
-        if (!systemAdminRole) {
-            systemAdminRole = await Role.create({ name: Roles.SYSTEM_ADMIN, description: 'Super Administrator' });
+
+        if (mongoose.connection.readyState === 0) {
+            await mongoose.connect(process.env.MONGODB_URI);
+
+            console.log('✅ MongoDB Connected for seeding');
         }
 
+        // ==========================================
+        // FIND / CREATE SYSTEM ADMIN ROLE
+        // ==========================================
+        let systemAdminRole = await Role.findOne({
+            name: Roles.SYSTEM_ADMIN
+        });
+
+        if (!systemAdminRole) {
+
+            systemAdminRole = await Role.create({
+                name: Roles.SYSTEM_ADMIN,
+                description: 'Super Administrator'
+            });
+
+            console.log('✅ SYSTEM_ADMIN role created');
+        }
+
+        // ==========================================
+        // ADMIN INFO
+        // ==========================================
         const adminEmail = process.env.SEED_SYSTEM_ADMIN_EMAIL;
-        const password_hash = await bcrypt.hash(process.env.SEED_SYSTEM_ADMIN_PASSWORD, 10);
-        
-        const existingAdmin = await User.findOne({ email: adminEmail });
-        
+
+        const password_hash = await bcrypt.hash(
+            process.env.SEED_SYSTEM_ADMIN_PASSWORD,
+            10
+        );
+
+        // ==========================================
+        // CHECK USER
+        // ==========================================
+        const existingAdmin = await User.findOne({
+            email: adminEmail
+        });
+
+        // ==========================================
+        // CREATE USER
+        // ==========================================
         if (!existingAdmin) {
-            await User.create({
+
+            const newAdmin = await User.create({
                 email: adminEmail,
                 password_hash,
                 full_name: 'System Admin',
-                system_role_ids: [systemAdminRole._id]
+
+                // ✅ FIX
+                role_id: systemAdminRole._id
             });
-            console.log('Seed: SYSTEM_ADMIN user created successfully.');
+
+            console.log('✅ SYSTEM_ADMIN user created');
+
+            console.log(newAdmin);
+
         } else {
+
+            // ==========================================
+            // UPDATE USER
+            // ==========================================
             await User.updateOne(
                 { email: adminEmail },
-                { $set: { password_hash: password_hash, system_role_ids: [systemAdminRole._id] } }
+                {
+                    $set: {
+                        password_hash,
+
+                        // ✅ FIX
+                        role_id: systemAdminRole._id
+                    }
+                }
             );
-            console.log('Seed: SYSTEM_ADMIN user password_hash fixed/updated successfully.');
+
+            console.log('✅ SYSTEM_ADMIN updated');
         }
-        process.exit(0);
+
     } catch (error) {
-        console.error('Seed Data Error:', error);
-        process.exit(1);
+
+        console.error('❌ Seed Error');
+
+        console.error(error);
     }
 };
 
-seedData();
+module.exports = seedData;

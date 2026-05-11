@@ -1,55 +1,119 @@
-// context/SocketContext.tsx
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
-import SockJS from 'sockjs-client';
-import Stomp from 'stompjs';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState
+} from 'react';
 
-const SocketContext = createContext<any>(null);
+import { io, Socket } from 'socket.io-client';
 
-export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
-  const stompClient = useRef<any>(null);
+interface SocketContextType {
+  socket: Socket | null;
+  isConnected: boolean;
+  joinBoard: (boardId: string) => void;
+  leaveBoard: (boardId: string) => void;
+}
+
+const SocketContext = createContext<SocketContextType>({
+  socket: null,
+  isConnected: false,
+  joinBoard: () => {},
+  leaveBoard: () => {}
+});
+
+export const SocketProvider = ({
+  children
+}: {
+  children: React.ReactNode;
+}) => {
+
+  const [socket, setSocket] = useState<Socket | null>(null);
+
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    const socket = new SockJS('http://localhost:8080/api/v1/ws-fluxboard');
-    const client = Stomp.over(socket);
-    client.debug = () => {}; 
 
-    client.connect({}, () => {
-      console.log("🔌 [Socket Module]: Đã thông kết nối tổng!");
-      stompClient.current = client;
-      setIsConnected(true); // Chỉ set true khi đã CONNECTED
-    }, (err: any) => {
-      console.error("❌ [Socket Module]: Lỗi kết nối:", err);
+    const socketInstance = io('http://localhost:8080', {
+
+      withCredentials: true,
+
+      transports: ['websocket', 'polling']
+
     });
+
+    // ====================================
+    // CONNECT
+    // ====================================
+    socketInstance.on('connect', () => {
+
+      console.log('✅ [Socket]: Connected');
+
+      console.log('Socket ID:', socketInstance.id);
+
+      setIsConnected(true);
+    });
+
+    // ====================================
+    // DISCONNECT
+    // ====================================
+    socketInstance.on('disconnect', () => {
+
+      console.log('❌ [Socket]: Disconnected');
+
+      setIsConnected(false);
+    });
+
+    // ====================================
+    // ERROR
+    // ====================================
+    socketInstance.on('connect_error', (err) => {
+
+      console.error('🚨 Socket Error:', err.message);
+
+    });
+
+    setSocket(socketInstance);
 
     return () => {
-      if (stompClient.current?.connected) {
-        stompClient.current.disconnect();
-      }
+      socketInstance.disconnect();
     };
+
   }, []);
 
-  const subscribe = (topic: string, callback: (msg: any) => void) => {
-    // Nếu chưa kết nối mà đòi subscribe thì báo lỗi nhẹ để debug
-    if (!stompClient.current || !isConnected) {
-      console.warn(`⚠️ Đang đợi kết nối để subscribe topic: ${topic}`);
-      return null;
-    }
-    return stompClient.current.subscribe(topic, (msg: any) => {
-      callback(msg.body);
-    });
+  // ====================================
+  // JOIN BOARD ROOM
+  // ====================================
+  const joinBoard = (boardId: string) => {
+
+    if (!socket) return;
+
+    socket.emit('joinBoard', boardId);
+
+    console.log(`📌 Joined board: ${boardId}`);
+  };
+
+  // ====================================
+  // LEAVE BOARD ROOM
+  // ====================================
+  const leaveBoard = (boardId: string) => {
+
+    if (!socket) return;
+
+    socket.emit('leaveBoard', boardId);
+
+    console.log(`🚪 Left board: ${boardId}`);
   };
 
   return (
-    <SocketContext.Provider value={{ subscribe, isConnected }}>
-      {/* 🚀 QUAN TRỌNG: Nếu chưa kết nối xong thì hiện Loading hoặc màn hình chờ,
-         để tránh việc các Component con gọi subscribe lúc client đang null.
-      */}
-      {isConnected ? children : (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-          <p>Đang thiết lập kết nối Real-time...</p>
-        </div>
-      )}
+    <SocketContext.Provider
+      value={{
+        socket,
+        isConnected,
+        joinBoard,
+        leaveBoard
+      }}
+    >
+      {children}
     </SocketContext.Provider>
   );
 };

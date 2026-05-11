@@ -46,47 +46,59 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   // 🚀 LOGIN (FIX CHÍNH Ở ĐÂY)
   // ===============================
   login: async (email, password) => {
-    set({ isLoading: true });
-    try {
-      const response = await axiosClient.post('/auth/login', { email, password });
 
-      console.log("LOGIN RESPONSE:", response.data);
+  set({ isLoading: true });
 
-      // 👉 Hỗ trợ cả 2 kiểu response:
-      // 1. { access_token, user: {...} }
-      // 2. { access_token, id, email, ... }
-      const { access_token, user, ...rest } = response.data;
+  try {
 
-      const rawUser = user || rest;
+    const response = await axiosClient.post('/auth/login', {
+      email,
+      password
+    });
 
-      // 👉 Normalize ID (tránh lỗi undefined)
-      const normalizedUser: UserProfile = {
-        ...rawUser,
-        id: rawUser.id || rawUser.user_id
-      };
+    console.log("LOGIN RESPONSE:", response.data);
 
-      // Lưu localStorage
-      localStorage.setItem('token', access_token);
-      localStorage.setItem('user', JSON.stringify(normalizedUser));
+    const { token, refreshToken, user, ...rest } = response.data;
 
-      // Update state
-      set({
-        token: access_token,
-        user: normalizedUser,
-        isLoading: false
-      });
+    const rawUser = user || rest;
 
-      return { success: true };
+    const normalizedUser: UserProfile = {
+      ...rawUser,
+      id: rawUser.id || rawUser._id || rawUser.user_id
+    };
 
-    } catch (error: any) {
-      set({ isLoading: false });
-      return {
-        success: false,
-        message: error.response?.data?.message || 'Đăng nhập thất bại!'
-      };
-    }
-  },
+    localStorage.setItem('token', token);
 
+    localStorage.setItem(
+      'user',
+      JSON.stringify(normalizedUser)
+    );
+
+    localStorage.setItem(
+      'refreshToken',
+      refreshToken
+    );
+
+    set({
+      token,
+      user: normalizedUser,
+      isLoading: false
+    });
+
+    return { success: true };
+
+  } catch (error: any) {
+
+    set({ isLoading: false });
+
+    return {
+      success: false,
+      message:
+        error.response?.data?.message ||
+        'Đăng nhập thất bại!'
+    };
+  }
+},
   // ===============================
   // FORGOT PASSWORD
   // ===============================

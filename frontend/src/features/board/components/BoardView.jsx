@@ -7,7 +7,7 @@ import { DndContext, closestCenter, DragOverlay, useSensor, useSensors, MouseSen
 import { arrayMove } from '@dnd-kit/sortable';
 import { Save, Sparkles, Filter, Users } from 'lucide-react'; 
 import AiGeneratorPanel from './AiGeneratorPanel';
-import { useRealtimeEvent } from '../../../hooks/useRealtimeEvent'
+import { useSocket } from '../../../context/SocketContext';
 import { useParams } from 'react-router-dom';
 
 const BoardView = () => {
@@ -15,6 +15,7 @@ const BoardView = () => {
   
   // 🚀 LẤY TỪ ĐIỂN USER TỪ KHO TOÀN CỤC
   const { userDictionary } = useUserStore();
+  const { socket, joinBoard } = useSocket();
 
   const [activeTask, setActiveTask] = useState(null);
 
@@ -25,9 +26,51 @@ const BoardView = () => {
 
   const currentBoardId = id || '69d22692ef24ae604f65ae89'; 
 
-  useRealtimeEvent(`/topic/board/${currentBoardId}`, () => {
+  useEffect(() => {
+
+  if (!socket) return;
+
+  if (!currentBoardId) return;
+
+  console.log('🚀 Joining board:', currentBoardId);
+
+  // =====================================
+  // JOIN ROOM
+  // =====================================
+  joinBoard(currentBoardId);
+
+  // =====================================
+  // REALTIME EVENTS
+  // =====================================
+
+  const handleRealtimeUpdate = () => {
+
+    console.log('📡 Realtime event received');
+
     fetchBoardData(currentBoardId);
-  });
+  };
+
+  socket.on('task-created', handleRealtimeUpdate);
+
+  socket.on('task-updated', handleRealtimeUpdate);
+
+  socket.on('task-deleted', handleRealtimeUpdate);
+
+  socket.on('task-moved', handleRealtimeUpdate);
+
+  return () => {
+
+    socket.off('task-created', handleRealtimeUpdate);
+
+    socket.off('task-updated', handleRealtimeUpdate);
+
+    socket.off('task-deleted', handleRealtimeUpdate);
+
+    socket.off('task-moved', handleRealtimeUpdate);
+
+  };
+
+}, [socket, currentBoardId, fetchBoardData]);
 
   useEffect(() => {
     if (currentBoardId) fetchBoardData(currentBoardId); 
