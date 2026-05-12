@@ -10,13 +10,16 @@ const socketConfig = require('./src/common/config/socket');
 const errorHandler = require('./src/common/middlewares/error.middleware');
 const requestIdMiddleware = require('./src/common/middlewares/requestId.middleware');
 
-const scheduleTaskDeadlineCheck = require('./src/modules/notification/jobs/taskDeadline.job');
-
+// ==========================================
+// IMPORT CRON JOBS (ĐÃ SỬA ĐƯỜNG DẪN DEADLINE)
+// ==========================================
+const scheduleTaskDeadlineCheck = require('./src/modules/deadline/jobs/taskDeadline.job');
 require('./src/modules/notification/jobs/notificationQueue.job');
 
 // Import file seed RBAC
 const seedRbac = require('./src/modules/rbac/scripts/rbac.seed');
-const seedData = require('./src/common/scripts/seed')
+const seedData = require('./src/common/scripts/seed');
+
 const app = express();
 const server = http.createServer(app);
 
@@ -26,7 +29,7 @@ const server = http.createServer(app);
 connectDB();
 
 // ==========================================
-// INIT RBAC
+// INIT RBAC & DATA SEEDING
 // ==========================================
 seedRbac();
 seedData();
@@ -86,18 +89,25 @@ app.use('/api/v1/auth', require('./src/modules/auth/routes/auth.routes'));
 app.use('/api/v1/users', require('./src/modules/user/routes/user.routes'));
 app.use('/api/v1/rbac', require('./src/modules/rbac/routes/rbac.routes'));
 
-// Projects & Boards
+// Projects & Organization
 app.use('/api/v1/projects', require('./src/modules/project/routes/project.routes'));
+app.use('/api/v1/organization', require('./src/modules/organization/routes/organization.routes'));
+
+// ==========================================
+// KANBAN CORE (Boards, Columns, Tasks)
+// ==========================================
+// Lưu ý: route con (columns, tasks) phải đặt TRÊN route cha (boards)
+app.use('/api/v1/boards/columns', require('./src/modules/column/routes/column.routes'));
+app.use('/api/v1/boards/tasks', require('./src/modules/task/routes/task.routes'));
 app.use('/api/v1/boards', require('./src/modules/board/routes/board.routes'));
 
 // AI
 app.use('/api/v1/ai', require('./src/modules/ai/routes/ai.routes'));
 
-// Media & Organization
+// Media 
 app.use('/api/v1/media', require('./src/modules/media/routes/media.routes'));
-app.use('/api/v1/organization', require('./src/modules/organization/routes/organization.routes'));
 
-// Activities & Dashboard
+// Activities, Dashboard & Notifications
 app.use('/api/v1/activities', require('./src/modules/activity/routes/activity.routes'));
 app.use('/api/v1/dashboard', require('./src/modules/dashboard/routes/dashboard.routes'));
 app.use('/api/v1/notifications', require('./src/modules/notification/routes/notification.routes'));

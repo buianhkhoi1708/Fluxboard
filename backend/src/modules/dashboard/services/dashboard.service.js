@@ -1,4 +1,5 @@
-const Task = require('../../board/models/task.model');
+const Task = require('../../task/models/task.model'); 
+
 const Project = require('../../project/models/project.model');
 const User = require('../../user/models/user.model');
 

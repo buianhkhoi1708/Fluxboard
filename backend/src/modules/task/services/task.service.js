@@ -1,5 +1,5 @@
 const Task = require('../models/task.model');
-const Column = require('../models/column.model'); 
+const Column = require('../../column/models/column.model'); 
 const AppError = require('../../../common/exceptions/AppError');
 const socketConfig = require('../../../common/config/socket');
 const Comment = require('../models/comment.model');

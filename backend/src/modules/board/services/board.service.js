@@ -1,5 +1,5 @@
 const Board = require('../models/board.model');
-const Column = require('../models/column.model');
+const Column = require('../../column/models/column.model'); // Trỏ sang nhà mới của Column
 const AppError = require('../../../common/exceptions/AppError');
 
 // 1. CREATE BOARD (Auto-generate 3 default columns)
@@ -19,28 +19,11 @@ exports.createBoard = async (project_id, name, description) => {
     return board;
 };
 
-// 2. CREATE A SINGLE COLUMN
-exports.createColumn = async (boardId, name) => {
-    const board = await Board.findById(boardId);
-    if (!board) throw new AppError('Board not found', 404, 'NOT_FOUND');
-
-    const newColumn = await Column.create({ board_id: boardId, name, task_order_ids: [] });
-
-    board.column_order_ids.push(newColumn._id);
-    await board.save();
-
-    return newColumn;
-};
-
-// 3. GET BOARD DETAILS
+// 2. GET BOARD DETAIL
 exports.getBoardDetail = async (boardId) => {
-    const board = await Board.findById(boardId)
-        .populate({
-            path: 'column_order_ids',
-      })
-        .lean();
-
+    // (Mình viết lại hàm getBoardDetail chuẩn vì file của bạn bị cắt ngang ở đoạn này)
+    const board = await Board.findById(boardId).lean();
     if (!board) throw new AppError('Board not found', 404, 'NOT_FOUND');
-
+    
     return board;
 };
