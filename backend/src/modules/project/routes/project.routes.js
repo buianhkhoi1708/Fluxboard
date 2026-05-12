@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const projectController = require('../controllers/project.controller');
-const projectMemberController = require('../controllers/projectMember.controller');
+const projectMemberController = require('../../projectMember/controllers/projectMember.controller');
 const requireAuth = require('../../auth/middlewares/requireAuth');
 // Import middleware phân quyền mới
 const requirePermission = require('../../../common/middlewares/requirePermission'); 

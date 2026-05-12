@@ -11,7 +11,7 @@ const errorHandler = require('./src/common/middlewares/error.middleware');
 const requestIdMiddleware = require('./src/common/middlewares/requestId.middleware');
 
 // ==========================================
-// IMPORT CRON JOBS (ĐÃ SỬA ĐƯỜNG DẪN DEADLINE)
+// IMPORT CRON JOBS 
 // ==========================================
 const scheduleTaskDeadlineCheck = require('./src/modules/deadline/jobs/taskDeadline.job');
 require('./src/modules/notification/jobs/notificationQueue.job');
@@ -89,14 +89,18 @@ app.use('/api/v1/auth', require('./src/modules/auth/routes/auth.routes'));
 app.use('/api/v1/users', require('./src/modules/user/routes/user.routes'));
 app.use('/api/v1/rbac', require('./src/modules/rbac/routes/rbac.routes'));
 
-// Projects & Organization
+// ==========================================
+// PROJECTS & ORGANIZATION
+// ==========================================
+app.use('/api/v1/projects', require('./src/modules/projectMember/routes/projectMember.routes'));
 app.use('/api/v1/projects', require('./src/modules/project/routes/project.routes'));
-app.use('/api/v1/organization', require('./src/modules/organization/routes/organization.routes'));
+
+app.use('/api/v1/organization/departments', require('./src/modules/department/routes/department.routes'));
+app.use('/api/v1/organization/teams', require('./src/modules/team/routes/team.routes'));
 
 // ==========================================
 // KANBAN CORE (Boards, Columns, Tasks)
 // ==========================================
-// Lưu ý: route con (columns, tasks) phải đặt TRÊN route cha (boards)
 app.use('/api/v1/boards/columns', require('./src/modules/column/routes/column.routes'));
 app.use('/api/v1/boards/tasks', require('./src/modules/task/routes/task.routes'));
 app.use('/api/v1/boards', require('./src/modules/board/routes/board.routes'));
@@ -113,7 +117,15 @@ app.use('/api/v1/dashboard', require('./src/modules/dashboard/routes/dashboard.r
 app.use('/api/v1/notifications', require('./src/modules/notification/routes/notification.routes'));
 
 // ==========================================
-// GLOBAL ERROR HANDLER
+// BẮT LỖI 404 (Đường dẫn không tồn tại)
+// ==========================================
+app.all('*', (req, res, next) => {
+    const AppError = require('./src/common/exceptions/AppError');
+    next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404, 'ROUTE_NOT_FOUND'));
+});
+
+// ==========================================
+// GLOBAL ERROR HANDLER (Trạm thu phí cuối cùng)
 // ==========================================
 app.use(errorHandler);
 

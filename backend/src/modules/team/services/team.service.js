@@ -1,4 +1,3 @@
-const Team = require('../models/team.model');
 const AppError = require('../../../common/exceptions/AppError');
 
 exports.createTeam = async (data) => {
