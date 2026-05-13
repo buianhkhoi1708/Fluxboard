@@ -2,6 +2,7 @@ const Notification = require('../models/notification.model');
 const emailService = require('../../email/services/email.service');
 const socketConfig = require('../../../common/config/socket');
 const UserNotificationPref = require('../../user/models/userNotificationPref.model');
+const eventBus = require('../../../common/utils/eventBus'); // Import trạm phát sóng
 
 // 1. QUEUE NOTIFICATION (10 MINUTES DELAY)
 exports.queueNotification = async (data) => {
@@ -20,13 +21,22 @@ exports.queueNotification = async (data) => {
             existingNotif.send_at = sendTime; 
             existingNotif.sender_id = data.sender_id; 
             await existingNotif.save();
+            
+            // 👉 Phát sóng: Cập nhật thông báo cũ
+            eventBus.emit(`new_notification_for_${existingNotif.recipient_id}`, existingNotif);
+            
             return existingNotif;
         } else {
-            return await Notification.create({
+            const newNotif = await Notification.create({
                 ...data,
                 status: 'PENDING',
                 send_at: sendTime
             });
+
+            // 👉 Phát sóng: Bắn thông báo mới tinh cho user
+            eventBus.emit(`new_notification_for_${newNotif.recipient_id}`, newNotif);
+
+            return newNotif;
         }
     } catch (error) {
         console.error('Error queuing notification:', error);
@@ -35,7 +45,15 @@ exports.queueNotification = async (data) => {
 
 // 2. EXECUTE SENDING (CALLED BY CRON JOB)
 exports.executePendingNotification = async (notificationId) => {
-    // ... (Giữ nguyên logic hàm executePendingNotification của bạn) ...
+    try {
+        const notif = await Notification.findByIdAndUpdate(
+            notificationId, 
+            { status: 'SENT' }, 
+            { new: true }
+        );
+    } catch (error) {
+        console.error('Error executing pending notification:', error);
+    }
 };
 
 // 3. GET USER NOTIFICATIONS
