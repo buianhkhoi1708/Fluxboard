@@ -1,62 +1,132 @@
-const Project = require('../../project/models/project.model');
-const ProjectMember = require('../../projectMember/models/projectMember.model'); 
+const ProjectMember = require('../models/projectMember.model');
+const Role = require('../../rbac/models/role.model');
+const AppError = require('../../../common/exceptions/AppError');
+const eventBus = require('../../../common/utils/eventBus'); 
+const mongoose = require('mongoose');
 
-const Board = require('../../board/models/board.model'); 
-const Role = require('../../rbac/models/role.model'); 
-const { Roles, Scopes } = require('../../rbac/constants/rbac.enum'); 
-const AppError = require('../../../common/exceptions/AppError'); 
+exports.getMembers = async (projectId) => {
+    return await ProjectMember.aggregate([
+        { $match: { project_id: new mongoose.Types.ObjectId(projectId), is_deleted: false } },
+        { $lookup: { from: 'users', localField: 'user_id', foreignField: '_id', as: 'user' } },
+        { $unwind: '$user' },
+        { 
+            $project: {
+                _id: 0,
+                member_record_id: '$_id',
+                user_id: 1,
+                full_name: '$user.full_name',
+                email: '$user.email',
+                avatar_url: '$user.avatar_url',
+                is_active: 1,
+                role_ids: 1,
+                joined_at: '$created_at'
+            }
+        }
+    ]);
+};
 
-exports.createProject = async (ownerId, projectData) => {
-    const project = await Project.create({ ...projectData, owner_id: ownerId }); 
+exports.addMember = async (projectId, payload, actorUser) => {
+    const { user_id, role_ids } = payload;
+    const existingMember = await ProjectMember.findOne({ project_id: projectId, user_id });
     
-    const adminRole = await Role.findOne({ name: Roles.PM, scope: Scopes.PROJECT }).lean();
-    if (!adminRole) throw new AppError('The PM role is not yet present. Please run the RBAC seed file!', 500);
+    if (existingMember && !existingMember.is_deleted) {
+        throw new AppError('This personnel was already part of the project.', 400, 'BAD_REQUEST');
+    }
 
-    await ProjectMember.create({ 
-        project_id: project._id, 
-        user_id: ownerId, 
-        role_id: adminRole._id 
+    let member;
+    if (existingMember && existingMember.is_deleted) {
+        existingMember.is_deleted = false;
+        existingMember.is_active = true;
+        existingMember.role_ids = role_ids;
+        member = await existingMember.save();
+    } else {
+        member = await ProjectMember.create({ project_id: projectId, user_id, role_ids });
+    }
+
+    // 📢 Bắn Event Log ngầm cho Sếp xem
+    eventBus.emit('activity_log', {
+        actor_user_id: actorUser.id,
+        source_type: 'PROJECT',
+        source_id: projectId,
+        project_id: projectId,
+        action: 'ADD_MEMBER',
+        message: `New members have been added to the project.`
     });
 
-    return project; 
+    return member;
 };
 
-exports.getUserProjects = async (userId) => {
-    const memberships = await ProjectMember.find({ user_id: userId }).select('project_id').lean(); 
-    const projectIds = memberships.map(m => m.project_id); 
-    return await Project.find({ _id: { $in: projectIds } }).lean(); 
+// 💡 HÀM ĐỔI QUYỀN VÀ BẮN SOCKET ĐÁ VĂNG USER
+exports.updateMember = async (projectId, userId, payload, actorUser) => {
+    const member = await ProjectMember.findOne({ project_id: projectId, user_id: userId, is_deleted: false });
+    if (!member) throw new AppError('No project members found.', 404, 'NOT_FOUND');
+
+    let isRoleChanged = false;
+
+    if (payload.role_ids !== undefined) {
+        member.role_ids = payload.role_ids;
+        isRoleChanged = true;
+    }
+    if (payload.is_active !== undefined) {
+        member.is_active = payload.is_active;
+        isRoleChanged = true;
+    }
+
+    await member.save();
+
+    // 📢 Bắn Log Hệ thống
+    eventBus.emit('activity_log', {
+        actor_user_id: actorUser.id,
+        source_type: 'PROJECT',
+        source_id: projectId,
+        project_id: projectId,
+        action: 'UPDATE_MEMBER',
+        message: `A member's permissions or status have been updated.`
+    });
+
+    if (isRoleChanged) {
+        eventBus.emit('force_logout_user', { 
+            userId: userId, 
+            message: 'Your project permissions have changed. Please log in again to update!' 
+        });
+    }
+
+    return member;
 };
 
-exports.getProjectDetail = async (projectId) => {
-    const project = await Project.findById(projectId).lean(); 
-    if (!project) throw new AppError('Project not found', 404, 'NOT_FOUND'); 
+exports.removeMember = async (projectId, userId, actorUser) => {
+    const member = await ProjectMember.findOne({ project_id: projectId, user_id: userId, is_deleted: false });
+    if (!member) throw new AppError('No members found.', 404, 'NOT_FOUND');
 
-    const [boards, members] = await Promise.all([ 
-        Board.find({ project_id: projectId }).select('_id name description created_at').lean(), 
-        ProjectMember.find({ project_id: projectId }) 
-            .populate('user_id', 'full_name email avatar_url') 
-            .populate('role_id', 'name') 
-            .lean()
-    ]);
+    // 💡 KHÔNG CHO XÓA ADMIN CUỐI CÙNG (Tránh dự án vô chủ)
+    const adminRole = await Role.findOne({ name: 'PROJECT_ADMIN', scope: 'PROJECT' }).lean();
+    if (adminRole && member.role_ids.includes(adminRole._id)) {
+        const adminCount = await ProjectMember.countDocuments({
+            project_id: projectId,
+            is_deleted: false,
+            role_ids: { $in: [adminRole._id] }
+        });
+        if (adminCount <= 1) {
+            throw new AppError('Unable to delete the project final Project Admin.', 400, 'BAD_REQUEST');
+        }
+    }
 
-    project.boards = boards; 
-    project.members = members; 
-    return project; 
-};
+    member.is_deleted = true;
+    await member.save();
 
-exports.updateProject = async (projectId, updateData) => {
-    const project = await Project.findByIdAndUpdate(projectId, updateData, { new: true }).lean(); 
-    if (!project) throw new AppError('Project not found', 404, 'NOT_FOUND'); 
-    return project; 
-};
+    eventBus.emit('activity_log', {
+        actor_user_id: actorUser.id,
+        source_type: 'PROJECT',
+        source_id: projectId,
+        project_id: projectId,
+        action: 'REMOVE_MEMBER',
+        message: `A member has been removed from the project.`
+    });
 
-exports.deleteProject = async (projectId) => {
-    const project = await Project.findByIdAndDelete(projectId);
-    if (!project) throw new AppError('Project not found', 404, 'NOT_FOUND');
-    
-    // Khi xóa Project, xóa luôn các Member và Board liên quan
-    await ProjectMember.deleteMany({ project_id: projectId });
-    await Board.deleteMany({ project_id: projectId });
-    
-    return project;
+    eventBus.emit('force_logout_user', { 
+        userId: userId, 
+        message: 'You have been removed from the project. Please log in again!' 
+    });
+
+    return true;
 };

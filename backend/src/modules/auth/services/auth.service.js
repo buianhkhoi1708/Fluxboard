@@ -13,6 +13,13 @@ const getSafeUser = (user) => ({
     status: user.status
 });
 
+const generateTokenPayload = (user) => ({
+    id: user._id,
+    email: user.email,
+    system_role_ids: user.system_role_ids, 
+    department_id: user.department_id      
+});
+
 exports.login = async (email, password) => {
     if (!email || !password) {
         throw new AppError('Email and password are required', 400, 'BAD_REQUEST');
@@ -36,11 +43,14 @@ exports.login = async (email, password) => {
         throw new AppError('Invalid credentials', 401, 'UNAUTHORIZED');
     }
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-        expiresIn: (process.env.JWT_EXPIRATION_MINUTES || 60) + 'm',
+    const payload = generateTokenPayload(user);
+
+    const token = jwt.sign(payload, process.env.JWT_SECRET, {
+        expiresIn: '15m',
         issuer: process.env.JWT_ISSUER
     });
 
+    // Refresh Token sống 7 ngày (Chỉ chứa ID để ép quét lại Database khi hết hạn)
     const refreshToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
         expiresIn: '7d', 
         issuer: process.env.JWT_ISSUER
@@ -59,11 +69,14 @@ exports.refreshToken = async (token) => {
         const user = await User.findById(decoded.id).lean();
         
         if (!user || user.status === 'INACTIVE') {
-            throw new AppError('Invalid account', 401, 'UNAUTHORIZED');
+            throw new AppError('Tài khoản đã bị khóa hoặc không tồn tại', 401, 'UNAUTHORIZED');
         }
         
-        const newToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-            expiresIn: (process.env.JWT_EXPIRATION_MINUTES || 60) + 'm',
+        const payload = generateTokenPayload(user);
+
+        // 💡 Cấp lại Token 15 phút với dữ liệu mới nhất
+        const newToken = jwt.sign(payload, process.env.JWT_SECRET, {
+            expiresIn: '15m',
             issuer: process.env.JWT_ISSUER
         });
 
@@ -72,6 +85,6 @@ exports.refreshToken = async (token) => {
             user: getSafeUser(user) 
         };
     } catch (error) {
-        throw new AppError('Invalid or expired token', 401, 'UNAUTHORIZED');
+        throw new AppError('Phiên đăng nhập hết hạn, vui lòng đăng nhập lại', 401, 'UNAUTHORIZED');
     }
 };
