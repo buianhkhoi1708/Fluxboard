@@ -119,7 +119,7 @@ app.use('/api/v1/notifications', require('./src/modules/notification/routes/noti
 // ==========================================
 // BẮT LỖI 404 (Đường dẫn không tồn tại)
 // ==========================================
-app.all('*', (req, res, next) => {
+app.use((req, res, next) => {
     const AppError = require('./src/common/exceptions/AppError');
     next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404, 'ROUTE_NOT_FOUND'));
 });
