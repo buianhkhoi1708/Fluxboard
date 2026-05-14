@@ -5,31 +5,41 @@ const socketConfig = require('../../../common/config/socket');
 const Comment = require('../models/comment.model');
 const Attachment = require('../models/attachment.model');
 
+const eventBus = require('../../../common/utils/eventBus');
+
 exports.createTask = async (taskData) => {
+    // Lưu Task (Chỉ lưu các field có trong Task Model mới)
     const task = await Task.create(taskData);
     await Column.findByIdAndUpdate(
         taskData.column_id,
         { $push: { task_order_ids: task._id } }
     );
 
+    eventBus.emit('task_created', {
+        task_id: task._id,
+        start_date: taskData.start_date, // Thông tin này do Frontend gửi lên
+        due_date: taskData.due_date,
+        extension_limit: taskData.extension_limit
+    });
+
     const io = socketConfig.getIo();
     io.to(taskData.board_id.toString()).emit('taskCreated', task);
     return task;
 };
 
-// ==========================================
-// ĐÃ FIX: Hàm updateTask chuẩn của tầng Service
-// ==========================================
 exports.updateTask = async (taskId, updateData) => {
     try {
+        const oldTask = await Task.findById(taskId).lean();
+        if (!oldTask) throw new AppError('Task not found', 404, 'NOT_FOUND');
+
         const task = await Task.findByIdAndUpdate(
             taskId,
             { $set: updateData },
             { returnDocument: 'after', runValidators: true }
         );
 
-        if (!task) {
-            throw new AppError('Task not found', 404, 'NOT_FOUND');
+        if (!oldTask.is_done && task.is_done) {
+            eventBus.emit('task_completed', { task_id: task._id });
         }
 
         const io = socketConfig.getIo();
@@ -37,12 +47,12 @@ exports.updateTask = async (taskId, updateData) => {
 
         return task;
     } catch (error) {
-        throw error; // Ném lỗi ra cho Controller tự bắt
+        throw error;
     }
 };
 
 exports.deleteTask = async (taskId) => {
-    const task = await Task.findByIdAndDelete(taskId).lean();
+    const task = await Task.findByIdAndUpdate(taskId, { is_deleted: true }, { new: true }).lean();
     if (!task) throw new AppError('Task not found', 404, 'NOT_FOUND');
 
     await Column.findByIdAndUpdate(

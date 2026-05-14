@@ -2,9 +2,12 @@ const emailService = require('../../email/services/email.service');
 const socketConfig = require('../../../common/config/socket');
 const UserNotificationPref = require('../../user/models/userNotificationPref.model');
 
-exports.dispatchTaskDeadlineNotification = async (user, task) => {
+// Thêm tham số deadlineRecord
+exports.dispatchTaskDeadlineNotification = async (user, task, deadlineRecord) => {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    const formattedDate = new Date(task.due_date).toLocaleString('vi-VN');
+    
+    // Lấy due_date từ bảng TaskDeadline
+    const formattedDate = new Date(deadlineRecord.due_date).toLocaleString('en-US');
 
     const prefs = await UserNotificationPref.findOne({ user_id: user._id }) || { email_notifications: true, push_notifications: true };
 
@@ -36,7 +39,7 @@ exports.dispatchTaskDeadlineNotification = async (user, task) => {
         io.to(user._id.toString()).emit('deadlineAlert', {
             task_id: task._id,
             title: task.title,
-            message: `Deadline is approaching: ${task.title}`
+            message: `Deadline is approaching for: ${task.title}`
         });
     }
 };
