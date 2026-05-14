@@ -30,7 +30,7 @@ exports.addMember = async (projectId, payload, actorUser) => {
     const existingMember = await ProjectMember.findOne({ project_id: projectId, user_id });
     
     if (existingMember && !existingMember.is_deleted) {
-        throw new AppError('This personnel was already part of the project.', 400, 'BAD_REQUEST');
+        throw new AppError('This user is already a member of the project.', 400, 'BAD_REQUEST');
     }
 
     let member;
@@ -43,23 +43,22 @@ exports.addMember = async (projectId, payload, actorUser) => {
         member = await ProjectMember.create({ project_id: projectId, user_id, role_ids });
     }
 
-    // 📢 Bắn Event Log ngầm cho Sếp xem
     eventBus.emit('activity_log', {
         actor_user_id: actorUser.id,
         source_type: 'PROJECT',
         source_id: projectId,
         project_id: projectId,
         action: 'ADD_MEMBER',
-        message: `New members have been added to the project.`
+        message: 'A new member has been added to the project.'
     });
 
     return member;
 };
 
-// 💡 HÀM ĐỔI QUYỀN VÀ BẮN SOCKET ĐÁ VĂNG USER
+// 💡 ĐỔI QUYỀN DỰ ÁN (PROJECT ROLE)
 exports.updateMember = async (projectId, userId, payload, actorUser) => {
     const member = await ProjectMember.findOne({ project_id: projectId, user_id: userId, is_deleted: false });
-    if (!member) throw new AppError('No project members found.', 404, 'NOT_FOUND');
+    if (!member) throw new AppError('Project member not found.', 404, 'NOT_FOUND');
 
     let isRoleChanged = false;
 
@@ -74,31 +73,30 @@ exports.updateMember = async (projectId, userId, payload, actorUser) => {
 
     await member.save();
 
-    // 📢 Bắn Log Hệ thống
     eventBus.emit('activity_log', {
         actor_user_id: actorUser.id,
         source_type: 'PROJECT',
         source_id: projectId,
         project_id: projectId,
         action: 'UPDATE_MEMBER',
-        message: `A member's permissions or status have been updated.`
+        message: 'Member permissions or status have been updated.'
     });
 
     if (isRoleChanged) {
         eventBus.emit('force_logout_user', { 
             userId: userId, 
-            message: 'Your project permissions have changed. Please log in again to update!' 
+            message: 'Your project permissions have changed. Please log in again to sync updates!' 
         });
     }
 
     return member;
 };
 
+// 💡 XÓA KHỎI DỰ ÁN 
 exports.removeMember = async (projectId, userId, actorUser) => {
     const member = await ProjectMember.findOne({ project_id: projectId, user_id: userId, is_deleted: false });
-    if (!member) throw new AppError('No members found.', 404, 'NOT_FOUND');
+    if (!member) throw new AppError('Project member not found.', 404, 'NOT_FOUND');
 
-    // 💡 KHÔNG CHO XÓA ADMIN CUỐI CÙNG (Tránh dự án vô chủ)
     const adminRole = await Role.findOne({ name: 'PROJECT_ADMIN', scope: 'PROJECT' }).lean();
     if (adminRole && member.role_ids.includes(adminRole._id)) {
         const adminCount = await ProjectMember.countDocuments({
@@ -107,7 +105,7 @@ exports.removeMember = async (projectId, userId, actorUser) => {
             role_ids: { $in: [adminRole._id] }
         });
         if (adminCount <= 1) {
-            throw new AppError('Unable to delete the project final Project Admin.', 400, 'BAD_REQUEST');
+            throw new AppError('Cannot remove the last Project Admin from this project.', 400, 'BAD_REQUEST');
         }
     }
 
@@ -120,12 +118,13 @@ exports.removeMember = async (projectId, userId, actorUser) => {
         source_id: projectId,
         project_id: projectId,
         action: 'REMOVE_MEMBER',
-        message: `A member has been removed from the project.`
+        message: 'A member has been removed from the project.'
     });
 
-    eventBus.emit('force_logout_user', { 
+    eventBus.emit('project_access_removed', { 
         userId: userId, 
-        message: 'You have been removed from the project. Please log in again!' 
+        projectId: projectId,
+        message: 'Your access to this project has been revoked.' 
     });
 
     return true;

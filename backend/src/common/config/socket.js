@@ -1,5 +1,5 @@
 const { Server } = require('socket.io');
-const eventBus = require('../utils/eventBus');
+const eventBus = require('../utils/eventBus'); 
 
 let io;
 
@@ -15,17 +15,16 @@ exports.init = (httpServer) => {
     });
 
     io.on('connection', (socket) => {
-
         console.log('✅ User connected:', socket.id);
 
         // ================================
-        // 1. ĐĂNG KÝ PHÒNG CÁ NHÂN (MỚI)
-        // Frontend gọi cái này ngay sau khi login/kết nối socket thành công
+        // 1. REGISTER PRIVATE ROOM
+        // Frontend emits this right after successful login
         // ================================
         socket.on('registerUser', (userId) => {
             if (userId) {
                 socket.join(userId.toString());
-                console.log(`👤 Socket ${socket.id} He has entered the private room: ${userId}`);
+                console.log(`👤 Socket ${socket.id} has entered the private room: ${userId}`);
             }
         });
 
@@ -51,16 +50,25 @@ exports.init = (httpServer) => {
         socket.on('disconnect', () => {
             console.log('❌ User disconnected:', socket.id);
         });
-
     });
 
     // ================================
-    // 2. NGHE LỆNH TỪ HỆ THỐNG ĐỂ ĐÁ VĂNG USER (MỚI)
+    // 2. LISTEN TO SYSTEM EVENTS (FORCE LOGOUT)
     // ================================
     eventBus.on('force_logout_user', (data) => {
-        console.log(`⚠️ [Socket] Send the FORCE_LOGOUT command to User ID: ${data.userId}`);
-        // Bắn đích danh vào "phòng cá nhân" của user đó
+        console.log(`⚠️ [Socket] Sending FORCE_LOGOUT command to User ID: ${data.userId}`);
         io.to(data.userId.toString()).emit('FORCE_LOGOUT', { 
+            message: data.message 
+        });
+    });
+
+    // ================================
+    // 3. LISTEN TO SYSTEM EVENTS (SILENT REVOKE)
+    // ================================
+    eventBus.on('project_access_removed', (data) => {
+        console.log(`ℹ️ [Socket] Sending PROJECT_REVOKED command to User ID: ${data.userId}`);
+        io.to(data.userId.toString()).emit('PROJECT_REVOKED', { 
+            projectId: data.projectId,
             message: data.message 
         });
     });
