@@ -16,6 +16,13 @@ const requestIdMiddleware = require('./src/common/middlewares/requestId.middlewa
 const scheduleTaskDeadlineCheck = require('./src/modules/deadline/jobs/taskDeadline.job');
 require('./src/modules/notification/jobs/notificationQueue.job');
 
+// ==========================================
+// 💡 IMPORT EVENT LISTENERS (RẤT QUAN TRỌNG ĐỂ EVENTBUS HOẠT ĐỘNG)
+// ==========================================
+require('./src/modules/deadline/listeners/deadline.listener');
+require('./src/modules/activity/listeners/deadlineActivity.listener');
+require('./src/modules/notification/listeners/notification.listener');
+
 // Import file seed RBAC
 const seedRbac = require('./src/modules/rbac/scripts/rbac.seed');
 const seedData = require('./src/common/scripts/seed');
@@ -111,10 +118,11 @@ app.use('/api/v1/ai', require('./src/modules/ai/routes/ai.routes'));
 // Media 
 app.use('/api/v1/media', require('./src/modules/media/routes/media.routes'));
 
-// Activities, Dashboard & Notifications
+// 💡 Activities, Dashboard, Notifications & Deadlines
 app.use('/api/v1/activities', require('./src/modules/activity/routes/activity.routes'));
 app.use('/api/v1/dashboard', require('./src/modules/dashboard/routes/dashboard.routes'));
 app.use('/api/v1/notifications', require('./src/modules/notification/routes/notification.routes'));
+app.use('/api/v1/deadlines', require('./src/modules/deadline/routes/deadline.routes')); // THÊM CỔNG KẾT NỐI API DEADLINE
 
 // ==========================================
 // BẮT LỖI 404 (Đường dẫn không tồn tại)
