@@ -1,11 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const multer = require('multer');
 const taskController = require('../controllers/task.controller'); 
 const requireAuth = require('../../auth/middlewares/requireAuth');
-
-// Cấu hình Multer hứng file lưu tạm vào RAM (để đẩy lên AWS S3)
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } }); // Limit 5MB
 
 // Mọi request phải đi qua check Auth (Bắt buộc phải đăng nhập)
 router.use(requireAuth);
@@ -33,9 +29,15 @@ router.post('/:id/comments', taskController.addComment);
 router.delete('/:id/comments/:commentId', taskController.deleteComment);
 
 // ==========================================
-// 4. ĐÍNH KÈM FILE (ATTACHMENTS VIA AWS S3)
+// 4. ĐÍNH KÈM FILE (ATTACHMENTS VIA AWS S3 - PRESIGNED URL)
 // ==========================================
 router.get('/:id/attachments', taskController.getTaskAttachments);
-router.post('/:id/attachments', upload.single('file'), taskController.uploadAttachment);
+router.post('/:id/attachments/presigned-url', taskController.getAttachmentUploadUrl);
+router.post('/:id/attachments', taskController.saveAttachmentMetadata);
+
+// ==========================================
+// 5. NHẬT KÝ HOẠT ĐỘNG (ACTIVITY LOGS)
+// ==========================================
+router.get('/:id/activities', taskController.getTaskActivities);
 
 module.exports = router;

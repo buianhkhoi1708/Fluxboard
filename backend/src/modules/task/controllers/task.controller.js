@@ -1,11 +1,17 @@
-const taskService = require('../services/task.service');
+const taskCoreService = require('../services/taskCore.service');
+const subtaskService = require('../services/subtask.service');
+const taskCommentService = require('../services/taskComment.service');
+const taskAttachmentService = require('../services/taskAttachment.service');
 const s3Service = require('../../media/services/s3.service');
 const activityService = require('../../activity/services/activity.service');
 const notificationService = require('../../notification/services/notification.service');
 
+// ==========================================
+// 1. QUẢN LÝ THẺ CÔNG VIỆC (TASK CORE)
+// ==========================================
 exports.createTask = async (req, res, next) => {
     try {
-        const task = await taskService.createTask(req.body);
+        const task = await taskCoreService.createTask(req.body);
 
         await activityService.logActivity({
             action: 'CREATE',
@@ -23,7 +29,7 @@ exports.createTask = async (req, res, next) => {
 
 exports.updateTask = async (req, res, next) => {
     try {
-        const task = await taskService.updateTask(req.params.id, req.body);
+        const task = await taskCoreService.updateTask(req.params.id, req.body);
 
         if (req.body.assignee_id) {
             await notificationService.queueNotification({
@@ -42,20 +48,17 @@ exports.updateTask = async (req, res, next) => {
             actor_id: req.user.id,
             target_id: task._id,
             target_type: 'Task',
-            project_id: task.project_id || null,
             details: { message: 'Updated task details' }
         });
-        
+
         res.status(200).json({ success: true, data: task, message: 'Task updated successfully' });
-    } catch (error) { 
-        next(error); 
-    }
+    } catch (error) { next(error); }
 };
 
 exports.deleteTask = async (req, res, next) => {
     try {
-        await taskService.deleteTask(req.params.id);
-        
+        await taskCoreService.deleteTask(req.params.id);
+
         await activityService.logActivity({
             action: 'DELETE',
             source: 'USER',
@@ -72,91 +75,97 @@ exports.deleteTask = async (req, res, next) => {
 exports.moveTask = async (req, res, next) => {
     try {
         const { destColumnId, newOrder } = req.body;
-        const task = await taskService.moveTask(req.params.id, destColumnId, newOrder);
-        
+        const task = await taskCoreService.moveTask(req.params.id, destColumnId, newOrder);
+
         await activityService.logActivity({
             action: 'MOVE',
             source: 'USER',
             actor_id: req.user.id,
             target_id: task._id,
             target_type: 'Task',
-            project_id: task.project_id || null,
-            details: { message: 'Moved a task' }
+            details: { message: 'Moved task to another column' }
         });
 
-        res.status(200).json({ success: true, message: 'Task moved successfully' });
+        res.status(200).json({ success: true, message: 'Task moved successfully', data: task });
     } catch (error) { next(error); }
 };
 
 // ==========================================
-// SUBTASKS
+// 2. QUẢN LÝ CHECKLIST (SUBTASKS)
 // ==========================================
-
 exports.addSubtask = async (req, res, next) => {
     try {
-        const { title } = req.body;
-        const task = await taskService.addSubtask(req.params.id, title);
-        res.status(201).json({ success: true, data: task, message: 'Subtask added successfully' });
+        const task = await subtaskService.addSubtask(req.params.id, req.body.title);
+        res.status(201).json({ success: true, data: task });
     } catch (error) { next(error); }
 };
 
 exports.updateSubtask = async (req, res, next) => {
     try {
-        const task = await taskService.updateSubtask(req.params.id, req.params.subtaskId, req.body);
-        res.status(200).json({ success: true, data: task, message: 'Subtask updated successfully' });
+        const task = await subtaskService.updateSubtask(req.params.id, req.params.subtaskId, req.body);
+        res.status(200).json({ success: true, data: task });
     } catch (error) { next(error); }
 };
 
 exports.deleteSubtask = async (req, res, next) => {
     try {
-        const task = await taskService.deleteSubtask(req.params.id, req.params.subtaskId);
-        res.status(200).json({ success: true, data: task, message: 'Subtask deleted successfully' });
+        const task = await subtaskService.deleteSubtask(req.params.id, req.params.subtaskId);
+        res.status(200).json({ success: true, data: task });
     } catch (error) { next(error); }
 };
 
 // ==========================================
-// COMMENTS
+// 3. QUẢN LÝ BÌNH LUẬN (COMMENTS)
 // ==========================================
-
 exports.addComment = async (req, res, next) => {
     try {
-        const comment = await taskService.addComment(req.params.id, req.user.id, req.body.content);
-        res.status(201).json({ success: true, data: comment, message: 'Comment added successfully' });
+        const comment = await taskCommentService.addComment(req.params.id, req.user.id, req.body.content);
+        res.status(201).json({ success: true, data: comment });
     } catch (error) { next(error); }
 };
 
 exports.getTaskComments = async (req, res, next) => {
     try {
-        const comments = await taskService.getTaskComments(req.params.id);
+        const comments = await taskCommentService.getTaskComments(req.params.id);
         res.status(200).json({ success: true, data: comments });
     } catch (error) { next(error); }
 };
 
 exports.deleteComment = async (req, res, next) => {
     try {
-        await taskService.deleteComment(req.params.commentId, req.user.id);
+        await taskCommentService.deleteComment(req.params.commentId, req.user.id);
         res.status(200).json({ success: true, message: 'Comment deleted successfully' });
     } catch (error) { next(error); }
 };
 
 // ==========================================
-// ATTACHMENTS (AWS S3)
+// 4. ĐÍNH KÈM FILE (ATTACHMENTS VIA AWS S3 - PRESIGNED URL)
 // ==========================================
-
-exports.uploadAttachment = async (req, res, next) => {
+exports.getAttachmentUploadUrl = async (req, res, next) => {
     try {
-        if (!req.file) {
-            return res.status(400).json({ success: false, message: 'No file provided' });
+        const { fileName, fileType } = req.body;
+        if (!fileName || !fileType) {
+            return res.status(400).json({ success: false, message: 'Missing fileName or fileType' });
         }
-        
-        const fileUrl = await s3Service.uploadFile(req.file);
+        const data = await s3Service.generateUploadUrl(fileName, fileType);
+        res.status(200).json({ success: true, data });
+    } catch (error) { next(error); }
+};
+
+exports.saveAttachmentMetadata = async (req, res, next) => {
+    try {
+        const { fileName, fileUrl, mimeType } = req.body;
+        if (!fileName || !fileUrl) {
+            return res.status(400).json({ success: false, message: 'Missing file metadata' });
+        }
 
         const fileData = {
-            file_name: req.file.originalname,
+            file_name: fileName,
             file_url: fileUrl,
-            mime_type: req.file.mimetype
+            mime_type: mimeType
         };
-        const attachment = await taskService.addAttachment(req.params.id, req.user.id, fileData);
+        
+        const attachment = await taskAttachmentService.addAttachment(req.params.id, req.user.id, fileData);
         
         await activityService.logActivity({
             action: 'UPDATE', 
@@ -164,29 +173,27 @@ exports.uploadAttachment = async (req, res, next) => {
             actor_id: req.user.id,
             target_id: req.params.id,
             target_type: 'Task',
-            details: { message: `Uploaded file: ${req.file.originalname}` }
+            details: { message: `Attached file: ${fileName}` }
         });
 
-        res.status(201).json({ success: true, data: attachment, message: 'File uploaded to S3 successfully' });
+        res.status(201).json({ success: true, data: attachment, message: 'Attachment metadata saved successfully' });
     } catch (error) { next(error); }
 };
 
 exports.getTaskAttachments = async (req, res, next) => {
     try {
-        const attachments = await taskService.getTaskAttachments(req.params.id);
+        const attachments = await taskAttachmentService.getTaskAttachments(req.params.id);
         res.status(200).json({ success: true, data: attachments });
     } catch (error) { next(error); }
 };
 
 // ==========================================
-// ACTIVITY LOGS
+// 5. NHẬT KÝ HOẠT ĐỘNG (ACTIVITY LOGS)
 // ==========================================
-
 exports.getTaskActivities = async (req, res, next) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
-        
         const activities = await activityService.getTaskActivities(req.params.id, page, limit);
         res.status(200).json({ success: true, data: activities });
     } catch (error) { next(error); }
