@@ -1,6 +1,5 @@
 const cron = require('node-cron');
 const TaskDeadline = require('../models/taskDeadline.model'); 
-
 const Task = require('../../task/models/task.model');     
 const User = require('../../user/models/user.model');
 const deadlineService = require('../services/deadline.service'); 
@@ -13,14 +12,15 @@ const scheduleTaskDeadlineCheck = () => {
             const tomorrow = new Date();
             tomorrow.setDate(now.getDate() + 1); 
 
-            // TÌM CÁC TASK SẮP TỚI HẠN
+            // 💡 CHỈ QUÉT NHỮNG TASK CHƯA GỬI MAIL (reminder_sent: false)
             const upcomingDeadlines = await TaskDeadline.find({
                 due_date: { $gte: now, $lte: tomorrow },
                 actual_completed_at: null, 
+                reminder_sent: false, // <-- Chặn spam
                 is_deleted: false
             }).populate('task_id').lean();
 
-            console.log(`Found ${upcomingDeadlines.length} tasks due in the next 24 hours.`);
+            console.log(`Found ${upcomingDeadlines.length} tasks due in the next 24 hours needing alerts.`);
 
             for (const deadline of upcomingDeadlines) {
                 const task = deadline.task_id;
@@ -28,7 +28,11 @@ const scheduleTaskDeadlineCheck = () => {
 
                 const user = await User.findById(task.assignee_id).select('email full_name _id').lean();
                 if (user) {
-                    await deadlineService.dispatchTaskDeadlineNotification(user, task, deadline);
+                    // 💡 GỌI HÀM DELAY 10 PHÚT
+                    deadlineService.sendDelayedNotification(user, task, deadline, 10);
+
+                    // ĐÁNH DẤU LÀ ĐÃ GỬI ĐỂ MAI KHÔNG GỬI LẠI
+                    await TaskDeadline.findByIdAndUpdate(deadline._id, { reminder_sent: true });
                 }
             }
 

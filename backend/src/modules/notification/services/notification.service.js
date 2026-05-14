@@ -50,7 +50,21 @@ exports.executePendingNotification = async (notificationId) => {
             notificationId, 
             { status: 'SENT' }, 
             { new: true }
-        );
+        ).populate('recipient_id', 'email full_name'); // Nhớ populate để lấy email
+
+        if (notif && notif.recipient_id) {
+            // 👉 Phát sóng qua Socket (Real-time)
+            eventBus.emit(`new_notification_for_${notif.recipient_id._id}`, notif);
+
+            // 👉 Gửi qua Email (Dựa vào type hoặc nội dung)
+            // Lấy email Html hoặc nội dung cần gửi. Ở đây mình gọi emailService
+            const subject = `[Fluxboard] ${notif.title}`;
+            const html = `<p>Xin chào ${notif.recipient_id.full_name},</p>
+                          <p>${notif.message}</p>`;
+            
+            emailService.sendEmail(notif.recipient_id.email, subject, html)
+                        .catch(err => console.error('Email error:', err));
+        }
     } catch (error) {
         console.error('Error executing pending notification:', error);
     }

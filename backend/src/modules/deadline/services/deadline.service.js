@@ -1,12 +1,75 @@
 const emailService = require('../../email/services/email.service');
 const socketConfig = require('../../../common/config/socket');
 const UserNotificationPref = require('../../user/models/userNotificationPref.model');
+const TaskDeadline = require('../models/taskDeadline.model');
+const AppError = require('../../../common/exceptions/AppError');
+const eventBus = require('../../../common/utils/eventBus');
 
-// Thêm tham số deadlineRecord
+// ==========================================
+// 1. CÁC HÀM XỬ LÝ GIA HẠN (EXTENSION LOGIC)
+// ==========================================
+exports.requestExtension = async (taskId, userId, newDueDate, reason) => {
+    const deadline = await TaskDeadline.findOne({ task_id: taskId });
+    if (!deadline) throw new AppError('Deadline not found', 404);
+
+    if (deadline.extension_status === 'PENDING') {
+        throw new AppError('You have already submitted a request. Please wait for approval!', 400);
+    }
+    if (deadline.extension_count >= deadline.extension_limit) {
+        throw new AppError('Extension limit reached!', 400);
+    }
+
+    deadline.extension_status = 'PENDING';
+    deadline.pending_due_date = newDueDate;
+    await deadline.save();
+
+    eventBus.emit('extension_requested', { taskId, userId, newDueDate, reason });
+    return deadline;
+};
+
+exports.approveExtension = async (taskId, managerId) => {
+    const deadline = await TaskDeadline.findOne({ task_id: taskId });
+    if (!deadline || deadline.extension_status !== 'PENDING') {
+        throw new AppError('No pending extension requests found.', 400);
+    }
+
+    deadline.due_date = deadline.pending_due_date;
+    deadline.extension_count += 1;
+    deadline.extension_status = 'APPROVED';
+    deadline.pending_due_date = null;
+    deadline.is_overdue = false; 
+    deadline.reminder_sent = false; 
+    await deadline.save();
+
+    eventBus.emit('extension_approved', { taskId, managerId, newDueDate: deadline.due_date });
+    return deadline;
+};
+
+exports.rejectExtension = async (taskId, managerId, rejectReason) => {
+    const deadline = await TaskDeadline.findOne({ task_id: taskId });
+    if (!deadline) throw new AppError('Deadline not found', 404);
+
+    deadline.extension_status = 'REJECTED';
+    deadline.pending_due_date = null;
+    await deadline.save();
+
+    eventBus.emit('extension_rejected', { taskId, managerId, rejectReason });
+    return deadline;
+};
+
+// ==========================================
+// 2. GỬI MAIL (CÓ DELAY)
+// ==========================================
+exports.sendDelayedNotification = (user, task, deadlineRecord, delayMinutes = 10) => {
+    console.log(`⏳ Will send reminder email for task ${task._id} in ${delayMinutes} minutes...`);
+    setTimeout(() => {
+        this.dispatchTaskDeadlineNotification(user, task, deadlineRecord);
+    }, delayMinutes * 60 * 1000);
+};
+
+// Hàm cũ của bạn (Đã giữ nguyên format HTML)
 exports.dispatchTaskDeadlineNotification = async (user, task, deadlineRecord) => {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    
-    // Lấy due_date từ bảng TaskDeadline
     const formattedDate = new Date(deadlineRecord.due_date).toLocaleString('en-US');
 
     const prefs = await UserNotificationPref.findOne({ user_id: user._id }) || { email_notifications: true, push_notifications: true };
