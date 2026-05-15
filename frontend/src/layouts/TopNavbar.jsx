@@ -1,6 +1,7 @@
 import React from 'react';
-import Logo from '../../src/assets/icon.svg'; // Check the path if it shows an error
-import { Bell, ChevronDown, CircleUser, Search } from 'lucide-react';
+import Logo from '../../src/assets/icon.svg'; 
+import { ChevronDown, CircleUser, Search } from 'lucide-react';
+import Notification from '../pages/Notification' 
 
 const TopNavbar = () => {
   return (
@@ -46,13 +47,11 @@ const TopNavbar = () => {
 
       {/* RIGHT SECTION: Notifications & Profile */}
       <div className="flex items-center gap-4 md:gap-5">
-        {/* Notification Button */}
-        <button className="relative p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-all">
-          <Bell size={20} />
-          <span className="absolute top-1.5 right-1.5 bg-rose-500 text-white text-[9px] font-bold w-4 h-4 flex items-center justify-center rounded-full border-2 border-white shadow-sm">
-            3
-          </span>
-        </button>
+        
+        {/* ------------------------------------------------ */}
+        {/* COMPONENT NOTIFICATION ĐỘNG ĐƯỢC ĐẶT VÀO ĐÂY  */}
+        {/* ------------------------------------------------ */}
+        <Notification />
         
         {/* Vertical Divider */}
         <div className="h-6 w-px bg-slate-200 hidden md:block"></div>
