@@ -123,7 +123,9 @@ app.use(errorHandler);
 // ==========================================
 // 9. KHỞI CHẠY SERVER
 // ==========================================
-const PORT = process.env.PORT || 5000;
+// 💡 LẤY ĐÚNG BIẾN SERVER_PORT TỪ FILE .ENV CỦA BẠN
+const PORT = process.env.SERVER_PORT || process.env.PORT || 8000;
+
 server.listen(PORT, () => {
     console.log(`🚀 Fluxboard Backend is running on port ${PORT}`);
     console.log(`📡 Socket.io is ready for real-time updates.`);

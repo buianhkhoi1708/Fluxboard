@@ -19,7 +19,7 @@ exports.markAsRead = async (req, res, next) => {
 };
 
 // ==========================================
-// API LONG POLLING 
+// API LONG POLLING (Chờ 30s)
 // ==========================================
 exports.longPollingNotifications = (req, res, next) => {
     const userId = req.user.id;
@@ -31,19 +31,19 @@ exports.longPollingNotifications = (req, res, next) => {
     // 1. Timeout: Xử lý khi hết 30s mà không có thông báo
     const timeoutId = setTimeout(() => {
         eventBus.removeListener(userEventName, onNewNotification);
-        res.status(200).json({ success: true, data: null, message: 'timeout' });
+        return res.status(200).json({ success: true, data: [], message: 'Timeout: No new notifications' });
     }, timeout_ms);
 
     // 2. Thành công: Xử lý khi có thông báo mới
     const onNewNotification = (notification) => {
         clearTimeout(timeoutId); 
-        res.status(200).json({ success: true, data: notification });
+        return res.status(200).json({ success: true, data: [notification], message: 'New notification arrived!' });
     };
 
-    // Đăng ký nghe trên kênh của user
+    // Đăng ký nghe trên kênh của user (Dùng once để nghe 1 lần rồi tự hủy)
     eventBus.once(userEventName, onNewNotification);
 
-    // 3. Đứt kết nối: Xử lý khi user tắt web giữa chừng
+    // 3. Đứt kết nối: Xử lý khi user tắt web giữa chừng (Hủy listener rác)
     req.on('close', () => {
         clearTimeout(timeoutId);
         eventBus.removeListener(userEventName, onNewNotification);

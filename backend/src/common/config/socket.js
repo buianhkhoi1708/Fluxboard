@@ -15,58 +15,39 @@ exports.init = (httpServer) => {
     });
 
     io.on('connection', (socket) => {
-        console.log('✅ User connected:', socket.id);
+        // 🗑️ Đã tắt log: console.log('✅ User connected:', socket.id);
 
-        // ================================
-        // 1. REGISTER PRIVATE ROOM
-        // Frontend emits this right after successful login
-        // ================================
         socket.on('registerUser', (userId) => {
             if (userId) {
                 socket.join(userId.toString());
-                console.log(`👤 Socket ${socket.id} has entered the private room: ${userId}`);
+                // 🗑️ Đã tắt log: console.log(`👤 Socket has entered...`);
             }
         });
 
-        // ================================
-        // JOIN BOARD ROOM
-        // ================================
         socket.on('joinBoard', (boardId) => {
             socket.join(boardId);
-            console.log(`📌 Socket ${socket.id} joined board ${boardId}`);
+            // 🗑️ Đã tắt log: console.log(`📌 Socket joined board...`);
         });
 
-        // ================================
-        // LEAVE BOARD ROOM
-        // ================================
         socket.on('leaveBoard', (boardId) => {
             socket.leave(boardId);
-            console.log(`🚪 Socket ${socket.id} left board ${boardId}`);
+            // 🗑️ Đã tắt log: console.log(`🚪 Socket left board...`);
         });
 
-        // ================================
-        // DISCONNECT
-        // ================================
         socket.on('disconnect', () => {
-            console.log('❌ User disconnected:', socket.id);
+            // 🗑️ Đã tắt log: console.log('❌ User disconnected...');
         });
     });
 
-    // ================================
-    // 2. LISTEN TO SYSTEM EVENTS (FORCE LOGOUT)
-    // ================================
     eventBus.on('force_logout_user', (data) => {
-        console.log(`⚠️ [Socket] Sending FORCE_LOGOUT command to User ID: ${data.userId}`);
+        // 🗑️ Đã tắt log: console.log(`⚠️ [Socket] Sending FORCE_LOGOUT...`);
         io.to(data.userId.toString()).emit('FORCE_LOGOUT', { 
             message: data.message 
         });
     });
 
-    // ================================
-    // 3. LISTEN TO SYSTEM EVENTS (SILENT REVOKE)
-    // ================================
     eventBus.on('project_access_removed', (data) => {
-        console.log(`ℹ️ [Socket] Sending PROJECT_REVOKED command to User ID: ${data.userId}`);
+        // 🗑️ Đã tắt log: console.log(`ℹ️ [Socket] Sending PROJECT_REVOKED...`);
         io.to(data.userId.toString()).emit('PROJECT_REVOKED', { 
             projectId: data.projectId,
             message: data.message 

@@ -1,10 +1,9 @@
 const Notification = require('../models/notification.model');
 const emailService = require('../../email/services/email.service');
-const socketConfig = require('../../../common/config/socket');
 const eventBus = require('../../../common/utils/eventBus');
 
 // ==========================================
-// 1. QUEUE NOTIFICATION (10 MINUTES DELAY)
+// 1. QUEUE NOTIFICATION (10 MINUTES DELAY FOR EMAIL)
 // ==========================================
 exports.queueNotification = async (data) => {
     try {
@@ -20,9 +19,15 @@ exports.queueNotification = async (data) => {
 
         if (existingNotif) {
             existingNotif.send_at = sendTime; 
-            existingNotif.sender_id = data.sender_id; 
+            existingNotif.sender_id = data.sender_id;
+            existingNotif.email_html = data.email_html; 
             await existingNotif.save();
             
+            // 💡 CẮT BỎ HTML TRƯỚC KHI TRẢ VỀ FRONTEND/POSTMAN
+            const notifToClient = existingNotif.toObject();
+            delete notifToClient.email_html;
+            
+            eventBus.emit(`new_notification_for_${notifToClient.recipient_id.toString()}`, notifToClient);
             return existingNotif;
         } else {
             const newNotif = await Notification.create({
@@ -30,7 +35,12 @@ exports.queueNotification = async (data) => {
                 status: 'PENDING',
                 send_at: sendTime
             });
+            
+            // 💡 CẮT BỎ HTML TRƯỚC KHI TRẢ VỀ FRONTEND/POSTMAN
+            const notifToClient = newNotif.toObject();
+            delete notifToClient.email_html;
 
+            eventBus.emit(`new_notification_for_${notifToClient.recipient_id.toString()}`, notifToClient);
             return newNotif;
         }
     } catch (error) {
@@ -39,23 +49,20 @@ exports.queueNotification = async (data) => {
 };
 
 // ==========================================
-// 2. EXECUTE SENDING (CALLED BY CRON JOB)
+// 2. EXECUTE SENDING EMAIL (CALLED BY CRON JOB 10 MINS LATER)
 // ==========================================
 exports.executePendingNotification = async (notificationId) => {
     try {
         const notif = await Notification.findByIdAndUpdate(
             notificationId, 
             { status: 'SENT' }, 
-            { new: true }
+            { returnDocument: 'after' } 
         ).populate('recipient_id', 'email full_name'); 
 
         if (notif && notif.recipient_id) {
-            // 👉 Phát sóng Socket (Real-time)
-            eventBus.emit(`new_notification_for_${notif.recipient_id._id}`, notif);
-
-            // 👉 Gửi Email bằng Tiếng Anh
             const subject = `[Fluxboard] ${notif.title}`;
-            const html = `
+            
+            const html = notif.email_html || `
             <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
                 <h2>Hi ${notif.recipient_id.full_name},</h2>
                 <p style="font-size: 16px;">${notif.message}</p>
@@ -75,7 +82,9 @@ exports.executePendingNotification = async (notificationId) => {
 // ==========================================
 exports.getUserNotifications = async (userId, page = 1, limit = 20) => {
     const skip = (page - 1) * limit;
+    // 💡 Lấy API cũng nhớ Select trừ cái email_html ra cho nhẹ API
     return await Notification.find({ recipient_id: userId })
+        .select('-email_html')
         .populate('sender_id', 'full_name avatar_url') 
         .sort({ created_at: -1 })
         .skip(skip)
@@ -90,6 +99,6 @@ exports.markAsRead = async (notificationId, userId) => {
     return await Notification.findOneAndUpdate(
         { _id: notificationId, recipient_id: userId },
         { is_read: true },
-        { new: true }
-    );
+        { returnDocument: 'after' } 
+    ).select('-email_html'); // 💡 Cắt bỏ HTML
 };

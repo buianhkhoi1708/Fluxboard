@@ -3,8 +3,9 @@ const projectService = require('../services/project.service');
 exports.createProject = async (req, res, next) => {
     try {
 
-        console.log("📥 BODY:", req.body);
-        console.log("👤 USER:", req.user);
+        // 🗑️ Đã tắt 2 dòng log spam
+        // console.log("📥 BODY:", req.body);
+        // console.log("👤 USER:", req.user);
 
         const project = await projectService.createProject(
             req.user.id,
@@ -17,7 +18,7 @@ exports.createProject = async (req, res, next) => {
         });
 
     } catch (error) {
-        console.log("💥 CREATE PROJECT ERROR:", error);
+        console.error("💥 CREATE PROJECT ERROR:", error);
         next(error);
     }
 };
@@ -49,4 +50,3 @@ exports.deleteProject = async (req, res, next) => {
         res.status(200).json({ success: true, message: 'Project deleted' });
     } catch (error) { next(error); }
 };
-

@@ -10,7 +10,7 @@ eventBus.on('task_created', async (payload) => {
                 due_date: payload.due_date,
                 extension_limit: payload.extension_limit || 2
             });
-            console.log(`⏱️ [Deadline System] Task tracking has been automatically scheduled: ${payload.task_id}`);
+            // 🗑️ Đã tắt log: console.log(`⏱️ [Deadline System] Task tracking...`);
         }
     } catch (error) {
         console.error(`❌ [Deadline System] Error creating a tracking schedule:`, error);
@@ -33,13 +33,13 @@ eventBus.on('task_completed', async (payload) => {
             const diffMs = now.getTime() - deadline.due_date.getTime();
             deadline.late_minutes = Math.floor(diffMs / 60000); 
 
-            console.log(`⚠️ [Deadline System] Task ${payload.task_id} completed LATE by ${deadline.late_minutes} minutes`);
+            // 🗑️ Đã tắt log: console.log(`⚠️ [Deadline System] Task completed LATE...`);
             
             // Bắn sự kiện trễ cho module Activity/Notification (Nếu cần)
             eventBus.emit('task_completed_late', { task_id: payload.task_id, late_minutes: deadline.late_minutes });
         } else {
             deadline.completion_status = 'ON_TIME';
-            console.log(`✅ [Deadline System] Task ${payload.task_id} completed ON TIME`);
+            // 🗑️ Đã tắt log: console.log(`✅ [Deadline System] Task completed ON TIME`);
         }
 
         await deadline.save();
