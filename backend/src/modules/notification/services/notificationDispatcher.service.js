@@ -38,16 +38,20 @@ const dispatch = async (userId, title, message, emailHtml, type = 'SYSTEM', refe
 // 1. EXTENSION REQUEST (Manager & Employee)
 // ==========================================
 exports.dispatchExtensionRequest = async (payload) => {
+    // 1. Móc dữ liệu từ Task lên Board lên tận Project
     const task = await Task.findById(payload.taskId).populate({
         path: 'board_id',
         populate: { path: 'project_id' }
     }).lean();
     
-    // Tạm thời comment tìm owner thật để chạy Demo cho nhanh
-    // let managerId = task?.board_id?.project_id?.owner_id || task?.board_id?.project_id?.created_by;
+    // 2. LOGIC CHUẨN: Tự động tìm Sếp (người sở hữu hoặc người tạo dự án)
+    let managerId = task?.board_id?.project_id?.owner_id || task?.board_id?.project_id?.created_by;
 
-    // Ép cứng gửi cho System Admin
-    let managerId = "69d077d868bb004168dc3500"; 
+    // 3. Nếu dự án bị lỗi không có owner thì ngắt luôn, không ép cứng gì cả!
+    if (!managerId) {
+        console.error(`[Notification] Skipped: No owner/manager of the project containing the task was found. ${task.title}`);
+        return; 
+    }
     
     const managerHtml = getBaseTemplate('#F59E0B', 'New Extension Request', `
         <p>Dear Manager,</p>

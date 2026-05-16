@@ -3,6 +3,10 @@ import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar'; 
 import TopNavbar from './TopNavbar'; 
 
+// 💡 1. IMPORT THƯ VIỆN TOAST VÀ CSS CỦA NÓ
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+
 const MainLayout = () => {
 
   useEffect(() => {
@@ -23,22 +27,28 @@ const MainLayout = () => {
 
   return (
     <div className="flex flex-col h-screen w-full overflow-hidden bg-slate-50 font-sans text-slate-800">
-      {/* Đã gỡ bỏ truyền prop apiStatus */}
       <TopNavbar />
       
       <div className="flex flex-1 w-full overflow-hidden">
         <Sidebar />
         
         <main className="flex-1 w-full overflow-hidden flex flex-col bg-white shadow-[-4px_0_24px_-12px_rgba(0,0,0,0.05)] z-10">
-          
-          {/* Thanh trạng thái API đã được xóa khỏi UI */}
-          
-          <div className="flex-1 overflow-hidden min-h-0 relative">
-             {/* Outlet bơm trang con vào đây */}
+          <div className="flex-1 overflow-auto bg-slate-50/50 p-6 md:p-8">
             <Outlet />
           </div>
         </main>
       </div>
+
+      {/* 💡 2. THÊM KHUNG CHỨA TOAST VÀO CUỐI LAYOUT */}
+      <ToastContainer 
+        position="top-right" 
+        autoClose={4000} 
+        hideProgressBar={false} 
+        newestOnTop={true} 
+        closeOnClick 
+        pauseOnHover 
+        theme="light" 
+      />
     </div>
   );
 };
