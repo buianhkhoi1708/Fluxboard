@@ -66,9 +66,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         }
     },
 
-    // 💡 ĐỘNG CƠ LONG POLLING (PHIÊN BẢN DIỆT BÓNG MA VITE HMR)
     startLongPolling: async () => {
-        // 🛑 Khóa chặt ở cấp độ Browser Window, cấm tuyệt đối việc tạo 2 vòng lặp!
         if ((window as any)._isPollingActive) return;
         (window as any)._isPollingActive = true;
 
@@ -80,13 +78,11 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
                 if (newNotifs && newNotifs.length > 0) {
                     newNotifs.forEach((newNotif: NotificationItem) => {
-                        // 1. Kiểm tra lớp khiên 1 (Có trong Store chưa?)
                         const isDuplicate = get().notifications.some(n => n._id === newNotif._id);
                         
                         if (!isDuplicate) {
                             get().addNotification(newNotif);
                             
-                            // 2. Lớp khiên 2 (Thuốc đặc trị của react-toastify)
                             toast.info(newNotif.title || 'You have a new notification!', {
                                 toastId: newNotif._id 
                             });

@@ -1,24 +1,20 @@
 import React, { useEffect } from 'react';
 import Logo from '../../src/assets/icon.svg'; 
-import { ChevronDown, CircleUser, Search } from 'lucide-react';
+import { ChevronDown, Search } from 'lucide-react';
 import Notification from '../pages/Notification';
-// 💡 Thêm import store của bạn vào đây
 import { useNotificationStore } from '../features/notification/store/useNotificationStore';
 
 const TopNavbar = () => {
-  // 💡 Lấy 2 hàm từ Store ra
   const { fetchNotifications, startLongPolling } = useNotificationStore();
 
-  // 💡 CHẠY NGẦM KHI NGƯỜI DÙNG VỪA VÀO APP
   useEffect(() => {
-    fetchNotifications(); // 1. Lấy danh sách thông báo cũ để đổ vào quả chuông
-    startLongPolling();   // 2. Kích hoạt động cơ Long Polling đứng gác cổng
+    fetchNotifications(); 
+    startLongPolling();   
   }, [fetchNotifications, startLongPolling]);
 
   return (
     <nav className="flex justify-between items-center px-4 md:px-6 h-[60px] border-b border-slate-200 bg-white/80 backdrop-blur-md sticky top-0 z-50">
       
-      {/* LEFT SECTION: Logo & Workspace */}
       <div className="flex items-center gap-6 md:gap-8">
         <div className="flex items-center gap-2.5 min-w-[200px]">
           <img 
@@ -29,7 +25,6 @@ const TopNavbar = () => {
           <span className="font-extrabold text-xl tracking-tight text-slate-900">Fluxboard</span>
         </div>
         
-        {/* Workspace Selector */}
         <div className="hidden md:flex items-center gap-2.5 border border-slate-200 px-3 py-1.5 rounded-xl cursor-pointer hover:bg-slate-50 hover:border-slate-300 hover:shadow-sm transition-all group">
           <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 text-white w-6 h-6 flex items-center justify-center rounded-md font-bold text-xs shadow-sm">
             F
@@ -39,7 +34,6 @@ const TopNavbar = () => {
         </div>
       </div>
 
-      {/* MIDDLE SECTION: Search */}
       <div className="hidden md:flex flex-1 max-w-md px-6">
         <div className="relative w-full group">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -56,18 +50,12 @@ const TopNavbar = () => {
         </div>
       </div>
 
-      {/* RIGHT SECTION: Notifications & Profile */}
       <div className="flex items-center gap-4 md:gap-5">
         
-        {/* ------------------------------------------------ */}
-        {/* COMPONENT NOTIFICATION (QUẢ CHUÔNG) CỦA BẠN ĐÂY */}
-        {/* ------------------------------------------------ */}
         <Notification />
         
-        {/* Vertical Divider */}
         <div className="h-6 w-px bg-slate-200 hidden md:block"></div>
 
-        {/* User Profile Button */}
         <div className="flex items-center gap-2 cursor-pointer hover:bg-slate-50 py-1 px-2 rounded-xl transition-colors">
           <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold border border-indigo-200">
             U

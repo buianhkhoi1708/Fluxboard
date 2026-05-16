@@ -3,7 +3,6 @@ import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar'; 
 import TopNavbar from './TopNavbar'; 
 
-// 💡 1. IMPORT THƯ VIỆN TOAST VÀ CSS CỦA NÓ
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -39,7 +38,6 @@ const MainLayout = () => {
         </main>
       </div>
 
-      {/* 💡 2. THÊM KHUNG CHỨA TOAST VÀO CUỐI LAYOUT */}
       <ToastContainer 
         position="top-right" 
         autoClose={4000} 
