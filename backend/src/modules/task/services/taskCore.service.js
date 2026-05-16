@@ -42,6 +42,9 @@ exports.updateTask = async (taskId, updateData) => {
         eventBus.emit('task_completed', { task_id: task._id });
     }
 
+    // 💡 BẮN SỰ KIỆN QUA EVENT BUS KHI TASK BỊ THAY ĐỔI
+    eventBus.emit('system_task_updated', { taskId: task._id });
+
     emitBoardEvent(task.board_id, 'taskUpdated', task);
     return task;
 };
@@ -87,6 +90,9 @@ exports.moveTask = async (taskId, destColumnId, newOrder) => {
 
         await Promise.all([sourceCol.save(), destCol.save(), task.save()]);
     }
+
+    // 💡 BẮN SỰ KIỆN QUA EVENT BUS KHI KÉO THẢ TASK SANG CỘT KHÁC
+    eventBus.emit('system_task_moved', { taskId: task._id, destColumnId });
 
     emitBoardEvent(task.board_id, 'taskMoved', { taskId: task._id, destColumnId, newOrder });
     return task;

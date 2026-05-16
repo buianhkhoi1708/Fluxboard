@@ -1,5 +1,6 @@
 const User = require('../../user/models/user.model');
 const Task = require('../../task/models/task.model');
+const Column = require('../../column/models/column.model'); 
 const notificationService = require('./notification.service'); 
 
 // ==========================================
@@ -21,9 +22,7 @@ const getBaseTemplate = (color, title, bodyContent) => `
 `;
 
 const dispatch = async (userId, title, message, emailHtml, type = 'SYSTEM', referenceId = null) => {
-    if (!userId) {
-        return; 
-    }
+    if (!userId) return; 
 
     await notificationService.queueNotification({
         recipient_id: userId,
@@ -44,10 +43,10 @@ exports.dispatchExtensionRequest = async (payload) => {
         populate: { path: 'project_id' }
     }).lean();
     
-    // 💡 Tạm thời comment tìm owner thật để chạy Demo cho nhanh
+    // Tạm thời comment tìm owner thật để chạy Demo cho nhanh
     // let managerId = task?.board_id?.project_id?.owner_id || task?.board_id?.project_id?.created_by;
 
-    // 💡 Ép cứng gửi cho System Admin
+    // Ép cứng gửi cho System Admin
     let managerId = "69d077d868bb004168dc3500"; 
     
     const managerHtml = getBaseTemplate('#F59E0B', 'New Extension Request', `
@@ -80,6 +79,7 @@ exports.dispatchExtensionRequest = async (payload) => {
 // ==========================================
 exports.dispatchExtensionApproved = async (payload) => {
     const task = await Task.findById(payload.taskId).lean();
+    if (!task || !task.assignee_id) return;
     
     const html = getBaseTemplate('#10B981', 'Request Approved ✅', `
         <p>Good news,</p>
@@ -90,7 +90,6 @@ exports.dispatchExtensionApproved = async (payload) => {
         </div>
         <p>Wishing you success in completing your work with this new timeline!</p>
     `);
-                  
     await dispatch(task.assignee_id, 'Extension Approved', `Manager has approved the deadline extension for Task: ${task.title}`, html, 'EXTENSION_APPROVE', task._id);
 };
 
@@ -99,6 +98,7 @@ exports.dispatchExtensionApproved = async (payload) => {
 // ==========================================
 exports.dispatchExtensionRejected = async (payload) => {
     const task = await Task.findById(payload.taskId).lean();
+    if (!task || !task.assignee_id) return;
     
     const html = getBaseTemplate('#EF4444', 'Request Rejected ❌', `
         <p>Hi,</p>
@@ -113,6 +113,46 @@ exports.dispatchExtensionRejected = async (payload) => {
             </p>
         </div>
     `);
-                  
     await dispatch(task.assignee_id, 'Extension Rejected', `Manager has rejected the deadline extension for Task: ${task.title}`, html, 'EXTENSION_REJECT', task._id);
+};
+
+// ==========================================
+// 4. THÊM MỚI: TASK UPDATED (To Assignee)
+// ==========================================
+exports.dispatchTaskUpdated = async (payload) => {
+    const task = await Task.findById(payload.taskId).lean();
+    if (!task || !task.assignee_id) return; 
+
+    const html = getBaseTemplate('#6366F1', 'Task Updated 📝', `
+        <p>Hi,</p>
+        <p>There have been some updates to a task assigned to you.</p>
+        <div style="background-color: #EEF2FF; padding: 15px; border-left: 4px solid #4F46E5; margin: 20px 0; border-radius: 4px;">
+            <p style="margin: 0; color: #3730A3;"><strong>Task:</strong> ${task.title}</p>
+        </div>
+        <p>Please log in to the system to check the latest details.</p>
+    `);
+    await dispatch(task.assignee_id, 'Task Updated', `Task details have been updated: ${task.title}`, html, 'TASK_UPDATE', task._id);
+};
+
+// ==========================================
+// 5. THÊM MỚI: TASK MOVED / DRAG & DROP (To Assignee)
+// ==========================================
+exports.dispatchTaskMoved = async (payload) => {
+    const task = await Task.findById(payload.taskId).lean();
+    if (!task || !task.assignee_id) return;
+
+    // Lấy tên cột mới
+    const column = await Column.findById(payload.destColumnId).lean();
+    const colName = column ? column.title : 'another column';
+
+    const html = getBaseTemplate('#8B5CF6', 'Task Status Changed 🚀', `
+        <p>Hi,</p>
+        <p>A task assigned to you has been moved to a new stage.</p>
+        <div style="background-color: #F5F3FF; padding: 15px; border-left: 4px solid #7C3AED; margin: 20px 0; border-radius: 4px;">
+            <p style="margin: 0; color: #5B21B6;"><strong>Task:</strong> ${task.title}</p>
+            <p style="margin: 10px 0 0 0; color: #5B21B6;"><strong>New Status:</strong> ${colName}</p>
+        </div>
+        <p>Keep up the great work!</p>
+    `);
+    await dispatch(task.assignee_id, 'Task Status Changed', `Task moved to ${colName}: ${task.title}`, html, 'TASK_MOVE', task._id);
 };
