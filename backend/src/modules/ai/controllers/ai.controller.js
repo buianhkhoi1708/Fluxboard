@@ -7,7 +7,6 @@ exports.generateBoard = async (req, res, next) => {
             return res.status(400).json({ success: false, error: { message: 'Prompt is required' }});
         }
 
-        // Truyền thêm req.user.id để lưu vào AiContext (Lịch sử sử dụng AI)
         const generatedData = await aiService.generateBoardContext(req.user.id, prompt);
         
         res.status(200).json({
@@ -21,13 +20,13 @@ exports.generateBoard = async (req, res, next) => {
 
 exports.generateInsights = async (req, res, next) => {
     try {
-        const { projectData } = req.body;
-        if (!projectData) {
-            return res.status(400).json({ success: false, error: { message: 'Project data is required' }});
+        // 💡 Chuyển sang nhận projectId thay vì projectData thô từ Frontend
+        const projectId = req.body.projectId || req.params.projectId;
+        if (!projectId) {
+            return res.status(400).json({ success: false, error: { message: 'Project ID is required' }});
         }
 
-        // Truyền thêm req.user.id để lưu vào AiContext
-        const insights = await aiService.generateInsights(req.user.id, projectData);
+        const insights = await aiService.generateInsights(req.user.id, projectId);
         
         res.status(200).json({
             success: true,

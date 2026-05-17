@@ -2,18 +2,24 @@ const Department = require('../../department/models/department.model');
 
 exports.getOrganizationTree = async () => {
     return await Department.aggregate([
-        { $match: { is_deleted: false } },
+        // Chỉ lấy các node gốc (Root Nodes) không bị xóa
+        { $match: { parent_id: null, is_deleted: false } },
+        
+        // Dùng $graphLookup quét đệ quy cấu trúc cây đa cấp
         {
-            $lookup: {
-                from: 'users',
-                localField: 'manager_id',
-                foreignField: '_id',
-                as: 'manager'
+            $graphLookup: {
+                from: 'departments',
+                startWith: '$_id',
+                connectFromField: '_id',
+                connectToField: 'parent_id',
+                as: 'sub_departments',
+                depthField: 'level',
+                restrictSearchWithMatch: { is_deleted: false }
             }
         },
-        { $unwind: { path: '$manager', preserveNullAndEmptyArrays: true } },
+        
+        // Dưới mỗi Department/Sub-Department, lấy các Teams tương ứng
         {
-            // Join với Team để lấy các Team thuộc Department
             $lookup: {
                 from: 'teams',
                 localField: '_id',
@@ -21,17 +27,6 @@ exports.getOrganizationTree = async () => {
                 pipeline: [
                     { $match: { is_deleted: false } },
                     {
-                        // Join với User để lấy Lead của Team
-                        $lookup: {
-                            from: 'users',
-                            localField: 'lead_id',
-                            foreignField: '_id',
-                            as: 'lead'
-                        }
-                    },
-                    { $unwind: { path: '$lead', preserveNullAndEmptyArrays: true } },
-                    {
-                        // Join với User để lấy danh sách Members thuộc Team
                         $lookup: {
                             from: 'users',
                             localField: '_id',
@@ -42,23 +37,9 @@ exports.getOrganizationTree = async () => {
                             ],
                             as: 'members'
                         }
-                    },
-                    {
-                        $project: {
-                            id: '$_id', _id: 0, name: 1, code: 1,
-                            lead_id: 1, lead_name: '$lead.full_name',
-                            members: 1
-                        }
                     }
                 ],
                 as: 'teams'
-            }
-        },
-        {
-            $project: {
-                id: '$_id', _id: 0, name: 1, code: 1,
-                manager_id: 1, manager_name: '$manager.full_name',
-                teams: 1
             }
         }
     ]);

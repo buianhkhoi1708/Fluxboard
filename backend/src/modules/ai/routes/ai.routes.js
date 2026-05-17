@@ -6,6 +6,10 @@ const requirePermission = require('../../rbac/middlewares/requirePermission.midd
 
 router.use(requireAuth);
 
-router.post('/generate-board', requirePermission('AI_BOARD', 'WRITE'), aiController.generateBoard);
+// API sinh Task tự động
+router.post('/generate-board', requirePermission('AI_BOARD', 'WRITE', 'SYSTEM'), aiController.generateBoard);
+
+// 💡 Thêm API đánh giá rủi ro dự án (Còn thiếu trong code cũ)
+router.post('/insights', requirePermission('AI_INSIGHT', 'READ', 'SYSTEM'), aiController.generateInsights);
 
 module.exports = router;

@@ -2,6 +2,7 @@ const User = require('../../user/models/user.model');
 const Task = require('../../task/models/task.model');
 const Column = require('../../column/models/column.model'); 
 const notificationService = require('./notification.service'); 
+const UserNotificationPref = require('../../user/models/userNotificationPref.model'); // 💡 Import model Preferences
 
 // ==========================================
 // 💡 BASE TEMPLATE (100% ENGLISH)
@@ -21,17 +22,37 @@ const getBaseTemplate = (color, title, bodyContent) => `
 </div>
 `;
 
+// ==========================================
+// 💡 DISPATCHER INTERCEPTOR (ĐỢT 2)
+// ==========================================
 const dispatch = async (userId, title, message, emailHtml, type = 'SYSTEM', referenceId = null) => {
     if (!userId) return; 
 
-    await notificationService.queueNotification({
-        recipient_id: userId,
-        title: title,
-        message: message,
-        type: type,
-        reference_id: referenceId,
-        email_html: emailHtml 
-    });
+    try {
+        // 1. Truy vấn Tùy chọn thông báo của User
+        const prefs = await UserNotificationPref.findOne({ user_id: userId }).lean();
+
+        // 2. Mặc định là 'true' (Cho phép) nếu user chưa từng cài đặt preferences
+        const allowEmail = prefs?.email_notifications !== false;
+        const allowPush = prefs?.push_notifications !== false; // Có thể dùng cho Socket/Trình duyệt
+
+        // 3. Quyết định chặn Email: Nếu allowEmail là false, ta xóa sạch emailHtml (chỉ lưu chuông thông báo trên app)
+        const finalEmailHtml = allowEmail ? emailHtml : null;
+
+        // 4. Đẩy vào hàng đợi
+        await notificationService.queueNotification({
+            recipient_id: userId,
+            title: title,
+            message: message,
+            type: type,
+            reference_id: referenceId,
+            email_html: finalEmailHtml,
+            allow_push: allowPush // Truyền cờ này xuống notification.service nếu sau này muốn chặn cả Socket
+        });
+
+    } catch (error) {
+        console.error(`[Notification Interceptor] Lỗi khi check preferences cho user ${userId}:`, error);
+    }
 };
 
 // ==========================================
