@@ -38,7 +38,7 @@ exports.deleteSubtask = async (taskId, subtaskId) => {
     const task = await Task.findById(taskId);
     if (!task) throw new AppError('Task not found', 404, 'NOT_FOUND');
 
-    task.subtasks.pull(subtaskId);
+    task.subtasks = task.subtasks.filter(st => st._id.toString() !== subtaskId.toString());
     await task.save();
 
     emitBoardEvent(task.board_id, 'taskUpdated', task);

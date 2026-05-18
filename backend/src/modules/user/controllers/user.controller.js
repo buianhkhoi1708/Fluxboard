@@ -1,6 +1,8 @@
 const userService = require('../services/user.service');
 
+// ==========================================
 // 1. PROFILE CORE
+// ==========================================
 exports.getUserById = async (req, res, next) => {
     try {
         const user = await userService.getUserById(req.params.id);
@@ -17,7 +19,20 @@ exports.getCurrentProfile = async (req, res, next) => {
 
 exports.updateProfile = async (req, res, next) => {
     try {
-        const user = await userService.updateProfile(req.user.id, req.body);
+        const allowedFields = ['full_name', 'avatar_url'];
+        const updateData = {};
+        
+        for (const field of allowedFields) {
+            if (req.body[field] !== undefined) {
+                updateData[field] = req.body[field];
+            }
+        }
+
+        if (Object.keys(updateData).length === 0) {
+            return res.status(400).json({ success: false, message: 'No valid fields provided for update' });
+        }
+
+        const user = await userService.updateProfile(req.user.id, updateData);
         res.status(200).json({ success: true, data: user });
     } catch (error) { next(error); }
 };
@@ -33,7 +48,9 @@ exports.changePassword = async (req, res, next) => {
     } catch (error) { next(error); }
 };
 
+// ==========================================
 // 2. ORGANIZATION (ĐỢT 1)
+// ==========================================
 exports.getUnassignedUsers = async (req, res, next) => {
     try {
         const users = await userService.getUnassignedUsers();
@@ -51,7 +68,9 @@ exports.assignToTeam = async (req, res, next) => {
     } catch (error) { next(error); }
 };
 
+// ==========================================
 // 3. PREFERENCES (ĐỢT 2)
+// ==========================================
 exports.getPreferences = async (req, res, next) => {
     try {
         const prefs = await userService.getNotificationPreferences(req.user.id);
@@ -61,7 +80,25 @@ exports.getPreferences = async (req, res, next) => {
 
 exports.updatePreferences = async (req, res, next) => {
     try {
-        const prefs = await userService.updateNotificationPreferences(req.user.id, req.body);
-        res.status(200).json({ success: true, data: prefs, message: 'Preferences updated' });
+        const allowedFields = [
+            'email_notifications', 
+            'push_notifications', 
+            'task_deadline_reminders', 
+            'daily_digest'
+        ];
+        const prefData = {};
+
+        for (const field of allowedFields) {
+            if (req.body[field] !== undefined) {
+                prefData[field] = Boolean(req.body[field]); 
+            }
+        }
+
+        if (Object.keys(prefData).length === 0) {
+            return res.status(400).json({ success: false, message: 'No valid preferences provided' });
+        }
+
+        const prefs = await userService.updateNotificationPreferences(req.user.id, prefData);
+        res.status(200).json({ success: true, data: prefs });
     } catch (error) { next(error); }
 };

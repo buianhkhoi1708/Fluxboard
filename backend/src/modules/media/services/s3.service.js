@@ -12,7 +12,6 @@ const s3Client = new S3Client({
     }
 });
 
-// Hàm cũ: Upload file trực tiếp (Dành cho Avatar hoặc các file nhỏ xử lý tại Backend)
 exports.uploadFile = async (file) => {
     const fileExtension = path.extname(file.originalname);
     const fileName = `${uuidv4()}${fileExtension}`;
@@ -29,9 +28,7 @@ exports.uploadFile = async (file) => {
     return `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/fluxboard/uploads/${fileName}`;
 };
 
-// 💡 Hàm mới: Tạo Presigned URL cho Frontend tự upload trực tiếp lên S3 (Tránh sập Backend)
 exports.generateUploadUrl = async (fileName, fileType) => {
-    // Tạo tên file duy nhất tránh trùng lặp
     const uniqueFileName = `${crypto.randomBytes(16).toString('hex')}-${fileName}`;
     const s3Key = `fluxboard/task-attachments/${uniqueFileName}`;
     
@@ -41,9 +38,29 @@ exports.generateUploadUrl = async (fileName, fileType) => {
         ContentType: fileType
     });
 
-    // Tạo URL presigned có hiệu lực trong 1 giờ (3600 giây)
     const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
     const fileUrl = `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${s3Key}`;
-
+    
     return { uploadUrl, fileUrl };
+};
+
+exports.deleteFile = async (fileUrl) => {
+    if (!fileUrl) return;
+    try {
+        const bucketDomain = `${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/`;
+        let s3Key = fileUrl.replace(`https://${bucketDomain}`, '');
+        
+        if (s3Key === fileUrl) {
+            s3Key = fileUrl.replace(`https://${process.env.AWS_S3_BUCKET}.s3.amazonaws.com/`, '');
+        }
+
+        const command = new DeleteObjectCommand({
+            Bucket: process.env.AWS_S3_BUCKET,
+            Key: s3Key
+        });
+
+        await s3Client.send(command);
+    } catch (error) {
+        console.error('Failed to delete S3 object:', error);
+    }
 };

@@ -30,12 +30,17 @@ exports.deleteComment = async (commentId, userId) => {
     if (!comment) throw new AppError('Comment not found', 404, 'NOT_FOUND');
 
     if (comment.user_id.toString() !== userId.toString()) {
-        throw new AppError('You do not have permission to delete this comment', 403, 'FORBIDDEN');
+        throw new AppError('Unauthorized', 403, 'FORBIDDEN');
     }
 
+    await Comment.findByIdAndDelete(commentId);
+    
     const task = await Task.findById(comment.task_id);
-    await comment.deleteOne();
-
-    emitBoardEvent(task.board_id, 'commentDeleted', commentId);
+    if (task) emitBoardEvent(task.board_id, 'commentDeleted', commentId);
+    
     return true;
+};
+
+exports.deleteAllByTaskId = async (taskId) => {
+    await Comment.deleteMany({ task_id: taskId });
 };
