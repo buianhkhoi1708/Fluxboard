@@ -19,10 +19,11 @@ interface NotificationState {
     fetchNotifications: (page?: number) => Promise<void>;
     addNotification: (notif: NotificationItem) => void;
     markAsRead: (id: string) => Promise<void>;
+    markAllAsRead: () => Promise<void>;
     startLongPolling: () => void; 
 }
 
-export const useNotificationStore = create<NotificationState>((set, get) => ({
+export const useNotificationStore = create<NotificationState>((set) => ({
     notifications: [],
     unreadCount: 0,
 
@@ -66,6 +67,24 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         }
     },
 
+    markAllAsRead: async () => {
+        try {
+            const currentState = useNotificationStore.getState();
+            const unreadIds = currentState.notifications
+                .filter((n: NotificationItem) => !n.is_read)
+                .map((n: NotificationItem) => n._id);
+
+            await Promise.all(unreadIds.map(id => notificationApi.markAsRead(id)));
+
+            set((state) => ({
+                notifications: state.notifications.map((n: NotificationItem) => ({ ...n, is_read: true })),
+                unreadCount: 0 
+            }));
+        } catch (error) {
+            console.error('Error marking all as read:', error);
+        }
+    },
+
     startLongPolling: async () => {
         if ((window as any)._isPollingActive) return;
         (window as any)._isPollingActive = true;
@@ -78,10 +97,11 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
                 if (newNotifs && newNotifs.length > 0) {
                     newNotifs.forEach((newNotif: NotificationItem) => {
-                        const isDuplicate = get().notifications.some(n => n._id === newNotif._id);
+                        const storeState = useNotificationStore.getState();
+                        const isDuplicate = storeState.notifications.some((n: NotificationItem) => n._id === newNotif._id);
                         
                         if (!isDuplicate) {
-                            get().addNotification(newNotif);
+                            storeState.addNotification(newNotif);
                             
                             toast.info(newNotif.title || 'You have a new notification!', {
                                 toastId: newNotif._id 
