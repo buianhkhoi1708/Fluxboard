@@ -1,6 +1,7 @@
 const Task = require('../models/task.model');
 const AppError = require('../../../common/exceptions/AppError');
 const socketConfig = require('../../../common/config/socket');
+const eventBus = require('../../../common/utils/eventBus');
 
 const emitBoardEvent = (boardId, eventName, payload) => {
     const io = socketConfig.getIo();
@@ -14,6 +15,8 @@ exports.addSubtask = async (taskId, title) => {
     task.subtasks.push({ title, is_done: false });
     await task.save();
 
+    // Kích hoạt sự kiện cập nhật task
+    eventBus.emit('system_task_updated', { taskId: task._id });
     emitBoardEvent(task.board_id, 'taskUpdated', task);
     return task;
 };
@@ -30,6 +33,8 @@ exports.updateSubtask = async (taskId, subtaskId, updateData) => {
 
     await task.save();
 
+    // Kích hoạt sự kiện cập nhật task
+    eventBus.emit('system_task_updated', { taskId: task._id });
     emitBoardEvent(task.board_id, 'taskUpdated', task);
     return task;
 };
@@ -41,6 +46,27 @@ exports.deleteSubtask = async (taskId, subtaskId) => {
     task.subtasks = task.subtasks.filter(st => st._id.toString() !== subtaskId.toString());
     await task.save();
 
+    // Kích hoạt sự kiện cập nhật task
+    eventBus.emit('system_task_updated', { taskId: task._id });
+    emitBoardEvent(task.board_id, 'taskUpdated', task);
+    return task;
+};
+
+// Thêm nhiều subtask cùng lúc từ mảng dữ liệu AI trả về
+exports.addMultipleSubtasks = async (taskId, titles) => {
+    const task = await Task.findById(taskId);
+    if (!task) throw new AppError('Task not found', 404, 'NOT_FOUND');
+
+    if (!Array.isArray(titles) || titles.length === 0) {
+        throw new AppError('Invalid data format', 400, 'BAD_REQUEST');
+    }
+
+    const newSubtasks = titles.map(title => ({ title, is_done: false }));
+    task.subtasks.push(...newSubtasks);
+    await task.save();
+
+    // Kích hoạt sự kiện cập nhật task
+    eventBus.emit('system_task_updated', { taskId: task._id });
     emitBoardEvent(task.board_id, 'taskUpdated', task);
     return task;
 };

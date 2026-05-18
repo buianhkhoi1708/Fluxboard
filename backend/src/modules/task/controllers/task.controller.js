@@ -100,6 +100,14 @@ exports.addSubtask = async (req, res, next) => {
     } catch (error) { next(error); }
 };
 
+// Hàm thêm nhiều subtask phục vụ luồng nhận mảng dữ liệu phân tích từ AI
+exports.addMultipleSubtasks = async (req, res, next) => {
+    try {
+        const task = await subtaskService.addMultipleSubtasks(req.params.id, req.body.titles);
+        res.status(201).json({ success: true, data: task, message: 'Multiple subtasks added successfully' });
+    } catch (error) { next(error); }
+};
+
 exports.updateSubtask = async (req, res, next) => {
     try {
         const task = await subtaskService.updateSubtask(req.params.id, req.params.subtaskId, req.body);
@@ -128,6 +136,13 @@ exports.getTaskComments = async (req, res, next) => {
     try {
         const comments = await taskCommentService.getTaskComments(req.params.id);
         res.status(200).json({ success: true, data: comments });
+    } catch (error) { next(error); }
+};
+
+exports.updateComment = async (req, res, next) => {
+    try {
+        const comment = await taskCommentService.updateComment(req.params.commentId, req.user.id, req.body.content);
+        res.status(200).json({ success: true, data: comment, message: 'Comment updated' });
     } catch (error) { next(error); }
 };
 
@@ -187,6 +202,13 @@ exports.getTaskAttachments = async (req, res, next) => {
     } catch (error) { next(error); }
 };
 
+exports.deleteAttachment = async (req, res, next) => {
+    try {
+        await taskAttachmentService.deleteAttachment(req.params.attachmentId, req.user.id);
+        res.status(200).json({ success: true, message: 'Attachment deleted' });
+    } catch (error) { next(error); }
+};
+
 // ==========================================
 // 5. NHẬT KÝ HOẠT ĐỘNG (ACTIVITY LOGS)
 // ==========================================
@@ -194,7 +216,7 @@ exports.getTaskActivities = async (req, res, next) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
-        const activities = await activityService.getTaskActivities(req.params.id, page, limit);
+        const activities = await activityService.getActivitiesByTarget('Task', req.params.id, page, limit);
         res.status(200).json({ success: true, data: activities });
     } catch (error) { next(error); }
 };
