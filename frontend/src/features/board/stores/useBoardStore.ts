@@ -1,11 +1,10 @@
 import { create } from 'zustand';
 import { boardApi } from '../api/boardApi';
-import { useUserStore } from '../../user/store/useUserStore'; // 🚀 Import Kho Toàn Cục
+import { useUserStore } from '../../user/store/useUserStore'; 
 
 interface IBoardState {
   board: any | null; 
   isLoading: boolean; 
-  // Đã xóa sạch projectMembers, fetchProjectMembers, và getMemberById cho nhẹ Store
   
   fetchBoardData: (boardId: string) => Promise<void>;
   setBoard: (newBoard: any) => void; 
@@ -39,19 +38,30 @@ export const useBoardStore = create<IBoardState>((set, get) => ({
       const response = await boardApi.getBoard(boardId);
       
       let coreData = response;
-      while (coreData && coreData.data && !coreData.projectId && !coreData.project_id) {
+      // Bóc tách lớp vỏ của Axios
+      while (coreData && coreData.data && !coreData.project_id && !coreData.projectId) {
         coreData = coreData.data;
+      }
+
+      // 🚀 DATA ADAPTER: Tự động dịch tên biến từ Backend sang Frontend
+      if (coreData) {
+        // Ánh xạ tên Bảng
+        coreData.board_name = coreData.name || "Bảng chưa đặt tên";
+        
+        // Ánh xạ danh sách Cột và Thẻ công việc
+        coreData.columns = (coreData.column_order_ids || []).map((col: any) => ({
+          ...col,
+          list_name: col.name || "Danh sách",       // Backend dùng 'name', Frontend cần 'list_name'
+          tasks: col.task_order_ids || []           // Backend dùng 'task_order_ids', Frontend cần 'tasks'
+        }));
       }
 
       const projectId = coreData?.projectId || coreData?.project_id;
 
       if (projectId) {
-        // 🚀 BƠM DATA VÀO KHO TOÀN CỤC (Tự động chạy ngầm không cần UI gọi)
         boardApi.getProjectMembers(projectId)
           .then(res => {
-            // Xử lý linh hoạt vỏ bọc của API
             const members = (res as any)?.data?.content || (res as any)?.data || res || [];
-            // Bắn data sang Kho Toàn Cục
             useUserStore.getState().saveUsersToCache(members, projectId);
           })
           .catch(err => console.error("❌ Lỗi đồng bộ danh bạ dự án:", err));
@@ -97,19 +107,26 @@ export const useBoardStore = create<IBoardState>((set, get) => ({
 
   addTask: async (columnId: string, taskData: any) => {
     try {
+      const board = get().board;
       const taskRequest = {
         title: taskData.title.trim(),
         description: taskData.description || "",
-        column_id: columnId,         
+        column_id: columnId,
+        board_id: board?.id || board?._id, // Quan trọng: gửi kèm board_id
         priority: taskData.priority?.toUpperCase() || "MEDIUM", 
         status: "TODO",
-        assignees_user_id: [], 
+        assignees_user_id: taskData.assignees_user_id || [], 
         story_point: Number(taskData.story_points) || 0,
         start_date: taskData.start_date ? new Date(taskData.start_date).toISOString() : null,
         due_date: taskData.due_date ? new Date(taskData.due_date).toISOString() : null,
         parent_task_id: null,
       };
       await boardApi.createTask(taskRequest);
+      
+      // Nếu Socket chậm, tự F5 lại dữ liệu luôn
+      const currentBoardId = board?.id || board?._id;
+      if (currentBoardId) get().fetchBoardData(currentBoardId); 
+
     } catch (error) {
       console.error("❌ Lỗi khi tạo task:", error);
     }
@@ -119,7 +136,7 @@ export const useBoardStore = create<IBoardState>((set, get) => ({
     const { board, fetchBoardData } = get();
     if (!board) return;
     
-    // Optimistic Update
+    // Cập nhật mượt trên UI trước khi gọi API
     set((state: any) => ({
       board: {
         ...state.board,
@@ -168,10 +185,7 @@ export const useBoardStore = create<IBoardState>((set, get) => ({
 
   updateTaskPositionApi: async (taskId: string, newColumnId: string, newOrder: number) => {
     try {
-      const board = get().board;
-      const boardId = board?.id || board?._id;
-      if (!boardId) return;
-      await boardApi.moveTask(taskId, newColumnId, newOrder, boardId);
+      await boardApi.moveTask(taskId, newColumnId, newOrder);
     } catch (error) {
       const currentBoardId = get().board?.id || get().board?._id;
       if (currentBoardId) get().fetchBoardData(currentBoardId); 
@@ -184,17 +198,10 @@ export const useBoardStore = create<IBoardState>((set, get) => ({
 
   addSubtask: async (columnId: string, parentTaskId: string, title: string) => {
     try {
-      const taskRequest = {
-        title: title.trim(),
-        description: "",
-        column_id: columnId,         
-        priority: "MEDIUM", 
-        status: "TODO",
-        assignees_user_id: [], 
-        story_point: 0, 
-        parent_task_id: parentTaskId, 
-      };
-      await boardApi.createTask(taskRequest);
+      await boardApi.addSubtask(parentTaskId, title.trim());
+      
+      const currentBoardId = get().board?.id || get().board?._id;
+      if (currentBoardId) get().fetchBoardData(currentBoardId); 
     } catch (error) {
       console.error("❌ Lỗi khi tạo subtask:", error);
     }
@@ -209,21 +216,13 @@ export const useBoardStore = create<IBoardState>((set, get) => ({
     const subtask = parent?.subtasks?.find((st: any) => st.id === subtaskId || st._id === subtaskId);
     if (!subtask) return;
 
-    const newStatus = (subtask.status === 'DONE' || subtask.is_done) ? 'TODO' : 'DONE';
-
-    const subtaskUpdates = {
-      title: subtask.title || "Subtask",
-      description: subtask.description || "",
-      priority: subtask.priority?.toUpperCase() || "MEDIUM", 
-      story_point: subtask.story_point || 0,
-      assignees_user_id: [],
-      column_id: columnId,
-      parent_task_id: parentTaskId, 
-      status: newStatus
-    };
+    const currentIsDone = subtask.is_done === true || subtask.status === 'DONE';
+    const newIsDone = !currentIsDone;
 
     try {
-      await boardApi.updateTask(subtaskId, subtaskUpdates);
+      await boardApi.updateSubtask(parentTaskId, subtaskId, {
+        is_done: newIsDone
+      });
       fetchBoardData(board.id || board._id);
     } catch (error) {
       console.error("❌ Lỗi update subtask:", error);

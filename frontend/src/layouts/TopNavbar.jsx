@@ -1,20 +1,33 @@
-import React, { useEffect } from 'react';
+import React, { useState } from 'react';
 import Logo from '../../src/assets/icon.svg'; 
-import { ChevronDown, Search } from 'lucide-react';
-import Notification from '../pages/Notification';
-import { useNotificationStore } from '../features/notification/store/useNotificationStore';
+import { ChevronDown, Search, User } from 'lucide-react';
+import { useNavigate } from 'react-router-dom'; 
+import { useAuthStore } from '../features/auth/store/useAuthStore'; 
+import NotificationDropdown from '../features/notification/components/NotificationDropdown';
 
 const TopNavbar = () => {
-  const { fetchNotifications, startLongPolling } = useNotificationStore();
+  const { user, logout } = useAuthStore();
+  const navigate = useNavigate(); 
+  
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
-  useEffect(() => {
-    fetchNotifications(); 
-    startLongPolling();   
-  }, [fetchNotifications, startLongPolling]);
+  // Fallback thông tin người dùng
+  const userName = user?.full_name || user?.fullName || "Guest User";
+  const userInitial = userName.charAt(0).toUpperCase();
+  const avatarUrl = user?.avatar_url || user?.avatarUrl;
+  
+  // 🚀 Đã gỡ bỏ useRoleAccess. Tạm thời gán cứng "MEMBER" hoặc lấy từ object user
+  const currentRoleName = user?.role_name || "MEMBER"; 
+
+  const handleUserProfile = () => {
+    navigate('/settings'); 
+    setIsProfileOpen(false);
+  };
 
   return (
     <nav className="flex justify-between items-center px-4 md:px-6 h-[60px] border-b border-slate-200 bg-white/80 backdrop-blur-md sticky top-0 z-50">
       
+      {/* LEFT SECTION: Logo & Workspace */}
       <div className="flex items-center gap-6 md:gap-8">
         <div className="flex items-center gap-2.5 min-w-[200px]">
           <img 
@@ -25,19 +38,21 @@ const TopNavbar = () => {
           <span className="font-extrabold text-xl tracking-tight text-slate-900">Fluxboard</span>
         </div>
         
+        {/* Workspace Selector */}
         <div className="hidden md:flex items-center gap-2.5 border border-slate-200 px-3 py-1.5 rounded-xl cursor-pointer hover:bg-slate-50 hover:border-slate-300 hover:shadow-sm transition-all group">
-          <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 text-white w-6 h-6 flex items-center justify-center rounded-md font-bold text-xs shadow-sm">
+          <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 text-white w-6 h-6 flex items-center justify-center rounded-md text-xs font-bold shadow-sm">
             F
           </div>
-          <span className="text-sm font-semibold text-slate-700 group-hover:text-indigo-700 transition-colors">Fluxboard Workspace</span>
-          <ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-indigo-500 transition-colors" />
+          <span className="text-sm font-semibold text-slate-700 group-hover:text-slate-900 transition-colors">Flux Workspace</span>
+          <ChevronDown size={14} className="text-slate-400 group-hover:text-slate-600 transition-colors" />
         </div>
       </div>
 
-      <div className="hidden md:flex flex-1 max-w-md px-6">
-        <div className="relative w-full group">
+      {/* MIDDLE SECTION: Search Bar */}
+      <div className="flex-1 max-w-md hidden lg:block px-6">
+        <div className="relative group">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="h-4 w-4 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+            <Search size={16} className="text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
           </div>
           <input 
             type="text" 
@@ -50,18 +65,60 @@ const TopNavbar = () => {
         </div>
       </div>
 
+      {/* RIGHT SECTION: Notifications & Profile */}
       <div className="flex items-center gap-4 md:gap-5">
         
-        <Notification />
+        <NotificationDropdown />
         
         <div className="h-6 w-px bg-slate-200 hidden md:block"></div>
 
-        <div className="flex items-center gap-2 cursor-pointer hover:bg-slate-50 py-1 px-2 rounded-xl transition-colors">
-          <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold border border-indigo-200">
-            U
-          </div>
-          <ChevronDown className="w-4 h-4 text-slate-500" />
+        {/* User Profile Section */}
+        <div className="relative">
+          <button 
+            onClick={() => setIsProfileOpen(!isProfileOpen)}
+            className="flex items-center gap-2 hover:opacity-80 transition-opacity p-1 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-100"
+          >
+            {avatarUrl ? (
+              <img 
+                src={avatarUrl} 
+                alt={userName} 
+                className="w-8 h-8 rounded-full object-cover border border-slate-200 shadow-sm"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm shadow-sm border border-indigo-200">
+                {userInitial}
+              </div>
+            )}
+          </button>
+
+          {/* Profile Dropdown Menu */}
+          {isProfileOpen && (
+            <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-lg border border-slate-100 py-2 z-50 animate-in fade-in slide-in-from-top-2">
+              <div className="px-4 py-2 border-b border-slate-100 mb-1">
+                <p className="text-sm font-bold text-slate-800 truncate">{userName}</p>
+                <p className="text-[11px] font-medium text-slate-400 truncate">{user?.email || "No email"}</p>
+                <span className="inline-block mt-1.5 px-2 py-0.5 bg-indigo-50 text-indigo-600 text-[9px] font-black uppercase rounded border border-indigo-100">
+                  {currentRoleName}
+                </span>
+              </div>
+              
+              <button 
+                onClick={handleUserProfile}
+                className="w-full text-left px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-indigo-600 transition-colors flex items-center gap-2"
+              >
+                <User size={16} /> Hồ sơ cá nhân
+              </button>
+              
+              <button 
+                onClick={logout}
+                className="w-full text-left px-4 py-2 text-sm text-rose-600 hover:bg-rose-50 transition-colors flex items-center gap-2"
+              >
+                Đăng xuất
+              </button>
+            </div>
+          )}
         </div>
+
       </div>
     </nav>
   );

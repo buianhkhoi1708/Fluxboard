@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Column from './Column';
 import TaskItem from './TaskItem'; 
 import { useBoardStore } from '../stores/useBoardStore'; 
-import { useUserStore } from '../../user/store/useUserStore'; // 🚀 IMPORT KHO TOÀN CỤC
+import { useUserStore } from '../../user/store/useUserStore'; 
 import { DndContext, closestCenter, DragOverlay, useSensor, useSensors, MouseSensor, TouchSensor } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { Save, Sparkles, Filter, Users } from 'lucide-react'; 
@@ -13,7 +13,6 @@ import { useParams } from 'react-router-dom';
 const BoardView = () => {
   const { board, setBoard, fetchBoardData, updateTaskPositionApi } = useBoardStore();
   
-  // 🚀 LẤY TỪ ĐIỂN USER TỪ KHO TOÀN CỤC
   const { userDictionary } = useUserStore();
   const { socket, joinBoard } = useSocket();
 
@@ -27,56 +26,34 @@ const BoardView = () => {
   const currentBoardId = id || '69d22692ef24ae604f65ae89'; 
 
   useEffect(() => {
+    if (!socket) return;
+    if (!currentBoardId) return;
 
-  if (!socket) return;
+    joinBoard(currentBoardId);
 
-  if (!currentBoardId) return;
+    const handleRealtimeUpdate = () => {
+      console.log('📡 Realtime event received');
+      fetchBoardData(currentBoardId);
+    };
 
-  console.log('🚀 Joining board:', currentBoardId);
+    // 🚀 LẮNG NGHE SỰ KIỆN CAMEL CASE
+    socket.on('taskCreated', handleRealtimeUpdate);
+    socket.on('taskUpdated', handleRealtimeUpdate);
+    socket.on('taskDeleted', handleRealtimeUpdate);
+    socket.on('taskMoved', handleRealtimeUpdate);
 
-  // =====================================
-  // JOIN ROOM
-  // =====================================
-  joinBoard(currentBoardId);
-
-  // =====================================
-  // REALTIME EVENTS
-  // =====================================
-
-  const handleRealtimeUpdate = () => {
-
-    console.log('📡 Realtime event received');
-
-    fetchBoardData(currentBoardId);
-  };
-
-  socket.on('task-created', handleRealtimeUpdate);
-
-  socket.on('task-updated', handleRealtimeUpdate);
-
-  socket.on('task-deleted', handleRealtimeUpdate);
-
-  socket.on('task-moved', handleRealtimeUpdate);
-
-  return () => {
-
-    socket.off('task-created', handleRealtimeUpdate);
-
-    socket.off('task-updated', handleRealtimeUpdate);
-
-    socket.off('task-deleted', handleRealtimeUpdate);
-
-    socket.off('task-moved', handleRealtimeUpdate);
-
-  };
-
-}, [socket, currentBoardId, fetchBoardData]);
+    return () => {
+      socket.off('taskCreated', handleRealtimeUpdate);
+      socket.off('taskUpdated', handleRealtimeUpdate);
+      socket.off('taskDeleted', handleRealtimeUpdate);
+      socket.off('taskMoved', handleRealtimeUpdate);
+    };
+  }, [socket, currentBoardId, fetchBoardData]);
 
   useEffect(() => {
     if (currentBoardId) fetchBoardData(currentBoardId); 
   }, [currentBoardId, fetchBoardData]); 
 
-  // 🚀 LỌC RA NHỮNG USER THUỘC VỀ PROJECT NÀY
   const projectId = board?.projectId || board?.project_id;
   const projectMembers = Object.values(userDictionary).filter(
     (user) => projectId && user.project_roles && user.project_roles[projectId]
@@ -115,7 +92,9 @@ const BoardView = () => {
     if (sourceColIndex === -1 || destColIndex === -1) return;
 
     const newColumns = [...board.columns];
-    let newOrder = 1; 
+    
+    // 🚀 TÍNH CHỈ SỐ BẮT ĐẦU TỪ 0
+    let newOrder = 0; 
 
     if (activeColId === overColId) {
       const col = newColumns[sourceColIndex];
@@ -123,7 +102,7 @@ const BoardView = () => {
       const newIndex = col.tasks.findIndex(t => t.id === over.id || t._id === over.id);
       
       newColumns[sourceColIndex] = { ...col, tasks: arrayMove(col.tasks, oldIndex, newIndex) };
-      newOrder = newIndex + 1; 
+      newOrder = newIndex; 
     } else {
       const sourceCol = newColumns[sourceColIndex];
       const destCol = newColumns[destColIndex];
@@ -134,10 +113,10 @@ const BoardView = () => {
       if (over.data.current?.type === 'Task') {
         const newIndex = destCol.tasks.findIndex(t => t.id === over.id || t._id === over.id);
         newDestTasks.splice(newIndex, 0, movedTask);
-        newOrder = newIndex + 1;
+        newOrder = newIndex;
       } else {
         newDestTasks.push(movedTask);
-        newOrder = newDestTasks.length;
+        newOrder = Math.max(0, newDestTasks.length - 1);
       }
       newColumns[sourceColIndex] = { ...sourceCol, tasks: newSourceTasks };
       newColumns[destColIndex] = { ...destCol, tasks: newDestTasks };
@@ -166,8 +145,6 @@ const BoardView = () => {
           </div>
           
           <div className="flex items-center gap-2 md:gap-3 w-full lg:w-auto overflow-x-auto no-scrollbar pb-1 lg:pb-0 shrink-0">
-            
-            {/* 🚀 AVATAR STACK TỰ ĐỘNG TỪ KHO TOÀN CỤC */}
             <div className="hidden sm:flex items-center -space-x-2 mr-2 shrink-0">
               {projectMembers.length > 0 ? (
                 <>

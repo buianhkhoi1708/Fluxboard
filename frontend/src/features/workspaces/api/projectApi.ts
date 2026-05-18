@@ -1,150 +1,32 @@
 import axiosClient from '../../../lib/axiosClient';
-import { IncomingUser } from '../../user/store/useUserStore';
-
-// ==========================================
-// RESPONSE WRAPPER
-// ==========================================
-
-export interface ApiResponse<T> {
-  success: boolean;
-  data: T;
-  message?: string;
-}
-
-// ==========================================
-// PAYLOAD TYPES
-// ==========================================
-
-export interface CreateProjectPayload {
-  name: string;
-  description?: string;
-  department_id?: string;
-}
-
-export type UpdateProjectPayload = Partial<CreateProjectPayload> & {
-  is_deleted?: boolean;
-};
-
-// ==========================================
-// PROJECT API
-// ==========================================
+import { CreateProjectPayload, AddMemberPayload } from '../types/projectTypes';
 
 export const projectApi = {
+  // Lấy danh sách dự án của user đang đăng nhập (GET /projects)
+  getUserProjects: () => axiosClient.get('/projects'),
 
-  // ==========================================
-  // CREATE PROJECT
-  // ==========================================
-  createProject: async (
-    data: CreateProjectPayload
-  ): Promise<ApiResponse<any>> => {
-    const res = await axiosClient.post('/projects', data);
-    return res.data;
-  },
+  // Lấy chi tiết dự án kèm Board và Member (GET /projects/:id)
+  getProjectDetail: (projectId: string) => axiosClient.get(`/projects/${projectId}`),
 
-  // ==========================================
-  // GET PROJECTS
-  // ==========================================
-  getProjects: async (
-    params?: {
-      page?: number;
-      size?: number;
-      sort?: string;
-    }
-  ): Promise<ApiResponse<any>> => {
-    const res = await axiosClient.get('/projects', { params });
-    return res.data;
-  },
+  // Tạo dự án mới (POST /projects)
+  createProject: (data: CreateProjectPayload) => axiosClient.post('/projects', data),
 
-  // ==========================================
-  // GET PROJECT DETAIL
-  // ==========================================
-  getProjectById: async (
-    projectId: string
-  ): Promise<ApiResponse<any>> => {
-    const res = await axiosClient.get(`/projects/${projectId}`);
-    return res.data;
-  },
+  // Sửa dự án (PUT /projects/:id)
+  updateProject: (projectId: string, data: Partial<CreateProjectPayload>) => 
+    axiosClient.put(`/projects/${projectId}`, data),
 
-  // ==========================================
-  // PROJECT OVERVIEW
-  // ==========================================
-  getProjectOverview: async (
-    projectId: string
-  ): Promise<ApiResponse<any>> => {
-    const res = await axiosClient.get(`/projects/${projectId}/overview`);
-    return res.data;
-  },
+  // Xóa dự án (DELETE /projects/:id)
+  deleteProject: (projectId: string) => axiosClient.delete(`/projects/${projectId}`),
 
-  // ==========================================
-  // PROJECTS BY DEPARTMENT
-  // ==========================================
-  getProjectsByDepartment: async (
-    departmentId: string,
-    params?: {
-      page?: number;
-      size?: number;
-    }
-  ): Promise<ApiResponse<any>> => {
-    const res = await axiosClient.get(
-      `/projects/departments/${departmentId}`,
-      { params }
-    );
+  // ================= QUẢN LÝ THÀNH VIÊN =================
+  // Thêm thành viên (POST /projects/members)
+  addMember: (data: AddMemberPayload) => axiosClient.post('/projects/members', data),
 
-    return res.data;
-  },
+  // Xóa thành viên (DELETE /projects/members)
+  removeMember: (projectId: string, userId: string) => 
+    axiosClient.delete('/projects/members', { data: { project_id: projectId, user_id: userId } }),
 
-  // ==========================================
-  // UPDATE PROJECT
-  // ==========================================
-  updateProject: async (
-    projectId: string,
-    data: UpdateProjectPayload
-  ): Promise<ApiResponse<any>> => {
-    const res = await axiosClient.put(
-      `/projects/${projectId}`,
-      data
-    );
-
-    return res.data;
-  },
-
-  // ==========================================
-  // DELETE PROJECT
-  // ==========================================
-  deleteProject: async (
-    projectId: string
-  ): Promise<ApiResponse<any>> => {
-    const res = await axiosClient.delete(`/projects/${projectId}`);
-    return res.data;
-  },
-
-  // ==========================================
-  // GET ALL PROJECT OVERVIEWS
-  // ==========================================
-  getProjectOverviews: async (
-    params?: {
-      page?: number;
-      size?: number;
-    }
-  ): Promise<ApiResponse<any>> => {
-    const res = await axiosClient.get(
-      '/projects',
-      { params }
-    );
-
-    return res.data;
-  },
-
-  // ==========================================
-  // GET PROJECT MEMBERS
-  // ==========================================
-  getProjectMembers: async (
-    projectId: string
-  ): Promise<ApiResponse<IncomingUser[]>> => {
-    const res = await axiosClient.get(
-      `/projects/${projectId}/members`
-    );
-
-    return res.data;
-  }
+  // Cập nhật Role thành viên (PUT /projects/:projectId/members/:userId)
+  updateMemberRole: (projectId: string, userId: string, role_name: string) => 
+    axiosClient.put(`/projects/${projectId}/members/${userId}`, { role_name })
 };
