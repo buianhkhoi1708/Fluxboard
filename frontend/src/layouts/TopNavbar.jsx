@@ -1,7 +1,9 @@
 import React, { useEffect } from 'react';
 import Logo from '../../src/assets/icon.svg'; 
 import { ChevronDown, Search } from 'lucide-react';
-import Notification from '../pages/Notification';
+
+// 💡 Trỏ đúng vào thư mục components và store
+import NotificationDropdown from '../features/notification/components/NotificationDropdown';
 import { useNotificationStore } from '../features/notification/store/useNotificationStore';
 
 const TopNavbar = () => {
@@ -52,7 +54,8 @@ const TopNavbar = () => {
 
       <div className="flex items-center gap-4 md:gap-5">
         
-        <Notification />
+        {/* 💡 Component Dropdown hiển thị chuông thông báo */}
+        <NotificationDropdown />
         
         <div className="h-6 w-px bg-slate-200 hidden md:block"></div>
 

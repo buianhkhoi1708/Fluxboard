@@ -1,6 +1,6 @@
 import React from 'react';
 import { Bell, Check, Info, AlertTriangle, XCircle, Clock, CheckCircle2 } from 'lucide-react';
-import { useNotificationStore } from '../features/notification/stores/useNotificationStore';
+import { useNotificationStore } from '../features/notification/store/useNotificationStore';
 
 const NotificationsPage = () => {
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotificationStore();
