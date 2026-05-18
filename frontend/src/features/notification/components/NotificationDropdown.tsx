@@ -1,20 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bell, Check, Info, AlertTriangle, XCircle, Clock } from 'lucide-react';
-// 💡 Sửa lại đường dẫn thành 'store'
-import { useNotificationStore, NotificationItem } from '../store/useNotificationStore'; 
-import { useNavigate } from 'react-router-dom';
+import { useNotificationStore } from '../stores/useNotificationStore';
+import { useUserStore } from '../../user/store/useUserStore';
+import { useNavigate } from 'react-router-dom'; // 🚀 IMPORT THÊM CÁI NÀY
 
 const NotificationDropdown: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const navigate = useNavigate();
+  const navigate = useNavigate(); // 🚀 KHAI BÁO HÀM CHUYỂN TRANG
   
-  // 💡 Chỉ lấy những hàm thực sự tồn tại trong Store
+  const currentUser = useUserStore((state: any) => state.currentUser);
   const { 
-    notifications, 
-    unreadCount, 
-    markAsRead 
+    notifications, unreadCount, connectWebSocket, disconnectWebSocket, 
+    markAsRead, markAllAsRead 
   } = useNotificationStore();
+
+  useEffect(() => {
+    const userId = currentUser?.id || currentUser?._id;
+    if (userId) connectWebSocket(userId);
+    return () => disconnectWebSocket();
+  }, [currentUser, connectWebSocket, disconnectWebSocket]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -25,7 +30,6 @@ const NotificationDropdown: React.FC = () => {
   }, []);
 
   const getNotificationStyle = (message: string) => {
-    if (!message) return { icon: <Info size={16} className="text-indigo-500" />, bg: 'bg-indigo-50', border: 'border-indigo-100' };
     if (message.includes('🚨') || message.includes('WARNING')) return { icon: <AlertTriangle size={16} className="text-orange-500" />, bg: 'bg-orange-50', border: 'border-orange-100' };
     if (message.includes('🛑') || message.includes('OVERDUE')) return { icon: <XCircle size={16} className="text-rose-500" />, bg: 'bg-rose-50', border: 'border-rose-100' };
     if (message.includes('✅') || message.includes('APPROVED')) return { icon: <Check size={16} className="text-emerald-500" />, bg: 'bg-emerald-50', border: 'border-emerald-100' };
@@ -50,7 +54,11 @@ const NotificationDropdown: React.FC = () => {
           
           <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
             <h3 className="font-bold text-slate-800 text-sm">Notifications</h3>
-            {/* Tạm ẩn nút markAllAsRead vì Store chưa có logic này, bạn có thể thêm sau */}
+            {unreadCount > 0 && (
+              <button onClick={markAllAsRead} className="text-xs font-bold text-indigo-600 hover:text-indigo-700">
+                Mark all as read
+              </button>
+            )}
           </div>
 
           <div className="max-h-[350px] overflow-y-auto custom-scrollbar p-2">
@@ -60,33 +68,32 @@ const NotificationDropdown: React.FC = () => {
                 <p className="text-sm font-medium">No new notifications</p>
               </div>
             ) : (
-              notifications.slice(0, 5).map((notif: NotificationItem) => { 
-                const style = getNotificationStyle(notif.message || '');
+              notifications.slice(0, 5).map((notif) => { // Tối ưu chỉ hiện 5 cái mới nhất ở Dropdown
+                const style = getNotificationStyle(notif.message);
                 return (
                   <div 
-                    // 💡 Cập nhật đúng thuộc tính MongoDB: _id, is_read, created_at
-                    key={notif._id} 
-                    onClick={() => markAsRead(notif._id)}
-                    className={`p-3 mb-2 rounded-xl flex gap-3 cursor-pointer transition-all ${notif.is_read ? 'opacity-60 hover:bg-slate-50' : `bg-white hover:${style.bg} border ${style.border} shadow-sm`}`}
+                    key={notif.id} onClick={() => markAsRead(notif.id)}
+                    className={`p-3 mb-2 rounded-xl flex gap-3 cursor-pointer transition-all ${notif.isRead ? 'opacity-60 hover:bg-slate-50' : `bg-white hover:${style.bg} border ${style.border} shadow-sm`}`}
                   >
                     <div className={`mt-0.5 shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${style.bg}`}>
                       {style.icon}
                     </div>
                     <div className="flex-1">
-                      <p className={`text-sm ${notif.is_read ? 'text-slate-600' : 'text-slate-800 font-semibold'} leading-snug`}>
-                        {notif.message ? notif.message.replace(/🚨|🛑|✅|⏳/g, '').trim() : ''}
+                      <p className={`text-sm ${notif.isRead ? 'text-slate-600' : 'text-slate-800 font-semibold'} leading-snug`}>
+                        {notif.message.replace(/🚨|🛑|✅|⏳/g, '').trim()}
                       </p>
                       <span className="text-[10px] font-bold text-slate-400 mt-1 block">
-                        {notif.created_at ? new Date(notif.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                        {new Date(notif.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
-                    {!notif.is_read && <div className="shrink-0 flex items-center justify-center w-3"><div className="w-2 h-2 rounded-full bg-indigo-500"></div></div>}
+                    {!notif.isRead && <div className="shrink-0 flex items-center justify-center w-3"><div className="w-2 h-2 rounded-full bg-indigo-500"></div></div>}
                   </div>
                 );
               })
             )}
           </div>
           
+          {/* 🚀 THÊM NÚT XEM TẤT CẢ Ở ĐÂY */}
           <div className="p-3 border-t border-slate-100 bg-slate-50/80">
             <button 
               onClick={() => {

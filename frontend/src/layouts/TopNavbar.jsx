@@ -1,36 +1,28 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Logo from '../../src/assets/icon.svg'; 
 import { ChevronDown, Search, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom'; 
-
 import { useAuthStore } from '../features/auth/store/useAuthStore'; 
 import NotificationDropdown from '../features/notification/components/NotificationDropdown';
-import { useNotificationStore } from '../features/notification/store/useNotificationStore';
 
 const TopNavbar = () => {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate(); 
   
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  
-  const { fetchNotifications, startLongPolling } = useNotificationStore();
 
   // Fallback thông tin người dùng
   const userName = user?.full_name || user?.fullName || "Guest User";
   const userInitial = userName.charAt(0).toUpperCase();
   const avatarUrl = user?.avatar_url || user?.avatarUrl;
+  
+  // 🚀 Đã gỡ bỏ useRoleAccess. Tạm thời gán cứng "MEMBER" hoặc lấy từ object user
   const currentRoleName = user?.role_name || "MEMBER"; 
 
   const handleUserProfile = () => {
     navigate('/settings'); 
     setIsProfileOpen(false);
   };
-
-  // CHẠY NGẦM KHI NGƯỜI DÙNG VỪA VÀO APP
-  useEffect(() => {
-    fetchNotifications(); 
-    startLongPolling();   
-  }, [fetchNotifications, startLongPolling]);
 
   return (
     <nav className="flex justify-between items-center px-4 md:px-6 h-[60px] border-b border-slate-200 bg-white/80 backdrop-blur-md sticky top-0 z-50">
@@ -57,8 +49,8 @@ const TopNavbar = () => {
       </div>
 
       {/* MIDDLE SECTION: Search Bar */}
-      <div className="hidden md:flex flex-1 max-w-md px-6">
-        <div className="relative w-full group">
+      <div className="flex-1 max-w-md hidden lg:block px-6">
+        <div className="relative group">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <Search size={16} className="text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
           </div>
@@ -76,13 +68,11 @@ const TopNavbar = () => {
       {/* RIGHT SECTION: Notifications & Profile */}
       <div className="flex items-center gap-4 md:gap-5">
         
-        {/* Chuông thông báo */}
         <NotificationDropdown />
         
-        {/* Vertical Divider */}
         <div className="h-6 w-px bg-slate-200 hidden md:block"></div>
 
-        {/* User Profile Section (Đã khôi phục hoàn toàn) */}
+        {/* User Profile Section */}
         <div className="relative">
           <button 
             onClick={() => setIsProfileOpen(!isProfileOpen)}

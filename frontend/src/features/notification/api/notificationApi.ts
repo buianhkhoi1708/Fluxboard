@@ -1,12 +1,7 @@
 import axiosClient from '../../../lib/axiosClient';
 
 export const notificationApi = {
-  // 💡 Lấy danh sách thông báo cá nhân có phân trang
-  getMyNotifications: (page = 1) => axiosClient.get('/api/v1/notifications', { params: { page } }),
-  
-  // 💡 Đánh dấu một thông báo cụ thể là đã đọc
-  markAsRead: (id: string) => axiosClient.put(`/api/v1/notifications/${id}/read`),
-  
-  // 💡 Đồng bộ long polling để liên tục nhận thông báo mới từ backend
-  getLongPolling: () => axiosClient.get('/api/v1/notifications/poll')
+  // Tương lai nếu sếp có endpoint lưu thông báo vào DB:
+  // getNotificationHistory: (page = 0, size = 20) => axiosClient.get('/notifications', { params: { page, size } }),
+  // markAsReadOnServer: (id: string) => axiosClient.put(`/notifications/${id}/read`),
 };

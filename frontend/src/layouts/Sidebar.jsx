@@ -11,6 +11,8 @@ import {
   Activity,
   Settings,
   LogOut,
+  Layers,
+  Sparkles,
 } from "lucide-react";
 
 const Sidebar = () => {
@@ -30,7 +32,7 @@ const Sidebar = () => {
       path: "/aigenerateboard",
       icon: <KanbanSquare size={20} />,
       label: "AI Boards",
-    },
+    }, // AI Highlighted
     { path: "/tasks", icon: <ListTodo size={20} />, label: "My Tasks" },
   ];
 
@@ -88,9 +90,8 @@ const Sidebar = () => {
       md:relative md:w-64 md:h-screen md:flex-col md:border-t-0 md:border-r shrink-0 transition-all
     "
     >
-      {/* MENU CONTENT */}
+      {/* 2. MENU CONTENT */}
       <div className="flex-1 flex flex-row md:flex-col gap-1 md:gap-6 overflow-x-auto md:overflow-y-auto no-scrollbar px-2 py-2 md:px-4 pb-20 md:pb-0">
-        
         {/* EXECUTION SECTION */}
         <div className="flex flex-row md:flex-col gap-1">
           <p className="hidden md:block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2 px-3">
@@ -100,8 +101,7 @@ const Sidebar = () => {
             <NavItem
               key={item.path}
               item={item}
-              // 💡 Sửa lỗi check sai đường dẫn highlight AI
-              isAiHighlight={item.path === "/aigenerateboard"} 
+              isAiHighlight={item.path === "/board"}
             />
           ))}
         </div>
