@@ -14,7 +14,6 @@ cron.schedule('* * * * *', async () => {
         });
 
         if (pendingNotifs.length > 0) {
-            console.log(`[Queue] Sending ${pendingNotifs.length} delayed notification...`);
             for (const notif of pendingNotifs) {
                 await notificationService.executePendingNotification(notif._id);
             }

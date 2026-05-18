@@ -7,8 +7,10 @@ const notificationSchema = new mongoose.Schema({
     message: { type: String, required: true },
     type: { type: String, required: true },
     reference_id: { type: mongoose.Schema.Types.ObjectId },
-    is_read: { type: Boolean, default: false },
     
+    email_html: { type: String }, 
+    
+    is_read: { type: Boolean, default: false },
     status: { type: String, enum: ['PENDING', 'SENT'], default: 'SENT', index: true }, 
     send_at: { type: Date, index: true } 
     

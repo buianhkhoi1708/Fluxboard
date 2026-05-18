@@ -1,127 +1,151 @@
 import { create } from 'zustand';
 import { projectApi } from '../api/projectApi';
-import { useUserStore, IncomingUser } from '../../user/store/useUserStore'; 
+import { useUserStore } from '../../user/store/useUserStore';
+import { Project, CreateProjectPayload } from '../types/projectTypes';
 
-// ==========================================
-// 1. ĐỊNH NGHĨA KIỂU DỮ LIỆU (INTERFACES)
-// ==========================================
-
-export interface Project {
-  id?: string;
-  _id?: string;
-  name?: string;
-  is_deleted?: boolean;
-  [key: string]: any; // Mở rộng nếu Backend trả thêm field
-}
-
-export interface Board {
-  id?: string;
-  _id?: string;
-  name?: string;
-  [key: string]: any;
-}
-
-export interface NormalizedProject {
-  project: Project;
-  boards: Board[];
-  members: IncomingUser[]; // Dùng Type của User để xài chung
-}
-
-interface ProjectStore {
-  projects: NormalizedProject[];
+interface ProjectState {
+  projects: any[];
+  currentProject: Project | null;
   isLoading: boolean;
-  fetchProjects: () => Promise<void>;
-  addProject: (newProject: Project) => void;
-  addBoardToProject: (projectId: string, newBoard: Board) => void;
-  fetchProjectMembers: (projectId: string) => Promise<void>;
+  
+  fetchUserProjects: () => Promise<void>;
+  fetchProjectDetail: (projectId: string) => Promise<void>;
+  createNewProject: (data: CreateProjectPayload) => Promise<boolean>;
+  addBoardToProject: (projectId: string, newBoard: any) => void;
+  // 🚀 Thêm 2 hàm xử lý mới
+  updateExistingProject: (projectId: string, data: Partial<CreateProjectPayload>) => Promise<boolean>;
+  deleteExistingProject: (projectId: string) => Promise<boolean>;
 }
 
-// ==========================================
-// 2. LOGIC STORE
-// ==========================================
-
-const useProjectStore = create<ProjectStore>((set, get) => ({
-  projects: [], 
+export const useProjectStore = create<ProjectState>((set, get) => ({
+  projects: [],
+  currentProject: null,
   isLoading: false,
 
-  fetchProjects: async () => {
+  fetchUserProjects: async () => {
     set({ isLoading: true });
     try {
-      const response = await projectApi.getProjectOverviews({ page: 0, size: 50 });
-      if (response.success) {
-        // Ép kiểu (as any) tạm thời để bắt linh hoạt các dạng response
-        const rawData: any[] = (response.data as any)?.content || response.data;
-        
-        const normalizedProjects: NormalizedProject[] = rawData.map(item => {
-          if (item.project) return item; 
-          return {
-            project: item, 
-            boards: item.boards || [],
-            members: item.members || [] 
-          };
-        });
+      const res: any = await projectApi.getUserProjects();
+      const rawProjects = res.data?.data || res.data || [];
 
-        const activeProjects = normalizedProjects.filter(item => {
-          const p = item.project;
-          return p && (p.is_deleted === false || p.is_deleted === undefined);
-        });
-        
-        set({ projects: activeProjects });
+      const normalizedProjects = rawProjects.map((p: any) => ({
+        project: p,
+        boards: [],
+        members: []
+      }));
 
-        // TỰ ĐỘNG GỌI MEMBER CHO TỪNG PROJECT
-        activeProjects.forEach(item => {
-          const pid = item.project?.id || item.project?._id;
-          if (pid) {
-            get().fetchProjectMembers(pid); 
-          }
-        });
-      }
+      set({ projects: normalizedProjects, isLoading: false });
+
+      normalizedProjects.forEach((item: any) => {
+        const pid = item.project?._id || item.project?.id;
+        if (pid) get().fetchProjectDetail(pid);
+      });
     } catch (error) {
-      console.error("Store Fetch Error:", error);
-    } finally {
+      console.error("❌ Lỗi tải danh sách dự án:", error);
       set({ isLoading: false });
     }
   },
 
-  addProject: (newProject) => set((state) => ({ 
-    projects: [{ project: newProject, boards: [], members: [] }, ...state.projects] 
-  })),
-
-  addBoardToProject: (projectId, newBoard) => set((state) => ({
-    projects: state.projects.map((item) => {
-      if (item.project && (item.project.id === projectId || item.project._id === projectId)) {
-        return {
-          ...item,
-          boards: item.boards ? [...item.boards, newBoard] : [newBoard]
-        };
-      }
-      return item;
-    })
-  })),
-
-  fetchProjectMembers: async (projectId) => {
+  fetchProjectDetail: async (projectId: string) => {
     try {
-      const response = await projectApi.getProjectMembers(projectId);
-      const membersData: IncomingUser[] = (response.data as any)?.content || (response.data as any)?.data || response.data || [];
+      const res: any = await projectApi.getProjectDetail(projectId);
+      const detailData = res.data?.data || res.data;
 
-      // 🚀 BƯỚC QUAN TRỌNG NHẤT: Bơm data vào Kho Toàn Cục!
-      // Việc này giúp thẻ Task ở bên trong Board nhận diện được Avatar lập tức
-      useUserStore.getState().saveUsersToCache(membersData, projectId);
+      if (detailData?.members) {
+        const usersToCache = detailData.members.map((m: any) => ({
+           ...(m.user_id || {}),
+           role: m.role_id?.name
+        }));
+        useUserStore.getState().saveUsersToCache(usersToCache, projectId);
+      }
 
-      // Cập nhật vào mảng projects của Workspaces
       set((state) => ({
         projects: state.projects.map((item) => {
-          if (item.project && (item.project.id === projectId || item.project._id === projectId)) {
-            return { ...item, members: membersData };
-          }
-          return item; 
+          const currentId = item.project?._id || item.project?.id;
+          return currentId === projectId 
+            ? { project: detailData, boards: detailData.boards || [], members: detailData.members || [] } 
+            : item;
         })
       }));
     } catch (error) {
-      console.error(`Lỗi khi lấy member cho project ${projectId}:`, error);
+      console.error(`❌ Lỗi tải chi tiết dự án ${projectId}:`, error);
+    }
+  },
+
+  createNewProject: async (data: CreateProjectPayload) => {
+    set({ isLoading: true });
+    try {
+      const res: any = await projectApi.createProject(data);
+      const newProjectData = res.data?.data || res.data;
+      
+      if (res.success || newProjectData) {
+        set((state) => ({ 
+          projects: [...state.projects, { project: newProjectData, boards: [], members: [] }],
+          isLoading: false 
+        }));
+        
+        const newPid = newProjectData?._id || newProjectData?.id;
+        if (newPid) get().fetchProjectDetail(newPid);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error("❌ Lỗi tạo dự án:", error);
+      set({ isLoading: false });
+      return false;
+    }
+  },
+
+  addBoardToProject: (projectId: string, newBoard: any) => {
+    set((state) => ({
+      projects: state.projects.map((item) => {
+        const currentId = item.project?._id || item.project?.id;
+        return currentId === projectId ? { ...item, boards: [...(item.boards || []), newBoard] } : item;
+      })
+    }));
+  },
+
+  // 🚀 HÀM CẬP NHẬT WORKSPACE TRÊN MONGODB
+  updateExistingProject: async (projectId: string, data: Partial<CreateProjectPayload>) => {
+    try {
+      const res: any = await projectApi.updateProject(projectId, data);
+      const updatedData = res.data?.data || res.data;
+
+      if (res.success || updatedData) {
+        set((state) => ({
+          projects: state.projects.map((item) => {
+            const currentId = item.project?._id || item.project?.id;
+            return currentId === projectId 
+              ? { ...item, project: { ...item.project, ...updatedData } } 
+              : item;
+          })
+        }));
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error("❌ Lỗi cập nhật dự án:", error);
+      return false;
+    }
+  },
+
+  // 🚀 HÀM XÓA WORKSPACE TRÊN MONGODB (Cascade delete cả Board/Member)
+  deleteExistingProject: async (projectId: string) => {
+    try {
+      const res: any = await projectApi.deleteProject(projectId);
+      if (res.status === 200 || res.success) {
+        set((state) => ({
+          projects: state.projects.filter((item) => {
+            const currentId = item.project?._id || item.project?.id;
+            return currentId !== projectId;
+          })
+        }));
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error("❌ Lỗi xóa dự án:", error);
+      return false;
     }
   }
-
 }));
-
-export default useProjectStore;

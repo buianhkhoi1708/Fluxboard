@@ -27,7 +27,7 @@ exports.sendEmail = async (to, subject, htmlContent) => {
         };
 
         const info = await transporter.sendMail(mailOptions);
-        console.log('Email sent successfully:', info.messageId); 
+        // 🗑️ Đã tắt log: console.log('Email sent successfully:', info.messageId); 
         return info;
     } catch (error) {
         console.error('SMTP Email Error details:', error);

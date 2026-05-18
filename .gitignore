@@ -126,7 +126,6 @@ public/uploads/
 *.pt
 *.pth
 *.onnx
-models/
 
 # =========================
 # AZURE

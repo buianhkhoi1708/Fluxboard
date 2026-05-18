@@ -1,5 +1,5 @@
 const User = require('../../modules/user/models/user.model');
-const ProjectMember = require('../../modules/project/models/projectMember.model');
+const ProjectMember = require('../../modules/projectMember/models/projectMember.model');
 const AppError = require('../exceptions/AppError');
 
 const requirePermission = (resource, action, scope = 'SYSTEM') => {

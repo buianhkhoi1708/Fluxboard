@@ -1,5 +1,5 @@
 const Project = require('../models/project.model'); 
-const ProjectMember = require('../models/projectMember.model'); 
+const ProjectMember = require('../../projectMember/models/projectMember.model'); 
 const Board = require('../../board/models/board.model'); 
 const Role = require('../../rbac/models/role.model'); // Import thêm Role
 const { Roles, Scopes } = require('../../rbac/constants/rbac.enum'); // Import hằng số

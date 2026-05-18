@@ -15,7 +15,7 @@ import DashboardPage from "./pages/DashboardPage";
 import SettingsPage from "./pages/SettingsPage";
 import ActivityLogPage from "./pages/ActivityLogPage";
 import { OrganizationPage } from "./pages/OrganizationPage";
-
+import NotificationsPage from "./pages/NotificationsPage";
 function App() {
   return (
     <SocketProvider>
@@ -40,7 +40,8 @@ function App() {
               <Route path="/settings"element={<SettingsPage/>}/>
               <Route path="/activity"element={<ActivityLogPage/>}/>
               <Route path="/organization"element={<OrganizationPage/>}/>
-
+              <Route path="/notifications"element={<NotificationsPage/>}/>
+              
             </Route>
           </Route>
         </Routes>

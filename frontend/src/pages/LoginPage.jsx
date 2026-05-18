@@ -48,7 +48,7 @@ const LoginPage = () => {
       const result = await login(formData.email, formData.password);
       if (result.success) {
         setServerError('');
-        navigate('/board'); 
+        navigate('/dashboard'); 
       } else {
         setServerError('Sai email hoặc mật khẩu');
       }

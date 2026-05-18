@@ -6,6 +6,10 @@ const errorHandler = (err, req, res, next) => {
     let message = err.message || 'Something went wrong';
     let fieldErrors = null;
 
+    // ==========================================
+    // 1. CÁC LỖI TỪ DATABASE (MONGODB / MONGOOSE)
+    // ==========================================
+    
     if (err.name === 'CastError') {
         statusCode = 400;
         errorCode = 'INVALID_FORMAT';
@@ -29,6 +33,41 @@ const errorHandler = (err, req, res, next) => {
         message = `The ${field} already exists`;
     }
 
+    // ==========================================
+    // 2. CÁC LỖI BỔ SUNG (BẢO VỆ SERVER TOÀN DIỆN)
+    // ==========================================
+
+    // Lỗi Token không hợp lệ (Bị sửa đổi, fake token...)
+    if (err.name === 'JsonWebTokenError') {
+        statusCode = 401;
+        errorCode = 'INVALID_TOKEN';
+        message = 'Invalid authentication token. Please log in again!';
+    }
+
+    // Lỗi Token đã hết hạn
+    if (err.name === 'TokenExpiredError') {
+        statusCode = 401;
+        errorCode = 'TOKEN_EXPIRED';
+        message = 'Your token has expired. Please log in again!';
+    }
+
+    // Lỗi Upload file (Ví dụ: File vượt quá 5MB mà ta đã cấu hình ở Multer)
+    if (err.name === 'MulterError') {
+        statusCode = 400;
+        errorCode = 'FILE_UPLOAD_ERROR';
+        message = err.message;
+    }
+
+    // Lỗi Frontend gửi sai cú pháp JSON (VD: thiếu dấu ngoặc)
+    if (err.type === 'entity.parse.failed' || err.name === 'SyntaxError') {
+        statusCode = 400;
+        errorCode = 'BAD_JSON_FORMAT';
+        message = 'Invalid JSON format in the request body';
+    }
+
+    // ==========================================
+    // 3. XỬ LÝ LOG & TRẢ VỀ RESPONSE
+    // ==========================================
     if (statusCode === 500) {
         console.error('💥 [SERVER ERROR]:', err);
     }
@@ -38,8 +77,7 @@ const errorHandler = (err, req, res, next) => {
         error: {
             code: errorCode,
             message: message,
-            details: fieldErrors,
-            timestamp: new Date().toISOString()
+            ...(fieldErrors && { details: fieldErrors })
         }
     });
 };
