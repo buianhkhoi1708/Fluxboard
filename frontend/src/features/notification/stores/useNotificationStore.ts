@@ -1,63 +1,59 @@
 import { create } from 'zustand';
-import { Client } from '@stomp/stompjs';
-import SockJS from 'sockjs-client';
-import { NotificationStore, AppNotification } from '../types/notificationTypes';
+import { notificationApi } from '../api/notificationApi';
+import { toast } from 'react-toastify'; 
 
-// URL của Backend Spring Boot (Thay đổi port nếu cần)
-const WEBSOCKET_URL = 'http://localhost:8080/ws'; 
+export interface AppNotification {
+  id: string;
+  message: string;
+  timestamp: number;
+  isRead: boolean;
+}
 
-export const useNotificationStore = create<NotificationStore>((set, get) => ({
+interface NotificationState {
+  notifications: AppNotification[];
+  unreadCount: number;
+  fetchNotifications: () => Promise<void>;
+  addNotification: (message: string) => void;
+  markAsRead: (id: string) => Promise<void>;
+  markAllAsRead: () => Promise<void>;
+  startLongPolling: () => void; 
+}
+
+export const useNotificationStore = create<NotificationState>((set) => ({
   notifications: [],
   unreadCount: 0,
-  stompClient: null,
 
-  connectWebSocket: (userId: string) => {
-    // Nếu đang kết nối rồi thì bỏ qua
-    if (get().stompClient) return;
+  fetchNotifications: async () => {
+    try {
+      const response = await notificationApi.getMyNotifications();
+      const rawData: any = response.data || response;
+      
+      // Chuyển đổi dữ liệu MongoDB sang định dạng id, isRead, timestamp của Frontend
+      const data = (rawData?.data?.content || rawData?.data || rawData || []).map((n: any) => ({
+        id: n._id || n.id,
+        message: n.message,
+        timestamp: n.created_at ? new Date(n.created_at).getTime() : Date.now(),
+        isRead: n.is_read !== undefined ? n.is_read : n.isRead,
+      }));
 
-    const client = new Client({
-      // Dùng SockJS làm fallback nếu trình duyệt không hỗ trợ WS chuẩn
-      webSocketFactory: () => new SockJS(WEBSOCKET_URL),
-      debug: (str) => console.log('STOMP: ' + str),
-      reconnectDelay: 5000, // Tự động kết nối lại sau 5s nếu đứt cáp
-      onConnect: () => {
-        console.log('✅ Đã kết nối WebSocket thành công!');
-        
-        // Subscribe đúng cái kênh mà NotificationDispatcher.java đang gửi tới
-        client.subscribe(`/topic/notifications/${userId}`, (message) => {
-          if (message.body) {
-            get().addNotification(message.body);
-          }
-        });
-      },
-      onStompError: (frame) => {
-        console.error('❌ STOMP Error:', frame.headers['message']);
-      },
-    });
-
-    client.activate();
-    set({ stompClient: client });
-  },
-
-  disconnectWebSocket: () => {
-    const client = get().stompClient;
-    if (client) {
-      client.deactivate();
-      set({ stompClient: null });
-      console.log('🔌 Đã ngắt kết nối WebSocket.');
+      set({ 
+        notifications: data,
+        unreadCount: data.filter((n: any) => !n.isRead).length
+      });
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
     }
   },
 
   addNotification: (message: string) => {
     set((state) => {
       const newNotif: AppNotification = {
-        id: Math.random().toString(36).substring(2, 9), // Random ID
+        id: Math.random().toString(36).substring(2, 9), 
         message: message,
         timestamp: Date.now(),
         isRead: false,
       };
       
-      // Đẩy thông báo mới lên đầu mảng
       return {
         notifications: [newNotif, ...state.notifications],
         unreadCount: state.unreadCount + 1,
@@ -65,22 +61,81 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     });
   },
 
-  markAsRead: (id: string) => {
-    set((state) => {
-      const updatedNotifs = state.notifications.map((n) =>
-        n.id === id ? { ...n, isRead: true } : n
-      );
-      return {
-        notifications: updatedNotifs,
-        unreadCount: Math.max(0, state.unreadCount - 1),
-      };
-    });
+  markAsRead: async (id: string) => {
+    try {
+      await notificationApi.markAsRead(id);
+      set((state) => {
+        const updatedNotifs = state.notifications.map((n) =>
+          n.id === id ? { ...n, isRead: true } : n
+        );
+        return {
+          notifications: updatedNotifs,
+          unreadCount: Math.max(0, state.unreadCount - 1),
+        };
+      });
+    } catch (error) {
+      console.error('Error marking as read:', error);
+    }
   },
 
-  markAllAsRead: () => {
-    set((state) => ({
-      notifications: state.notifications.map((n) => ({ ...n, isRead: true })),
-      unreadCount: 0,
-    }));
+  markAllAsRead: async () => {
+    try {
+      const storeState = useNotificationStore.getState();
+      const unreadNotifications = storeState.notifications.filter((n) => !n.isRead);
+      
+      await Promise.all(unreadNotifications.map((n) => notificationApi.markAsRead(n.id)));
+
+      set((state) => ({
+        notifications: state.notifications.map((n) => ({ ...n, isRead: true })),
+        unreadCount: 0,
+      }));
+    } catch (error) {
+      console.error('Error marking all as read:', error);
+    }
   },
+
+  startLongPolling: async () => {
+    if ((window as any)._isPollingActive) return;
+    (window as any)._isPollingActive = true;
+
+    const poll = async () => {
+      try {
+        const response = await notificationApi.getLongPolling();
+        const rawData: any = response.data || response;
+        const newNotifs = Array.isArray(rawData?.data) ? rawData.data : (Array.isArray(rawData) ? rawData : []);
+
+        if (newNotifs && newNotifs.length > 0) {
+          newNotifs.forEach((n: any) => {
+            const storeState = useNotificationStore.getState();
+            const targetId = n._id || n.id;
+            const isDuplicate = storeState.notifications.some(item => item.id === targetId);
+            
+            if (!isDuplicate) {
+              const formattedNotif: AppNotification = {
+                id: targetId,
+                message: n.message,
+                timestamp: n.created_at ? new Date(n.created_at).getTime() : Date.now(),
+                isRead: n.is_read !== undefined ? n.is_read : n.isRead,
+              };
+
+              set((state) => ({
+                notifications: [formattedNotif, ...state.notifications],
+                unreadCount: state.unreadCount + 1,
+              }));
+
+              toast.info(n.title || 'You have a new notification!', {
+                toastId: targetId
+              });
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Long polling connection error, retrying...', error);
+        await new Promise(resolve => setTimeout(resolve, 5000));
+      }
+      poll(); 
+    };
+
+    poll();
+  }
 }));
