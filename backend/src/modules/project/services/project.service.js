@@ -17,7 +17,7 @@ exports.createProject = async (ownerId, projectData) => {
     await ProjectMember.create({ 
         project_id: project._id, 
         user_id: ownerId, 
-        role_id: adminRole._id 
+        role_ids: adminRole._id 
     });
 
     return project; 
@@ -37,7 +37,7 @@ exports.getProjectDetail = async (projectId) => {
         Board.find({ project_id: projectId, is_deleted: false }).select('_id name description created_at').lean(), 
         ProjectMember.find({ project_id: projectId, is_deleted: false }) 
             .populate('user_id', 'full_name email avatar_url') 
-            .populate('role_id', 'name')
+            .populate('role_ids', 'name')
             .lean()
     ]);
 
