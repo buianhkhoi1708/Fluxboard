@@ -4,13 +4,13 @@
 const mongoose = require('mongoose');
 const Role = require('../models/role.model');
 const Permission = require('../models/permission.model');
-const { Roles, Scopes, Resources, Actions } = require('../constants/rbac.enum');
+const { Scopes, Resources, Actions } = require('../constants/rbac.enum');
 
 const seedRbac = async () => {
     try {
         console.log('🔄 Starting RBAC data synchronization...');
 
-        // 1. TẠO CÁC QUYỀN (PERMISSIONS) CỐT LÕI
+        // 1. Khởi tạo quyền cốt lõi
         const permissionsData = [
             { resource: Resources.PROJECT, action: Actions.CREATE, scope: Scopes.SYSTEM, description: 'Create new projects' },
             { resource: Resources.PROJECT, action: Actions.READ, scope: Scopes.PROJECT, description: 'View project details' },
@@ -29,25 +29,53 @@ const seedRbac = async () => {
             savedPermissions[`${p.resource}_${p.action}_${p.scope}`] = doc._id;
         }
 
-        // 2. TẠO CHỨC DANH (ROLES) & GẮN QUYỀN
+        // 2. Khởi tạo danh sách Roles mặc định (SYSTEM & PROJECT)
         const rolesData = [
+            // --- SYSTEM SCOPE ---
             {
-                name: Roles.SYSTEM_ADMIN, //[cite: 9]
-                scope: Scopes.SYSTEM,     //[cite: 9]
+                name: 'SYSTEM_ADMIN',
+                scope: Scopes.SYSTEM,
                 description: 'Full control over the whole system',
-                permission_ids: [] // SYSTEM_ADMIN bypasses all checks via middleware
+                permission_ids: [] 
             },
             {
-                name: Roles.ADMIN,        //[cite: 9]
-                scope: Scopes.SYSTEM,     //[cite: 9]
+                name: 'ADMIN',
+                scope: Scopes.SYSTEM,
                 description: 'System administrator',
                 permission_ids: [
                     savedPermissions[`${Resources.PROJECT}_${Actions.CREATE}_${Scopes.SYSTEM}`]
                 ]
             },
             {
-                name: Roles.PM,           //[cite: 9]
-                scope: Scopes.PROJECT,    //[cite: 9]
+                name: 'MANAGER',
+                scope: Scopes.SYSTEM,
+                description: 'Manage business operations',
+                permission_ids: [
+                    savedPermissions[`${Resources.PROJECT}_${Actions.CREATE}_${Scopes.SYSTEM}`]
+                ]
+            },
+            {
+                name: 'EMPLOYEE',
+                scope: Scopes.SYSTEM,
+                description: 'Nhân viên công ty',
+                permission_ids: []
+            },
+            
+            // --- PROJECT SCOPE ---
+            {
+                name: 'PROJECT_ADMIN',
+                scope: Scopes.PROJECT,
+                description: 'Quản trị dự án toàn quyền',
+                permission_ids: [
+                    savedPermissions[`${Resources.PROJECT}_${Actions.READ}_${Scopes.PROJECT}`],
+                    savedPermissions[`${Resources.PROJECT}_${Actions.UPDATE}_${Scopes.PROJECT}`],
+                    savedPermissions[`${Resources.PROJECT}_${Actions.DELETE}_${Scopes.PROJECT}`],
+                    savedPermissions[`${Resources.PROJECT}_${Actions.MANAGE_MEMBERS}_${Scopes.PROJECT}`]
+                ]
+            },
+            {
+                name: 'PM',
+                scope: Scopes.PROJECT,
                 description: 'Project manager role',
                 permission_ids: [
                     savedPermissions[`${Resources.PROJECT}_${Actions.READ}_${Scopes.PROJECT}`],
@@ -56,50 +84,38 @@ const seedRbac = async () => {
                 ]
             },
             {
-                name: Roles.VIEWER,       //[cite: 9]
-                scope: Scopes.PROJECT,    //[cite: 9]
-                description: 'Read-only access within project',
-                permission_ids: [
-                    savedPermissions[`${Resources.PROJECT}_${Actions.READ}_${Scopes.PROJECT}`]
-                ]
-            },
-            // ... (Tiếp nối bên dưới các Role đã có trong mảng rolesData)
-
-            {
-                name: Roles.MANAGER,      // Quyền hệ thống[cite: 5]
-                scope: Scopes.SYSTEM,     //[cite: 5]
-                description: 'Manage business operations',
-                permission_ids: [
-                    // Tùy bạn quyết định, ví dụ Manager được tạo project giống Admin
-                    savedPermissions[`${Resources.PROJECT}_${Actions.CREATE}_${Scopes.SYSTEM}`]
-                ]
-            },
-            {
-                name: Roles.LEAD,         // Quyền dự án[cite: 5]
-                scope: Scopes.PROJECT,    //[cite: 5]
+                name: 'LEAD',
+                scope: Scopes.PROJECT,
                 description: 'Team lead role within project',
                 permission_ids: [
-                    // Lead được xem và sửa dự án, nhưng không được xóa hay mời người khác
                     savedPermissions[`${Resources.PROJECT}_${Actions.READ}_${Scopes.PROJECT}`],
                     savedPermissions[`${Resources.PROJECT}_${Actions.UPDATE}_${Scopes.PROJECT}`]
                 ]
             },
             {
-                name: Roles.MEMBER,       // Quyền dự án[cite: 5]
-                scope: Scopes.PROJECT,    //[cite: 5]
+                name: 'MEMBER',
+                scope: Scopes.PROJECT,
                 description: 'Basic member access',
                 permission_ids: [
-                    // Member chỉ được quyền xem thông tin dự án
+                    savedPermissions[`${Resources.PROJECT}_${Actions.READ}_${Scopes.PROJECT}`]
+                ]
+            },
+            {
+                name: 'VIEWER',
+                scope: Scopes.PROJECT,
+                description: 'Read-only access within project',
+                permission_ids: [
                     savedPermissions[`${Resources.PROJECT}_${Actions.READ}_${Scopes.PROJECT}`]
                 ]
             }
         ];
 
         for (const r of rolesData) {
+            // Thay thế new: true bằng returnDocument: 'after'
             await Role.findOneAndUpdate(
                 { name: r.name, scope: r.scope },
-                r,
-                { upsert: true }
+                { $setOnInsert: r },
+                { upsert: true, returnDocument: 'after' }
             );
         }
 

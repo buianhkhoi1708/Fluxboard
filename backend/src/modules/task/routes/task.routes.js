@@ -3,7 +3,6 @@ const router = express.Router();
 const taskController = require('../controllers/task.controller'); 
 const requireAuth = require('../../auth/middlewares/requireAuth');
 
-// Mọi request phải đi qua check Auth (Bắt buộc phải đăng nhập)
 router.use(requireAuth);
 
 // ==========================================
@@ -18,6 +17,7 @@ router.put('/:id/move', taskController.moveTask);
 // 2. QUẢN LÝ CHECKLIST (SUBTASKS)
 // ==========================================
 router.post('/:id/subtasks', taskController.addSubtask);
+router.post('/:id/subtasks/bulk', taskController.addMultipleSubtasks); // Định tuyến nhận danh sách subtasks hàng loạt
 router.put('/:id/subtasks/:subtaskId', taskController.updateSubtask);
 router.delete('/:id/subtasks/:subtaskId', taskController.deleteSubtask);
 
@@ -26,14 +26,16 @@ router.delete('/:id/subtasks/:subtaskId', taskController.deleteSubtask);
 // ==========================================
 router.get('/:id/comments', taskController.getTaskComments);
 router.post('/:id/comments', taskController.addComment);
+router.put('/:id/comments/:commentId', taskController.updateComment);
 router.delete('/:id/comments/:commentId', taskController.deleteComment);
 
 // ==========================================
-// 4. ĐÍNH KÈM FILE (ATTACHMENTS VIA AWS S3 - PRESIGNED URL)
+// 4. ĐÍNH KÈM FILE (ATTACHMENTS VIA AWS S3)
 // ==========================================
 router.get('/:id/attachments', taskController.getTaskAttachments);
 router.post('/:id/attachments/presigned-url', taskController.getAttachmentUploadUrl);
 router.post('/:id/attachments', taskController.saveAttachmentMetadata);
+router.delete('/:id/attachments/:attachmentId', taskController.deleteAttachment);
 
 // ==========================================
 // 5. NHẬT KÝ HOẠT ĐỘNG (ACTIVITY LOGS)

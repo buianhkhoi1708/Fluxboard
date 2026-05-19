@@ -8,9 +8,9 @@ const requirePermission = (resource, action, scope = 'SYSTEM') => {
             const userId = req.user.id;
             let userRoles = [];
 
-            // Lấy thông tin user và role_id
+            // Lấy thông tin user và role_ids
             const user = await User.findById(userId).populate({
-                path: 'role_id',
+                path: 'role_ids',
                 populate: { path: 'permission_ids' }
             }).lean();
             
@@ -18,8 +18,8 @@ const requirePermission = (resource, action, scope = 'SYSTEM') => {
                 throw new AppError('Account is inactive or not found', 403, 'FORBIDDEN');
             }
 
-            // Đưa role_id vào mảng để xử lý đồng nhất
-            const systemRoles = user.role_id ? [user.role_id] : []; 
+            // Đưa role_ids vào mảng để xử lý đồng nhất
+            const systemRoles = user.role_ids ? [user.role_ids] : []; 
             const isSystemAdmin = systemRoles.some(role => role.name === 'SYSTEM_ADMIN');
             
             if (isSystemAdmin) {
@@ -38,15 +38,15 @@ const requirePermission = (resource, action, scope = 'SYSTEM') => {
 
                 const member = await ProjectMember.findOne({ project_id: projectId, user_id: userId })
                     .populate({
-                        path: 'role_id',
+                        path: 'role_ids',
                         populate: { path: 'permission_ids' }
                     }).lean();
 
-                if (!member || !member.role_id) {
+                if (!member || !member.role_ids) {
                     throw new AppError('You are not a member of this project', 403, 'FORBIDDEN');
                 }
                 
-                userRoles = [member.role_id];
+                userRoles = [member.role_ids];
             }
 
             // Trích xuất và đối chiếu quyền

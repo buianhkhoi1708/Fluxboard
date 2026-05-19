@@ -3,6 +3,8 @@ const Column = require('../../column/models/column.model');
 const AppError = require('../../../common/exceptions/AppError');
 const socketConfig = require('../../../common/config/socket');
 const eventBus = require('../../../common/utils/eventBus');
+const taskAttachmentService = require('./taskAttachment.service');
+const taskCommentService = require('./taskComment.service');
 
 const emitBoardEvent = (boardId, eventName, payload) => {
     const io = socketConfig.getIo();
@@ -38,11 +40,12 @@ exports.updateTask = async (taskId, updateData) => {
         { new: true, runValidators: true }
     );
 
+    // Bắn sự kiện khi Task hoàn thành (Cấu hình cũ)
     if (!oldTask.is_done && task.is_done) {
         eventBus.emit('task_completed', { task_id: task._id });
     }
 
-    // 💡 BẮN SỰ KIỆN QUA EVENT BUS KHI TASK BỊ THAY ĐỔI
+    // Bắn sự kiện báo Task bị thay đổi (Cấu hình cũ)
     eventBus.emit('system_task_updated', { taskId: task._id });
 
     emitBoardEvent(task.board_id, 'taskUpdated', task);
@@ -50,18 +53,22 @@ exports.updateTask = async (taskId, updateData) => {
 };
 
 exports.deleteTask = async (taskId) => {
-    const task = await Task.findByIdAndUpdate(
-        taskId, 
-        { is_deleted: true }, 
-        { new: true }
-    ).lean();
-    
+    const task = await Task.findById(taskId);
     if (!task) throw new AppError('Task not found', 404, 'NOT_FOUND');
+
+    // Dọn rác: Xóa toàn bộ Bình luận & Đính kèm (S3) của Task này
+    await taskCommentService.deleteAllByTaskId(taskId);
+    await taskAttachmentService.deleteAllByTaskId(taskId);
+
+    eventBus.emit('task_deleted', { task_id: taskId });
 
     await Column.findByIdAndUpdate(
         task.column_id,
         { $pull: { task_order_ids: taskId } }
     );
+
+    // Xóa cứng Task (Quy chuẩn dọn rác triệt để)
+    await Task.findByIdAndDelete(taskId);
 
     emitBoardEvent(task.board_id, 'taskDeleted', taskId);
     return true;
@@ -91,7 +98,7 @@ exports.moveTask = async (taskId, destColumnId, newOrder) => {
         await Promise.all([sourceCol.save(), destCol.save(), task.save()]);
     }
 
-    // 💡 BẮN SỰ KIỆN QUA EVENT BUS KHI KÉO THẢ TASK SANG CỘT KHÁC
+    // Bắn sự kiện kéo thả Task sang cột khác (Cấu hình cũ)
     eventBus.emit('system_task_moved', { taskId: task._id, destColumnId });
 
     emitBoardEvent(task.board_id, 'taskMoved', { taskId: task._id, destColumnId, newOrder });

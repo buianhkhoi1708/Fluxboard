@@ -2,6 +2,7 @@ const Task = require('../models/task.model');
 const Attachment = require('../models/attachment.model');
 const AppError = require('../../../common/exceptions/AppError');
 const socketConfig = require('../../../common/config/socket');
+const s3Service = require('../../media/services/s3.service');
 
 const emitBoardEvent = (boardId, eventName, payload) => {
     const io = socketConfig.getIo();
@@ -26,4 +27,34 @@ exports.addAttachment = async (taskId, userId, fileData) => {
 
 exports.getTaskAttachments = async (taskId) => {
     return await Attachment.find({ task_id: taskId }).sort({ created_at: -1 });
+};
+
+exports.deleteAttachment = async (attachmentId, userId) => {
+    const attachment = await Attachment.findById(attachmentId);
+    if (!attachment) throw new AppError('Attachment not found', 404, 'NOT_FOUND');
+    
+    if (attachment.user_id.toString() !== userId.toString()) {
+        throw new AppError('Unauthorized to delete this attachment', 403, 'FORBIDDEN');
+    }
+
+    if (attachment.file_url) {
+        await s3Service.deleteFile(attachment.file_url);
+    }
+
+    await Attachment.findByIdAndDelete(attachmentId);
+    
+    const task = await Task.findById(attachment.task_id);
+    if (task) emitBoardEvent(task.board_id, 'attachmentDeleted', attachmentId);
+    
+    return true;
+};
+
+exports.deleteAllByTaskId = async (taskId) => {
+    const attachments = await Attachment.find({ task_id: taskId });
+    for (const att of attachments) {
+        if (att.file_url) {
+            await s3Service.deleteFile(att.file_url);
+        }
+    }
+    await Attachment.deleteMany({ task_id: taskId });
 };
