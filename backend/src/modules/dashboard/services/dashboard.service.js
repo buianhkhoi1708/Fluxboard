@@ -16,8 +16,9 @@ exports.getMetricsByRole = async (jwtUser, queryParams) => {
 
     const fullUser = await User.findById(userId).lean();
 
-    if (fullUser && fullUser.role_ids && fullUser.role_ids.length > 0) {
-        const roles = await Role.find({ _id: { $in: fullUser.role_ids } }).select('name').lean();
+    // Sửa trường truy vấn thành system_role_ids để đồng bộ chính xác dữ liệu từ MongoDB
+    if (fullUser && fullUser.system_role_ids && fullUser.system_role_ids.length > 0) {
+        const roles = await Role.find({ _id: { $in: fullUser.system_role_ids } }).select('name').lean();
         roleNames = roles.map(r => r.name);
     }
 
@@ -143,7 +144,7 @@ const getSystemAdminMetrics = async (queryParams) => {
         },
         department_performance: departmentResult,
         critical_audit_logs: [
-            { id: "act-001", actor: "System", message: "Hệ thống đang hoạt động ổn định", created_at: now.toISOString() }
+            { id: "act-001", actor: "System", message: "System is operating normally", created_at: now.toISOString() }
         ]
     };
 };

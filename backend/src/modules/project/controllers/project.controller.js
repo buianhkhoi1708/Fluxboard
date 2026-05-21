@@ -5,12 +5,16 @@ exports.createProject = async (req, res, next) => {
     try {
         const project = await projectService.createProject(req.user.id, req.body);
         res.status(201).json({ success: true, data: project });
-    } catch (error) { next(error); }
+    } catch (error) { 
+        console.error("💥 CREATE PROJECT ERROR:", error);
+        next(error); 
+    }
 };
 
 exports.getUserProjects = async (req, res, next) => {
     try {
         const projects = await projectService.getUserProjects(req.user.id);
+        // Trả về trực tiếp mảng phẳng projects vào trường data để khớp cấu trúc FE cũ
         res.status(200).json({ success: true, data: projects });
     } catch (error) { next(error); }
 };
@@ -32,11 +36,10 @@ exports.updateProject = async (req, res, next) => {
 exports.deleteProject = async (req, res, next) => {
     try {
         await projectService.deleteProject(req.params.id);
-        res.status(200).json({ success: true, message: 'Project deleted' });
+        res.status(200).json({ success: true, message: 'Project deleted successfully' });
     } catch (error) { next(error); }
 };
 
-// Gọi logic từ projectTeamService
 exports.assignProjectToTeam = async (req, res, next) => {
     try {
         const projectId = req.params.id;

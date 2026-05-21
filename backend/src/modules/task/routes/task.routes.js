@@ -8,6 +8,7 @@ router.use(requireAuth);
 // ==========================================
 // 1. QUẢN LÝ THẺ CÔNG VIỆC (TASK CORE)
 // ==========================================
+router.get('/my-tasks', taskController.getMyTasks);
 router.post('/', taskController.createTask);
 router.put('/:id', taskController.updateTask);
 router.delete('/:id', taskController.deleteTask);
