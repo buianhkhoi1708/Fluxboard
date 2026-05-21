@@ -6,7 +6,10 @@ const requirePermission = require('../../../common/middlewares/requirePermission
 
 router.use(requireAuth);
 
+// Quản lý các cấu trúc Endpoint phân hệ Project (Workspace)
 router.post('/', requirePermission('PROJECT', 'CREATE', 'SYSTEM'), projectController.createProject);
+
+// Endpoint lấy danh sách dự án - Controller sẽ tự động bóc tách query parameters (page, limit, search)
 router.get('/', projectController.getUserProjects);
 
 router.get('/:id', requirePermission('PROJECT', 'READ', 'PROJECT'), projectController.getProjectDetail);

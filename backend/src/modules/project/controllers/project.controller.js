@@ -14,6 +14,7 @@ exports.createProject = async (req, res, next) => {
 exports.getUserProjects = async (req, res, next) => {
     try {
         const projects = await projectService.getUserProjects(req.user.id);
+        // Trả về trực tiếp mảng phẳng projects vào trường data để khớp cấu trúc FE cũ
         res.status(200).json({ success: true, data: projects });
     } catch (error) { next(error); }
 };
@@ -35,7 +36,7 @@ exports.updateProject = async (req, res, next) => {
 exports.deleteProject = async (req, res, next) => {
     try {
         await projectService.deleteProject(req.params.id);
-        res.status(200).json({ success: true, message: 'Project deleted' });
+        res.status(200).json({ success: true, message: 'Project deleted successfully' });
     } catch (error) { next(error); }
 };
 

@@ -8,9 +8,9 @@ const requirePermission = (resource, action, scope = 'SYSTEM') => {
             const userId = req.user.id;
             let userRoles = [];
 
-            // Lấy thông tin user và role_ids
+            // Lấy thông tin user và hệ thống role qua trường system_role_ids khớp với Auth
             const user = await User.findById(userId).populate({
-                path: 'role_ids',
+                path: 'system_role_ids',
                 populate: { path: 'permission_ids' }
             }).lean();
             
@@ -18,15 +18,16 @@ const requirePermission = (resource, action, scope = 'SYSTEM') => {
                 throw new AppError('Account is inactive or not found', 403, 'FORBIDDEN');
             }
 
-            // Đưa role_ids vào mảng để xử lý đồng nhất
-            const systemRoles = user.role_ids ? [user.role_ids] : []; 
+            // system_role_ids đã là một mảng dữ liệu phẳng sau khi lean và populate, không bọc thêm mảng []
+            const systemRoles = user.system_role_ids || []; 
             const isSystemAdmin = systemRoles.some(role => role.name === 'SYSTEM_ADMIN');
             
+            // Đặc quyền tối cao dành cho SYSTEM_ADMIN: Bỏ qua kiểm tra quyền (bypass)
             if (isSystemAdmin) {
                 return next(); 
             }
 
-            // Xử lý phân quyền theo phạm vi
+            // Xử lý phân quyền theo phạm vi (scope)
             if (scope === 'SYSTEM') {
                 userRoles = systemRoles;
             } else if (scope === 'PROJECT') {
@@ -46,10 +47,11 @@ const requirePermission = (resource, action, scope = 'SYSTEM') => {
                     throw new AppError('You are not a member of this project', 403, 'FORBIDDEN');
                 }
                 
-                userRoles = [member.role_ids];
+                // member.role_ids đã là một mảng dữ liệu, gán trực tiếp không bọc thêm []
+                userRoles = member.role_ids || [];
             }
 
-            // Trích xuất và đối chiếu quyền
+            // Trích xuất phẳng danh sách các object permissions từ các vai trò
             const userPermissions = userRoles.flatMap(role => role.permission_ids || []);
             const hasPermission = userPermissions.some(
                 p => p.resource === resource && p.action === action && p.scope === scope
@@ -67,3 +69,4 @@ const requirePermission = (resource, action, scope = 'SYSTEM') => {
 };
 
 module.exports = requirePermission;
+module.exports.requirePermission = requirePermission; // Hỗ trợ cả hai cách import để tránh lỗi crash do lệch cấu trúc hoặc lỗi tải vòng (circular dependency)
