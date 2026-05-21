@@ -5,7 +5,10 @@ exports.createProject = async (req, res, next) => {
     try {
         const project = await projectService.createProject(req.user.id, req.body);
         res.status(201).json({ success: true, data: project });
-    } catch (error) { next(error); }
+    } catch (error) { 
+        console.error("💥 CREATE PROJECT ERROR:", error);
+        next(error); 
+    }
 };
 
 exports.getUserProjects = async (req, res, next) => {
@@ -36,7 +39,6 @@ exports.deleteProject = async (req, res, next) => {
     } catch (error) { next(error); }
 };
 
-// Gọi logic từ projectTeamService
 exports.assignProjectToTeam = async (req, res, next) => {
     try {
         const projectId = req.params.id;
