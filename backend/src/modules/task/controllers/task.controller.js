@@ -220,3 +220,10 @@ exports.getTaskActivities = async (req, res, next) => {
         res.status(200).json({ success: true, data: activities });
     } catch (error) { next(error); }
 };
+// Thêm vào khối 1. QUẢN LÝ THẺ CÔNG VIỆC (TASK CORE)
+exports.getMyTasks = async (req, res, next) => {
+    try {
+        const tasks = await taskCoreService.getMyTasks(req.user.id);
+        res.status(200).json({ success: true, data: tasks });
+    } catch (error) { next(error); }
+};

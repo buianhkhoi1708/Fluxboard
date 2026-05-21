@@ -104,3 +104,17 @@ exports.moveTask = async (taskId, destColumnId, newOrder) => {
     emitBoardEvent(task.board_id, 'taskMoved', { taskId: task._id, destColumnId, newOrder });
     return task;
 };
+// Thêm hàm này vào cuối file taskCore.service.js
+exports.getMyTasks = async (userId) => {
+    // Lấy các task chưa bị xóa và được gán cho user này
+    const tasks = await Task.find({ 
+        assignee_id: userId, 
+        is_deleted: false 
+    })
+    .populate('board_id', 'name') // Lấy thêm tên Board để UI hiển thị
+    .populate('column_id', 'name') // Lấy thêm tên Cột (Trạng thái)
+    .sort({ created_at: -1 })
+    .lean();
+    
+    return tasks;
+};
