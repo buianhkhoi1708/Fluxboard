@@ -1,8 +1,33 @@
 const eventBus = require('../../../common/utils/eventBus');
 const notificationDispatcher = require('../services/notificationDispatcher.service');
 
+// Bộ nhớ tạm lưu trữ danh sách ID các Task mới tạo đang trong vòng 10 phút chờ hoãn
+const pendingCreations = new Set();
+
 // ==========================================
-// 1. SỰ KIỆN DEADLINE (Quan trọng -> Gửi ngay lập tức)
+// 1. SỰ KIỆN TẠO TASK MỚI (Trì hoãn 10 phút)
+// ==========================================
+eventBus.on('task_created', (payload) => {
+    const taskId = payload.task_id || payload.taskId;
+    if (!taskId) return;
+
+    const taskKey = taskId.toString();
+    pendingCreations.add(taskKey);
+
+    // Thiết lập thời gian hoãn đúng 10 phút (10 * 60 * 1000 ms)
+    setTimeout(async () => {
+        // Xóa khỏi danh sách chờ sau khi hết 10 phút
+        pendingCreations.delete(taskKey);
+        try {
+            await notificationDispatcher.dispatchTaskCreated(payload);
+        } catch (error) {
+            console.error('Error dispatching task created notification:', error);
+        }
+    }, 600000);
+});
+
+// ==========================================
+// 2. SỰ KIỆN GIA HẠN (Gửi ngay lập tức)
 // ==========================================
 eventBus.on('extension_requested', async (payload) => {
     await notificationDispatcher.dispatchExtensionRequest(payload);
@@ -17,45 +42,47 @@ eventBus.on('extension_rejected', async (payload) => {
 });
 
 // ==========================================
-// 2. LOGIC DEBOUNCE (TRÌ HOÃN 1 PHÚT CHO TASK)
+// 3. LOGIC DEBOUNCE (TRÌ HOÃN 1 PHÚT CHO CẬP NHẬT)
 // ==========================================
-const DEBOUNCE_TIME_MS = 60000; // 60,000 ms = 1 phút
-const taskTimers = new Map(); // Bộ nhớ tạm lưu trữ các đồng hồ đếm ngược
+const DEBOUNCE_TIME_MS = 60000; 
+const taskTimers = new Map(); 
 
-/**
- * Hàm xử lý trì hoãn thông báo
- * @param {string} timerKey - Khóa định danh cho loại thông báo & Task (VD: UPDATE_123)
- * @param {object} payload - Dữ liệu sự kiện
- * @param {Function} dispatchFunction - Hàm gọi sang Dispatcher
- */
 const handleDebouncedEvent = (timerKey, payload, dispatchFunction) => {
-    // 1. ĐÃ CÓ THAY ĐỔI MỚI: Nếu Task này đang có đồng hồ đếm ngược rồi -> Hủy bỏ nó (Reset)
     if (taskTimers.has(timerKey)) {
         clearTimeout(taskTimers.get(timerKey));
-        console.log(`[Debounce] Task changed again! Resetting 1-minute timer for: ${timerKey}`);
     }
 
-    // 2. BẮT ĐẦU ĐẾM GIỜ LẠI: Cài đặt đồng hồ 1 phút mới
     const timer = setTimeout(async () => {
-        // Hết 1 phút mà không ai đụng vào -> Xóa đồng hồ khỏi Map và Gửi thông báo
         taskTimers.delete(timerKey);
-        console.log(`[Debounce] Time's up! Dispatching notification for: ${timerKey}`);
         await dispatchFunction(payload);
     }, DEBOUNCE_TIME_MS);
 
-    // 3. LƯU ĐỒNG HỒ: Ghi nhớ cái đồng hồ này vào Map để lần sau còn biết mà hủy
     taskTimers.set(timerKey, timer);
 };
 
 // ==========================================
-// 3. SỰ KIỆN KÉO THẢ & CẬP NHẬT (Áp dụng Trì hoãn 1 phút)
+// 4. SỰ KIỆN KÉO THẢ & CẬP NHẬT (Chặn nếu đang trong 10 phút tạo mới)
 // ==========================================
 eventBus.on('system_task_updated', (payload) => {
-    const timerKey = `UPDATE_${payload.taskId}`;
+    const taskId = payload.taskId;
+    
+    // Nếu task này đang nằm trong danh sách chờ 10 phút của tạo mới -> Bỏ qua hoàn toàn thông báo cập nhật dữ liệu
+    if (pendingCreations.has(taskId.toString())) {
+        return;
+    }
+
+    const timerKey = `UPDATE_${taskId}`;
     handleDebouncedEvent(timerKey, payload, notificationDispatcher.dispatchTaskUpdated);
 });
 
 eventBus.on('system_task_moved', (payload) => {
-    const timerKey = `MOVE_${payload.taskId}`;
+    const taskId = payload.taskId;
+
+    // Nếu task này đang nằm trong danh sách chờ 10 phút của tạo mới -> Bỏ qua hoàn toàn thông báo chuyển stage trạng thái
+    if (pendingCreations.has(taskId.toString())) {
+        return;
+    }
+
+    const timerKey = `MOVE_${taskId}`;
     handleDebouncedEvent(timerKey, payload, notificationDispatcher.dispatchTaskMoved);
 });
