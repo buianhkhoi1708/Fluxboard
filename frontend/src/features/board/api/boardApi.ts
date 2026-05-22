@@ -2,15 +2,12 @@ import axiosClient from '../../../lib/axiosClient';
 
 export interface CreateBoardPayload {
   name: string;
-  project_id: string; // 🚀 Khớp backend
-  status?: string;
+  projectId: string;
+  status: string;
 }
 
 export const boardApi = {
-  
-  // ==========================================
-  // 1. QUẢN LÝ BẢNG (BOARD)
-  // ==========================================
+  // --- BOARD ---
   createBoard: async (payload: CreateBoardPayload): Promise<any> => {
     const response: any = await axiosClient.post('/boards', payload);
     return response.data || response;
@@ -22,25 +19,33 @@ export const boardApi = {
   },
 
   getBoard: async (boardId: string): Promise<any> => {
-    const response: any = await axiosClient.get(`/boards/${boardId}?t=${Date.now()}`);
+    const response: any = await axiosClient.get(`/boards/${boardId}`);
     return response.data || response; 
   },
 
-  createColumn: async (boardId: string, name: string): Promise<any> => {
-    const response: any = await axiosClient.post('/boards/columns', { board_id: boardId, name });
+  // --- COLUMN ---
+  // 🚀 ĐÃ TỐI ƯU: Chỉ lọc lấy name và board_id gửi đi, loại bỏ hoàn toàn trường 'order' để không bị gãy lỗi 400
+  createColumn: async (payload: { name: string; board_id: string; order?: number }) => {
+    const finalPayload = {
+      name: payload.name,
+      board_id: payload.board_id
+    };
+    const response: any = await axiosClient.post('/board-columns', finalPayload);
     return response.data || response;
   },
 
-  // ==========================================
-  // 2. QUẢN LÝ THẺ (TASK CORE)
-  // ==========================================
-  moveTask: async (taskId: string, destColumnId: string, newOrder: number) => {
-    return await axiosClient.put(`/tasks/${taskId}/move`, {
-      destColumnId: destColumnId, 
-      newOrder: newOrder
-    });
+  // 🚀 ĐÃ FIX: Đồng bộ đổi list_name thành name gửi lên API cập nhật cột
+  updateColumn: async (columnId: string, payload: { name: string }) => {
+    const response: any = await axiosClient.put(`/board-columns/${columnId}`, payload);
+    return response.data || response;
   },
 
+  deleteColumn: async (columnId: string) => {
+    const response: any = await axiosClient.delete(`/board-columns/${columnId}`);
+    return response.data || response;
+  },
+
+  // --- TASK ---
   createTask: async (taskData: any) => {
     const response: any = await axiosClient.post('/tasks', taskData);
     return response.data || response;
@@ -56,42 +61,38 @@ export const boardApi = {
     return response.data || response;
   },
 
-  // ==========================================
-  // 3. QUẢN LÝ CHECKLIST (SUBTASKS) - 🚀 ĐÃ KHÔI PHỤC
-  // ==========================================
-  addSubtask: async (taskId: string, title: string) => {
-    const response: any = await axiosClient.post(`/tasks/${taskId}/subtasks`, { title });
-    return response.data || response;
+  moveTask: async (taskId: string, columnId: string, order: number, boardId: string) => {
+    return await axiosClient.patch(`/tasks/${taskId}/move`, {
+      new_column_id: columnId, 
+      new_order: order,
+      board_id: boardId 
+    });
   },
 
-  updateSubtask: async (taskId: string, subtaskId: string, updateData: any) => {
-    const response: any = await axiosClient.put(`/tasks/${taskId}/subtasks/${subtaskId}`, updateData);
-    return response.data || response;
-  },
-
-  deleteSubtask: async (taskId: string, subtaskId: string) => {
-    const response: any = await axiosClient.delete(`/tasks/${taskId}/subtasks/${subtaskId}`);
-    return response.data || response;
-  },
-
-  // ==========================================
-  // 4. QUẢN LÝ BÌNH LUẬN (COMMENTS) - 🚀 ĐÃ KHÔI PHỤC
-  // ==========================================
-  addComment: async (taskId: string, content: string) => {
-    const response: any = await axiosClient.post(`/tasks/${taskId}/comments`, { content });
-    return response.data || response;
-  },
-  
-  // ==========================================
-  // 5. QUẢN LÝ THÀNH VIÊN DỰ ÁN
-  // ==========================================
+  // --- PROJECT MEMBERS ---
   addProjectMember: async (projectId: string, userId: string, roleIds: string[] = ["MEMBER"]) => {
-    const payload = { user_id: userId, role_ids: roleIds };
+    const payload = {
+      user_id: userId,
+      role_ids: roleIds
+    };
     const response: any = await axiosClient.post(`/projects/${projectId}/members`, payload);
     return response.data || response;
   },
 
   getProjectMembers: (projectId: string) => {
     return axiosClient.get(`/projects/${projectId}/members`);
+  },
+
+  // --- MEDIA & ATTACHMENT ---
+  getPresignedUrl: async (fileName: string, contentType: string): Promise<any> => {
+    const response: any = await axiosClient.get(`/media/presigned-url`, {
+      params: { fileName, contentType }
+    });
+    return response.data || response; 
+  },
+
+  addAttachmentToTask: async (taskId: string, payload: any): Promise<any> => {
+    const response: any = await axiosClient.post(`/tasks/${taskId}/attachments`, payload);
+    return response.data || response;
   },
 };

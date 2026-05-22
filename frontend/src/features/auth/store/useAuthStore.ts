@@ -46,59 +46,56 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   // 🚀 LOGIN (FIX CHÍNH Ở ĐÂY)
   // ===============================
   login: async (email, password) => {
+    set({ isLoading: true });
+    try {
+      // 1. axiosClient interceptor đã trả về response.data (Cục ApiResponse của Java)
+      const res: any = await axiosClient.post('/auth/login', { email, password });
 
-  set({ isLoading: true });
+      console.log("📦 DỮ LIỆU TỪ BACKEND GỬI VỀ:", res);
 
-  try {
+      // 2. Lấy đúng lõi payload (Chứa token và user)
+      const payload = res.data || res;
 
-    const response = await axiosClient.post('/auth/login', {
-      email,
-      password
-    });
+      // 3. 🚀 CHÌA KHÓA: Hứng cả chuẩn Java (camelCase) lẫn JS (snake_case)
+      const finalAccessToken = payload.accessToken || payload.access_token;
+      const finalUser = payload.user || payload;
 
-    console.log("LOGIN RESPONSE:", response.data);
+      // 🚨 Báo động đỏ nếu không tìm thấy token
+      if (!finalAccessToken) {
+        console.error("🔴 CẢNH BÁO: Không tìm thấy Access Token! Code Java đang trả về cái gì thế này?");
+      } else {
+        // Típ nhỏ: In 10 ký tự đầu của Token ra để đối chiếu xem có đúng Access Token không
+        console.log("🔑 Đang lưu Access Token:", finalAccessToken.substring(0, 10) + "...");
+      }
 
-    const { token, refreshToken, user, ...rest } = response.data;
+      // 4. Chuẩn hóa User
+      const normalizedUser: UserProfile = {
+        ...finalUser,
+        id: finalUser.id || finalUser.user_id
+      };
 
-    const rawUser = user || rest;
+      // 5. Ghi vào LocalStorage (Đảm bảo là ghi biến finalAccessToken chuẩn)
+      localStorage.setItem('token', finalAccessToken);
+      localStorage.setItem('user', JSON.stringify(normalizedUser));
 
-    const normalizedUser: UserProfile = {
-      ...rawUser,
-      id: rawUser.id || rawUser._id || rawUser.user_id
-    };
+      // 6. Cập nhật State
+      set({
+        token: finalAccessToken,
+        user: normalizedUser,
+        isLoading: false
+      });
 
-    localStorage.setItem('token', token);
+      return { success: true };
 
-    localStorage.setItem(
-      'user',
-      JSON.stringify(normalizedUser)
-    );
+    } catch (error: any) {
+      set({ isLoading: false });
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Đăng nhập thất bại!'
+      };
+    }
+  },
 
-    localStorage.setItem(
-      'refreshToken',
-      refreshToken
-    );
-
-    set({
-      token,
-      user: normalizedUser,
-      isLoading: false
-    });
-
-    return { success: true };
-
-  } catch (error: any) {
-
-    set({ isLoading: false });
-
-    return {
-      success: false,
-      message:
-        error.response?.data?.message ||
-        'Đăng nhập thất bại!'
-    };
-  }
-},
   // ===============================
   // FORGOT PASSWORD
   // ===============================

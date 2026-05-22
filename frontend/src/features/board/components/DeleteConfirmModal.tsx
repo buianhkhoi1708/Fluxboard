@@ -2,10 +2,14 @@ import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, X } from 'lucide-react';
 
-const DeleteConfirmModal = ({ isOpen, onClose, onConfirm, taskTitle }) => {
+// 🚀 1. IMPORT TYPE TỪ FILE TYPES CHUNG
+import { DeleteConfirmModalProps } from '../types/index';
+
+// 🚀 2. GẮN TYPE VÀO COMPONENT
+const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({ isOpen, onClose, onConfirm, taskTitle }) => {
   
   useEffect(() => {
-    const handleKeyDown = (e) => {
+    const handleKeyDown = (e: KeyboardEvent) => { // 🚀 Ép type cho event bàn phím
       if (e.key === 'Escape') onClose();
       if (e.key === 'Enter') {
         onConfirm();
@@ -27,7 +31,6 @@ const DeleteConfirmModal = ({ isOpen, onClose, onConfirm, taskTitle }) => {
   if (!isOpen) return null;
 
   const modalContent = (
-    // 👉 Đảm bảo padding an toàn p-4 cho mobile, sm:p-6 cho PC
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
       
       {/* Backdrop */}
@@ -36,10 +39,9 @@ const DeleteConfirmModal = ({ isOpen, onClose, onConfirm, taskTitle }) => {
         onClick={onClose}
       ></div>
 
-      {/* Modal Content - Thu nhỏ padding và margin trên mobile */}
+      {/* Modal Content */}
       <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-100 p-5 sm:p-6 animate-in zoom-in-95 duration-200">
         
-        {/* Nút X thu nhỏ lại xíu trên mobile */}
         <button 
           onClick={onClose}
           className="absolute top-3 right-3 sm:top-4 sm:right-4 p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-all outline-none"
@@ -49,7 +51,6 @@ const DeleteConfirmModal = ({ isOpen, onClose, onConfirm, taskTitle }) => {
 
         <div className="flex flex-col items-center text-center gap-3 sm:gap-4 mt-2 sm:mt-0">
           
-          {/* Icon linh hoạt kích thước */}
           <div className="w-12 h-12 sm:w-14 sm:h-14 bg-rose-50 rounded-full flex items-center justify-center text-rose-500 shadow-sm shrink-0">
             <AlertTriangle className="w-6 h-6 sm:w-7 sm:h-7" />
           </div>
@@ -61,13 +62,12 @@ const DeleteConfirmModal = ({ isOpen, onClose, onConfirm, taskTitle }) => {
             </p>
           </div>
 
-          {/* 👉 MOBILE FIX: flex-col-reverse xếp dọc trên điện thoại (Hủy dưới, Xóa trên), sm:flex-row nằm ngang trên PC */}
           <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-3 w-full mt-3 sm:mt-2">
             <button 
               onClick={onClose}
               className="flex-1 px-4 py-3 sm:py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-bold rounded-xl transition-all active:scale-95 outline-none"
             >
-              Huỷ bỏ <span className="hidden sm:inline">(Esc)</span> {/* Giấu phím tắt trên điện thoại */}
+              Huỷ bỏ <span className="hidden sm:inline">(Esc)</span>
             </button>
             <button 
               onClick={() => {
@@ -76,7 +76,7 @@ const DeleteConfirmModal = ({ isOpen, onClose, onConfirm, taskTitle }) => {
               }}
               className="flex-1 px-4 py-3 sm:py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold rounded-xl shadow-lg shadow-rose-200 transition-all active:scale-95 outline-none"
             >
-              Xoá ngay <span className="hidden sm:inline">(Enter)</span> {/* Giấu phím tắt trên điện thoại */}
+              Xoá ngay <span className="hidden sm:inline">(Enter)</span>
             </button>
           </div>
         </div>

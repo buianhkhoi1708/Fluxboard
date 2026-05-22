@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bell, Check, Info, AlertTriangle, XCircle, Clock } from 'lucide-react';
-// Sửa đường dẫn import thành 'stores' đồng bộ với TopNavbar
 import { useNotificationStore } from '../stores/useNotificationStore';
 import { useUserStore } from '../../user/store/useUserStore';
 import { useNavigate } from 'react-router-dom';
@@ -8,13 +7,19 @@ import { useNavigate } from 'react-router-dom';
 const NotificationDropdown: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const navigate = useNavigate();
+  const navigate = useNavigate(); // 🚀 KHAI BÁO HÀM CHUYỂN TRANG
   
+  const currentUser = useUserStore((state: any) => state.currentUser);
   const { 
-    notifications, unreadCount, markAsRead, markAllAsRead 
+    notifications, unreadCount, connectWebSocket, disconnectWebSocket, 
+    markAsRead, markAllAsRead 
   } = useNotificationStore();
 
-  // Đã loại bỏ useEffect WebSocket (connect/disconnect) cũ để sử dụng hoàn toàn cơ chế Long Polling
+  useEffect(() => {
+    const userId = currentUser?.id || currentUser?._id;
+    if (userId) connectWebSocket(userId);
+    return () => disconnectWebSocket();
+  }, [currentUser, connectWebSocket, disconnectWebSocket]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -63,7 +68,7 @@ const NotificationDropdown: React.FC = () => {
                 <p className="text-sm font-medium">No new notifications</p>
               </div>
             ) : (
-              notifications.slice(0, 5).map((notif) => { 
+              notifications.slice(0, 5).map((notif) => { // Tối ưu chỉ hiện 5 cái mới nhất ở Dropdown
                 const style = getNotificationStyle(notif.message);
                 return (
                   <div 
@@ -88,6 +93,7 @@ const NotificationDropdown: React.FC = () => {
             )}
           </div>
           
+          {/* 🚀 THÊM NÚT XEM TẤT CẢ Ở ĐÂY */}
           <div className="p-3 border-t border-slate-100 bg-slate-50/80">
             <button 
               onClick={() => {

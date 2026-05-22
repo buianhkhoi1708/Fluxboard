@@ -1,116 +1,82 @@
 // src/features/dashboard/api/dashboardApi.ts
-import axiosClient from '../../../lib/axiosClient'; // Điều chỉnh path phù hợp với cấu trúc dự án của bạn
+import axiosClient from '../../../lib/axiosClient';
 
 // ==========================================
-// INTERFACE CHO DỮ LIỆU TỪ BACKEND
+// INTERFACE KHỚP VỚI DTO BACKEND JAVA
 // ==========================================
 
 export interface AdminDashboardData {
-  cards: {
+  organization_kpi: {
     total_users: number;
-    total_members: number;
-    projects: {
-      active: number;
-      archived: number;
-      total: number;
-    };
     total_departments: number;
+    total_teams: number;
   };
-  project_status_distribution: Array<{
-    status: string;
-    count: number;
-    color: string;
-  }>;
-  at_risk_projects: Array<{
-    id?: string;
-    name: string;
-    status: string;
-  }>;
-  audit_logs: Array<{
-    id: string;
-    actor: string;
-    action: string;
-    severity: string;
-    created_at?: string;
+  company_deadline_health: {
+    on_track: number;
+    at_risk: number;
+    overdue: number;
+    total_extensions: number;
+  };
+  department_points_distribution: Array<{
+    department_id: string;
+    total_points: number;
+    completed_points: number;
+    overdue_tasks: number;
   }>;
 }
 
 export interface ManagerDashboardData {
-  weekly_progress: Array<Record<string, any>>;
-  task_completion_by_team: Array<{
-    team: string;
-    percentage: number;
-  }>;
-  ai_vs_actual_points: Array<{
-    task_id: string;
-    ai_point: number;
-    actual_point: number;
-  }>;
-}
-
-export interface LeadDashboardData {
-  team_workload: Array<{
+  team_workload_capacity: Array<{
     user_id: string;
-    name: string;
-    total_points: number;
+    full_name: string;
+    current_points: number;
+    status: string; // "AVAILABLE" hoặc "OVERLOADED"
   }>;
   at_risk_tasks: Array<{
-    id: string;
+    task_id: string;
     title: string;
-    due_date: string;
+    story_point: number;
     priority: string;
-    reason: string;
-    assignee_name?: string;
+    due_date: string;
+    deadline_status: string;
+    extension_count: number;
   }>;
-  recent_activities: Array<{
-    user: string;
-    content: string;
-    time: string;
+  ai_efficiency: Array<{
+    task_title: string;
+    ai_suggested_point: number;
+    actual_point: number;
   }>;
 }
 
 export interface MemberDashboardData {
   my_contribution: {
-    completed: number;
-    total: number;
+    completed_tasks: number;
+    total_assigned: number;
   };
-  my_focus: Array<{
-    id: string;
+  my_focus_board: Array<{
+    task_id: string;
     title: string;
     priority: string;
+    story_point: number;
     due_date: string;
-  }>;
-  sprint_history?: Array<{
-    name: string;
-    velocity: number;
-    transparency: number;
-    trend: number;
+    deadline_status: string;
+    extensions_used: number;
   }>;
 }
 
-// ==========================================
-// API CALLS – SỬ DỤNG AXIOS CLIENT ĐÃ CẤU HÌNH
-// ==========================================
+// Kiểu dữ liệu gộp chung (Tùy role mà Backend sẽ trả về trường tương ứng)
+export type DashboardResponse = AdminDashboardData & ManagerDashboardData & MemberDashboardData;
 
+// ==========================================
+// API CALL - 1 ĐƯỜNG DẪN DUY NHẤT
+// ==========================================
 export const dashboardApi = {
-  // Admin
-  getAdminMetrics: async (): Promise<AdminDashboardData> => {
-    // axiosClient trả về chính là response.data nhờ interceptor
-    return await axiosClient.get('/dashboard/admin');
-  },
-
-  // Manager
-  getManagerMetrics: async (): Promise<ManagerDashboardData> => {
-    return await axiosClient.get('/dashboard/manager');
-  },
-
-  // Lead
-  getLeadMetrics: async (): Promise<LeadDashboardData> => {
-    return await axiosClient.get('/dashboard/lead');
-  },
-
-  // Member
-  getMemberMetrics: async (): Promise<MemberDashboardData> => {
-    return await axiosClient.get('/dashboard/member');
+  getMetrics: async (params?: { time_range?: string; department_id?: string; team_id?: string }): Promise<DashboardResponse> => {
+    
+    // axiosClient trả về cục JSON bọc ngoài của Spring Boot
+    const res: any = await axiosClient.get('/dashboard/metrics', { params });
+    
+    // 🚀 BÓC VỎ JAVA: Lấy cái lõi res.data trả về cho Frontend dùng
+    return res.data; 
   },
 };
