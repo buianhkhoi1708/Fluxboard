@@ -1,32 +1,97 @@
 import axiosClient from '../../../lib/axiosClient';
-import { CreateProjectPayload, AddMemberPayload } from '../types/projectTypes';
+// 🚀 Nhớ import type IncomingUser từ file User Store để xài chung
+import { IncomingUser } from '../../user/store/useUserStore';
+
+// ==========================================
+// 1. ĐỊNH NGHĨA KIỂU DỮ LIỆU (INTERFACES)
+// ==========================================
+
+// Cấu trúc Response bọc ngoài của Backend (Nên tách ra 1 file type chung nếu sếp muốn)
+export interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  message?: string;
+}
+
+// Kiểu dữ liệu gửi đi khi TẠO dự án
+export interface CreateProjectPayload {
+  name: string;
+  description?: string;
+  departmentId?: string; // Hoặc department_id tùy chuẩn của Backend
+  // Có thể mở rộng thêm: startDate, endDate...
+}
+
+// Kiểu dữ liệu gửi đi khi CẬP NHẬT (Dùng Partial để cho phép gửi 1 vài field)
+export type UpdateProjectPayload = Partial<CreateProjectPayload> & {
+  is_deleted?: boolean;
+};
+
+// ==========================================
+// 2. PROJECT API CLIENT
+// ==========================================
 
 export const projectApi = {
-  // Lấy danh sách dự án của user đang đăng nhập (GET /projects)
-  getUserProjects: () => axiosClient.get('/projects'),
+  /**
+   * 1. Tạo dự án mới (POST /projects)
+   */
+  createProject: (data: CreateProjectPayload): Promise<ApiResponse<any>> => {
+    return axiosClient.post('/projects', data);
+  },
 
-  // Lấy chi tiết dự án kèm Board và Member (GET /projects/:id)
-  getProjectDetail: (projectId: string) => axiosClient.get(`/projects/${projectId}`),
+  /**
+   * 2. Lấy danh sách dự án có phân trang (GET /projects)
+   */
+  getProjects: (params?: { page?: number; size?: number; sort?: string }): Promise<ApiResponse<any>> => {
+    return axiosClient.get('/projects', { params });
+  },
 
-  // Tạo dự án mới (POST /projects)
-  createProject: (data: CreateProjectPayload) => axiosClient.post('/projects', data),
+  /**
+   * 3. Lấy chi tiết 1 dự án (GET /projects/{projectId})
+   */
+  getProjectById: (projectId: string): Promise<ApiResponse<any>> => {
+    return axiosClient.get(`/projects/${projectId}`);
+  },
 
-  // Sửa dự án (PUT /projects/:id)
-  updateProject: (projectId: string, data: Partial<CreateProjectPayload>) => 
-    axiosClient.put(`/projects/${projectId}`, data),
+  /**
+   * 4. Lấy Overview dự án để làm Dashboard (GET /projects/{projectId}/overview)
+   */
+  getProjectOverview: (projectId: string): Promise<ApiResponse<any>> => {
+    return axiosClient.get(`/projects/${projectId}/overview`);
+  },
 
-  // Xóa dự án (DELETE /projects/:id)
-  deleteProject: (projectId: string) => axiosClient.delete(`/projects/${projectId}`),
+  /**
+   * 5. Lấy danh sách dự án theo Phòng ban (GET /projects/departments/{departmentId})
+   */
+  getProjectsByDepartment: (departmentId: string, params?: { page?: number; size?: number }): Promise<ApiResponse<any>> => {
+    return axiosClient.get(`/projects/departments/${departmentId}`, { params });
+  },
 
-  // ================= QUẢN LÝ THÀNH VIÊN =================
-  // Thêm thành viên (POST /projects/members)
-  addMember: (data: AddMemberPayload) => axiosClient.post('/projects/members', data),
+  /**
+   * 6. Cập nhật dự án (PUT /projects/{projectId})
+   */
+  updateProject: (projectId: string, data: UpdateProjectPayload): Promise<ApiResponse<any>> => {
+    return axiosClient.put(`/projects/${projectId}`, data);
+  },
 
-  // Xóa thành viên (DELETE /projects/members)
-  removeMember: (projectId: string, userId: string) => 
-    axiosClient.delete('/projects/members', { data: { project_id: projectId, user_id: userId } }),
+  /**
+   * 7. Xóa dự án (DELETE /projects/{projectId})
+   */
+  deleteProject: (projectId: string): Promise<ApiResponse<null>> => {
+    return axiosClient.delete(`/projects/${projectId}`);
+  },
 
-  // Cập nhật Role thành viên (PUT /projects/:projectId/members/:userId)
-  updateMemberRole: (projectId: string, userId: string, role_name: string) => 
-    axiosClient.put(`/projects/${projectId}/members/${userId}`, { role_name })
+  /**
+   * 8. Lấy tổng quan TẤT CẢ dự án (Kèm Boards & Members)
+   */
+  getProjectOverviews: (params?: { page?: number; size?: number }): Promise<ApiResponse<any>> => {
+    return axiosClient.get('/projects/overviews', { params });
+  },
+
+  /**
+   * 9. Lấy danh sách thành viên của 1 dự án
+   */
+  // 🚀 Điểm ăn tiền: Trả về thẳng mảng IncomingUser để Store tự động map
+  getProjectMembers: (projectId: string): Promise<ApiResponse<IncomingUser[] | any>> => {
+    return axiosClient.get(`/projects/${projectId}/members`);
+  },
 };
