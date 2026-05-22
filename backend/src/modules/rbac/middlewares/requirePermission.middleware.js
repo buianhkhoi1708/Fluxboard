@@ -8,9 +8,9 @@ const requirePermission = (resource, action, scope = 'SYSTEM') => {
             const userId = req.user.id;
             let userRoles = [];
 
-            // Lấy thông tin user và hệ thống role qua trường system_role_ids khớp với Auth
+            // Lấy thông tin user và hệ thống role qua trường role_id
             const user = await User.findById(userId).populate({
-                path: 'system_role_ids',
+                path: 'role_id',
                 populate: { path: 'permission_ids' }
             }).lean();
             
@@ -18,9 +18,13 @@ const requirePermission = (resource, action, scope = 'SYSTEM') => {
                 throw new AppError('Account is inactive or not found', 403, 'FORBIDDEN');
             }
 
-            // system_role_ids đã là một mảng dữ liệu phẳng sau khi lean và populate, không bọc thêm mảng []
-            const systemRoles = user.system_role_ids || []; 
-            const isSystemAdmin = systemRoles.some(role => role.name === 'SYSTEM_ADMIN');
+            // 🚀 FIX: BẮT BUỘC ĐƯA VÀO MẢNG NẾU NÓ LÀ OBJECT
+            let systemRoles = [];
+            if (user.role_id) {
+                systemRoles = Array.isArray(user.role_id) ? user.role_id : [user.role_id];
+            }
+            
+            const isSystemAdmin = systemRoles.some(role => role && role.name === 'SYSTEM_ADMIN');
             
             // Đặc quyền tối cao dành cho SYSTEM_ADMIN: Bỏ qua kiểm tra quyền (bypass)
             if (isSystemAdmin) {
@@ -47,14 +51,15 @@ const requirePermission = (resource, action, scope = 'SYSTEM') => {
                     throw new AppError('You are not a member of this project', 403, 'FORBIDDEN');
                 }
                 
-                // member.role_ids đã là một mảng dữ liệu, gán trực tiếp không bọc thêm []
-                userRoles = member.role_ids || [];
+                // Đảm bảo member.role_ids cũng là mảng cho chắc ăn tuyệt đối
+                userRoles = Array.isArray(member.role_ids) ? member.role_ids : [member.role_ids];
             }
 
             // Trích xuất phẳng danh sách các object permissions từ các vai trò
-            const userPermissions = userRoles.flatMap(role => role.permission_ids || []);
+            const userPermissions = userRoles.flatMap(role => role && role.permission_ids ? role.permission_ids : []);
+            
             const hasPermission = userPermissions.some(
-                p => p.resource === resource && p.action === action && p.scope === scope
+                p => p && p.resource === resource && p.action === action && p.scope === scope
             );
 
             if (!hasPermission) {
@@ -69,4 +74,4 @@ const requirePermission = (resource, action, scope = 'SYSTEM') => {
 };
 
 module.exports = requirePermission;
-module.exports.requirePermission = requirePermission; // Hỗ trợ cả hai cách import để tránh lỗi crash do lệch cấu trúc hoặc lỗi tải vòng (circular dependency)
+module.exports.requirePermission = requirePermission; // Hỗ trợ cả hai cách import

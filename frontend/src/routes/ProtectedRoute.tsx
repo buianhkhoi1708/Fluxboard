@@ -1,7 +1,8 @@
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
-import { useAuthStore } from '../features/auth/store/useAuthStore';
-// 🚀 Import cái hook thần thánh bạn vừa tạo (Nhớ trỏ đúng đường dẫn file nhé)
+
+// 🚀 Đổi từ Zustand sang React Query hook của bạn
+import { useAuthUser } from '../features/auth/hooks/useAuthQueries'; // Đổi đường dẫn trỏ tới file chứa hook này nhé
 import { useRoleAccess } from '../features/rbac/hooks/useRoleAccess'; 
 
 interface ProtectedRouteProps {
@@ -9,30 +10,33 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) => {
-  // Chỉ lắng nghe token để biết đã đăng nhập chưa
-  const token = useAuthStore((state) => state.token);
+  // 1. Dùng hook của React Query thay vì Zustand
+  // Thêm cờ isLoading của user để chống nháy màn hình
+  const { data: user, isLoading: isUserLoading } = useAuthUser();
   
-  // 🚀 Gọi hook phân quyền (Nó đã tự động xử lý vụ "dịch" role_id bằng từ điển)
+  // 2. Hook phân quyền của bạn
   const { hasAccess, isLoadingRoles } = useRoleAccess();
 
+  // BẮT BUỘC CHỜ 1 NHỊP ĐỂ ĐỌC XONG LOCALSTORAGE & TỪ ĐIỂN
+  if (isUserLoading || isLoadingRoles) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center gap-3">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+          <span className="text-slate-500 font-medium text-sm animate-pulse">Đang xác thực...</span>
+        </div>
+      </div>
+    );
+  }
+
   // 1. KIỂM TRA ĐĂNG NHẬP
-  if (!token) {
+  if (!user) {
+    // Nếu React Query check không thấy user hoặc token hết hạn -> Về Login
     return <Navigate to="/login" replace />;
   }
 
-  // 2. KIỂM TRA PHÂN QUYỀN
+  // 2. KIỂM TRA PHÂN QUYỀN (Dành cho Route Admin/Manager)
   if (allowedRoles && allowedRoles.length > 0) {
-    
-    // Nếu từ điển đang load, chặn tạm màn hình trắng 1 nhịp để tránh bị văng oan
-    if (isLoadingRoles) {
-      return (
-        <div className="h-screen w-full flex items-center justify-center bg-slate-50">
-           <span className="text-slate-400 font-medium">Đang kiểm tra quyền truy cập...</span>
-        </div>
-      );
-    }
-
-    // Dùng chính hàm hasAccess để check (Nó đã lo hết vụ compare tuyệt đối === rồi)
     if (!hasAccess(allowedRoles)) {
       return <Navigate to="/403" replace />;
     }

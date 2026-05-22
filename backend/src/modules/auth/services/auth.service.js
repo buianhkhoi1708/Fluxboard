@@ -4,20 +4,25 @@ const User = require('../../user/models/user.model');
 const AppError = require('../../../common/exceptions/AppError');
 
 const getSafeUser = (user) => ({
-    _id: user._id,
-    email: user.email,
-    full_name: user.full_name,
-    avatar_url: user.avatar_url,
-    department_id: user.department_id,
-    system_role_ids: user.system_role_ids,
-    status: user.status
+  id: user._id,
+  email: user.email,
+  fullName: user.full_name,
+  avatarUrl: user.avatar_url,
+  departmentId: user.department_id,
+  
+  // ✅ FIX: Đổi từ systemRoleIds / system_role_id thành role_id
+  role_id: user.role_id, 
+  
+  status: user.status,
 });
 
 const generateTokenPayload = (user) => ({
-    id: user._id,
-    email: user.email,
-    system_role_ids: user.system_role_ids, 
-    department_id: user.department_id      
+  id: user._id,
+  email: user.email,
+  department_id: user.department_id,
+  
+  // ✅ FIX: Đổi thành role_id để Jwt nén đúng dữ liệu
+  role_id: user.role_id, 
 });
 
 exports.login = async (email, password) => {
@@ -56,11 +61,11 @@ exports.login = async (email, password) => {
         issuer: process.env.JWT_ISSUER
     });
 
-    return { 
-        user: getSafeUser(user), 
-        token, 
-        refreshToken 
-    };
+    return {
+   user: getSafeUser(user),
+   accessToken: token,
+   refreshToken
+};
 };
 
 exports.refreshToken = async (token) => {

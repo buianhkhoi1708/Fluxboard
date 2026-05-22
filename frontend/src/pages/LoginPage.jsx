@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuthStore } from '../features/auth/store/useAuthStore';
+import * as yup from 'yup';
+
+// Import hook useLogin (React Query) thay cho Zustand
+// Lưu ý: Nhớ sửa lại đường dẫn này trỏ đúng tới file chứa hook useLogin của bạn
+import { useLogin } from '../features/auth/hooks/useAuthQueries'; 
 import { loginSchema } from '../features/auth/schema/auth.schema';
 import { ArrowRight, Loader2, Eye, EyeOff } from 'lucide-react';
 import logoIcon from '../assets/icon.svg';
@@ -11,7 +15,8 @@ const LoginPage = () => {
   const [serverError, setServerError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   
-  const { login, isLoading } = useAuthStore();
+  // Lấy hàm gọi API và trạng thái loading từ React Query
+  const { mutateAsync: loginMutation, isPending: isLoading } = useLogin();
   const navigate = useNavigate();
 
   // Xử lý khi gõ phím -> Xóa lỗi của field đó
@@ -23,7 +28,7 @@ const LoginPage = () => {
     }
   };
 
-  // Xử lý khi con trỏ rời khỏi ô nhập -> Check lỗi từng ô (validateAt)
+  // Xử lý khi con trỏ rời khỏi ô nhập -> Check lỗi từng ô
   const handleBlur = async (e) => {
     const { name } = e.target;
     try {
@@ -34,31 +39,37 @@ const LoginPage = () => {
     }
   };
 
-  // Xử lý khi bấm Đăng nhập -> Check lỗi toàn bộ (abortEarly: false)
+  // Xử lý khi bấm Đăng nhập
   const handleLogin = async (e) => {
     e.preventDefault();
     setServerError('');
     setErrors({});
 
+    // BƯỚC 1: XÁC THỰC FORM BẰNG YUP
     try {
-      // Xác thực toàn bộ form
       await loginSchema.validate(formData, { abortEarly: false });
-      
-      // Nếu không có lỗi thì gọi API Backend
-      const result = await login(formData.email, formData.password);
-      if (result.success) {
-        setServerError('');
-        navigate('/dashboard'); 
-      } else {
-        setServerError('Sai email hoặc mật khẩu');
-      }
     } catch (err) {
-      // Gom tất cả lỗi từ Yup ném vào state errors
-      const validationErrors = {};
-      err.inner.forEach((error) => {
-        validationErrors[error.path] = error.message;
-      });
-      setErrors(validationErrors);
+      // Nếu là lỗi của Yup thì bắt và hiển thị, sau đó dừng lại không gọi API
+      if (err instanceof yup.ValidationError) {
+        const validationErrors = {};
+        err.inner.forEach((error) => {
+          validationErrors[error.path] = error.message;
+        });
+        setErrors(validationErrors);
+        return; 
+      }
+    }
+
+    // BƯỚC 2: GỌI API ĐĂNG NHẬP
+    try {
+      await loginMutation({ email: formData.email, password: formData.password });
+      
+      // Chuyển trang sau khi đăng nhập thành công
+      navigate('/dashboard'); 
+    } catch (error) {
+      // Bắt lỗi từ Server trả về (sai pass, không tìm thấy user, v.v.)
+      const errorMsg = error.response?.data?.message || error.response?.data?.error?.message || 'Sai email hoặc mật khẩu';
+      setServerError(errorMsg);
     }
   };
 
@@ -82,7 +93,7 @@ const LoginPage = () => {
         </div>
       </div>
 
-        {/* FORM LOGIN */}
+      {/* FORM LOGIN */}
       <div className="w-full lg:w-[55%] flex items-center justify-center p-8 sm:p-12 lg:p-24 relative bg-white">
         <div className="w-full max-w-md z-10">
           <div className="flex items-center gap-4 mb-12">

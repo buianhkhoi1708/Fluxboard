@@ -17,8 +17,8 @@ exports.getMetricsByRole = async (jwtUser, queryParams) => {
     const fullUser = await User.findById(userId).lean();
 
     // Sửa trường truy vấn thành system_role_ids để đồng bộ chính xác dữ liệu từ MongoDB
-    if (fullUser && fullUser.system_role_ids && fullUser.system_role_ids.length > 0) {
-        const roles = await Role.find({ _id: { $in: fullUser.system_role_ids } }).select('name').lean();
+    if (fullUser && fullUser.role_id && fullUser.role_id.length > 0) {
+        const roles = await Role.find({ _id: { $in: fullUser.role_id } }).select('name').lean();
         roleNames = roles.map(r => r.name);
     }
 

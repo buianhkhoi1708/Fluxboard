@@ -40,7 +40,10 @@ connectDB();
     try {
         await seedRbac();
         console.log('✅ RBAC Seeding completed.');
-        // await seedData(); // Mở nếu muốn seed dữ liệu mẫu cho hệ thống
+        
+        await seedData(); // ✅ Đã mở comment để chạy tạo User (SYSTEM_ADMIN)
+        console.log('✅ User Seeding completed.');
+        
     } catch (err) {
         console.error('❌ Seeding error:', err);
     }

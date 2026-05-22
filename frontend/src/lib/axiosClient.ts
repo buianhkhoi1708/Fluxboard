@@ -1,20 +1,23 @@
 import axios, { InternalAxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
-import { useAuthStore } from '../features/auth/store/useAuthStore';
+// KHÔNG IMPORT ZUSTAND NỮA
+// import { useAuthStore } from '../features/auth/store/useAuthStore';
 
-// Khởi tạo Instance với Base URL
 const axiosClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL as string, // Ép kiểu string cho Env
+  baseURL: import.meta.env.VITE_API_BASE_URL as string,
   timeout: 60000,
   headers: {
     'Content-Type': 'application/json',
   }
 });
 
-// Request Interceptor
+// ==========================================
+// 1. REQUEST INTERCEPTOR: Tự động nhét Token vào
+// ==========================================
 axiosClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    // Đọc token từ RAM (Zustand state)
-    const token = useAuthStore.getState().token;
+    
+    // ✅ FIX: Đọc token trực tiếp từ LocalStorage (Khớp với chỗ React Query lưu)
+    const token = localStorage.getItem('token');
     
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -25,27 +28,33 @@ axiosClient.interceptors.request.use(
   (error: any) => Promise.reject(error)
 );
 
-// Response Interceptor
+// ==========================================
+// 2. RESPONSE INTERCEPTOR: Xử lý 401
+// ==========================================
 axiosClient.interceptors.response.use(
   (response: AxiosResponse) => {
-    // 🚀 BƯỚC NÀY CHÍNH LÀ INTERCEPTOR "BÓC VỎ" AXIOS MÀ ANH EM CHỐT Ở BÀI TRƯỚC!
+    // Bóc vỏ data như anh em chốt!
     return response.data;
   },
   (error: AxiosError) => {
     if (error.response) {
       const status = error.response.status;
-      
-      // Định nghĩa tạm kiểu cho data để tránh TS chửi
       const errorData = error.response.data as any;
+      
       console.error(`[API Error ${status}]:`, errorData || 'Đã có lỗi xảy ra từ máy chủ');
       
       if (status === 401) {
+        // Bỏ qua nếu là API login
         if (error.config?.url?.includes('/auth/login')) {
             return Promise.reject(error);
         }
 
         console.warn("🔴 Token không hợp lệ hoặc đã hết hạn. Đang đăng xuất...");
-        useAuthStore.getState().logout();
+        
+        // ✅ FIX: Xóa thẳng LocalStorage và ép văng ra ngoài, không qua Zustand nữa
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
       }
       
     } else if (error.request) {
@@ -58,6 +67,7 @@ axiosClient.interceptors.response.use(
   }
 );
 
+// ... (Các Interface giữ nguyên)
 export interface ApiResponse<T = any> {
   success: boolean;
   code: number;
@@ -65,7 +75,6 @@ export interface ApiResponse<T = any> {
   data: T;
 }
 
-// Cấu trúc dùng chung cho các API có phân trang
 export interface PaginatedData<T> {
   content: T[];
   pageable: { pageNumber: number; pageSize: number };

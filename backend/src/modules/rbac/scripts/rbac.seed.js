@@ -111,10 +111,14 @@ const seedRbac = async () => {
         ];
 
         for (const r of rolesData) {
-            // Thay thế new: true bằng returnDocument: 'after'
+            // Tách name ra làm điều kiện tìm kiếm, các trường còn lại để update
+            const { name, ...updateData } = r;
+
             await Role.findOneAndUpdate(
-                { name: r.name, scope: r.scope },
-                { $setOnInsert: r },
+                { name: name }, // ✅ CHỈ tìm theo trường được đánh unique index
+                { 
+                    $set: updateData // ✅ Dùng $set để LUÔN CẬP NHẬT quyền/scope mới nhất mỗi khi chạy seed
+                },
                 { upsert: true, returnDocument: 'after' }
             );
         }

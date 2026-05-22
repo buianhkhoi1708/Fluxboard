@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axiosClient from '../../../lib/axiosClient';
 
-
 export interface UserProfile {
   id: string | number;
   email: string;
@@ -24,22 +23,37 @@ export const useAuthUser = () => {
   return useQuery({
     queryKey: AUTH_KEYS.me,
     queryFn: (): UserProfile | null => {
-      // Đọc user từ localStorage (hoặc gọi API /me nếu sếp có endpoint này)
       const storedUser = localStorage.getItem('user');
       if (!storedUser) return null;
 
       const token = localStorage.getItem('token');
       if (!token) return null;
 
-      // Kiểm tra JWT hết hạn
+      // ✅ ĐÃ SỬA: Cách giải mã JWT an toàn tuyệt đối, chống lỗi Silent Catch
       try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
+        const base64Url = token.split('.')[1];
+        // Chuyển đổi Base64Url sang Base64 chuẩn
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        
+        // Giải mã an toàn hỗ trợ cả font chữ Unicode
+        const jsonPayload = decodeURIComponent(
+          window.atob(base64).split('').map(function(c) {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+          }).join('')
+        );
+
+        const payload = JSON.parse(jsonPayload);
+
+        // Kiểm tra JWT hết hạn
         if (payload.exp * 1000 < Date.now()) {
           localStorage.removeItem('token');
           localStorage.removeItem('user');
           return null;
         }
-      } catch {
+      } catch (error) {
+        console.error("❌ [LỖI GIẢI MÃ TOKEN]:", error);
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
         return null;
       }
 
@@ -80,7 +94,7 @@ export const useLogin = () => {
       return normalizedUser;
     },
     onSuccess: (normalizedUser) => {
-      // 🚀 Bơm ngay data user vào Query Cache thay vì dùng Zustand
+      // 🚀 Bơm ngay data user vào Query Cache
       queryClient.setQueryData(AUTH_KEYS.me, normalizedUser);
     },
     onError: (error: any) => {

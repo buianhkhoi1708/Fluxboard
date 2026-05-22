@@ -28,26 +28,34 @@ const DashboardPage = () => {
   const { data: rolesList, isLoading: isRolesLoading } = useRolesDictionary();
 
   // Xác định role sau khi từ điển đã tải
-  const currentRoleName = useMemo(() => {
+ const currentRoleName = useMemo(() => {
     if (!user) return "MEMBER";
-    const rawRole = 
-      user.system_role || 
-      user.systemRole ||
-      user.role_id || 
-      user.role?.id ||
-      user.role_name || 
-      user.role?.name || 
-      user.role || 
-      "MEMBER";
+
+    // 1. Lấy tên role từ Object (đã populate từ Backend)
+    const roleFromObject = user.role_id && typeof user.role_id === 'object' 
+                           ? user.role_id.name 
+                           : null;
+
+    // 2. Dự phòng các trường hợp khác
+    const rawRole = roleFromObject || user.system_role || user.role_id || "MEMBER";
     const roleString = String(rawRole).toUpperCase().trim();
 
-    if (rolesList && rolesList.length > 0) {
-      const matchedRole = rolesList.find(r => r.id.toUpperCase() === roleString);
-      if (matchedRole) return matchedRole.name.toUpperCase();
+    // 3. So khớp với từ điển rolesList
+    if (rolesList && Array.isArray(rolesList)) {
+      const matchedRole = rolesList.find(r => {
+        // Kiểm tra an toàn: so sánh với _id (dữ liệu DB) hoặc name
+        const matchById = r._id && r._id.toUpperCase() === roleString;
+        const matchByName = r.name && r.name.toUpperCase() === roleString;
+        return matchById || matchByName;
+      });
+      
+      if (matchedRole && matchedRole.name) {
+        return matchedRole.name.toUpperCase();
+      }
     }
+    
     return roleString;
   }, [user, rolesList]);
-
   const renderDashboardByRole = () => {
     if (currentRoleName.includes('ADMIN') || currentRoleName === 'SYSTEM_ADMIN' || currentRoleName === 'PROJECT_ADMIN') {
       return <AdminDashboard data={data || null} />;
