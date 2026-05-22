@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import * as yup from 'yup';
-
-// Import hook useLogin (React Query) thay cho Zustand
-// Lưu ý: Nhớ sửa lại đường dẫn này trỏ đúng tới file chứa hook useLogin của bạn
-import { useLogin } from '../features/auth/hooks/useAuthQueries'; 
 import { loginSchema } from '../features/auth/schema/auth.schema';
 import { ArrowRight, Loader2, Eye, EyeOff } from 'lucide-react';
 import logoIcon from '../assets/icon.svg';
+
+// 1. IMPORT ZUSTAND STORE THAY VÌ REACT QUERY
+import { useAuthStore } from '../features/auth/store/useAuthStore'; 
 
 const LoginPage = () => {
   const [formData, setFormData] = useState({ email: '', password: '' });
@@ -15,20 +14,16 @@ const LoginPage = () => {
   const [serverError, setServerError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   
-  // Lấy hàm gọi API và trạng thái loading từ React Query
-  const { mutateAsync: loginMutation, isPending: isLoading } = useLogin();
+  // 2. LẤY HÀM LOGIN VÀ ISLOADING TỪ ZUSTAND STORE
+  const { login, isLoading } = useAuthStore();
   const navigate = useNavigate();
 
-  // Xử lý khi gõ phím -> Xóa lỗi của field đó
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    if (errors[name]) {
-      setErrors((prev) => ({ ...prev, [name]: '' }));
-    }
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: '' }));
   };
 
-  // Xử lý khi con trỏ rời khỏi ô nhập -> Check lỗi từng ô
   const handleBlur = async (e) => {
     const { name } = e.target;
     try {
@@ -39,17 +34,14 @@ const LoginPage = () => {
     }
   };
 
-  // Xử lý khi bấm Đăng nhập
   const handleLogin = async (e) => {
     e.preventDefault();
     setServerError('');
     setErrors({});
 
-    // BƯỚC 1: XÁC THỰC FORM BẰNG YUP
     try {
       await loginSchema.validate(formData, { abortEarly: false });
     } catch (err) {
-      // Nếu là lỗi của Yup thì bắt và hiển thị, sau đó dừng lại không gọi API
       if (err instanceof yup.ValidationError) {
         const validationErrors = {};
         err.inner.forEach((error) => {
@@ -60,16 +52,16 @@ const LoginPage = () => {
       }
     }
 
-    // BƯỚC 2: GỌI API ĐĂNG NHẬP
-    try {
-      await loginMutation({ email: formData.email, password: formData.password });
-      
-      // Chuyển trang sau khi đăng nhập thành công
+    // 3. GỌI HÀM LOGIN CỦA ZUSTAND
+    // Nó sẽ tự động gọi API, lưu Token, lưu LocalStorage và cập nhật State
+    const response = await login(formData.email, formData.password);
+    
+    if (response.success) {
+      // Thành công -> Chuyển hướng
       navigate('/dashboard'); 
-    } catch (error) {
-      // Bắt lỗi từ Server trả về (sai pass, không tìm thấy user, v.v.)
-      const errorMsg = error.response?.data?.message || error.response?.data?.error?.message || 'Sai email hoặc mật khẩu';
-      setServerError(errorMsg);
+    } else {
+      // Thất bại -> Lấy câu báo lỗi từ Zustand (đã được bọc lót kỹ ở store)
+      setServerError(response.message);
     }
   };
 

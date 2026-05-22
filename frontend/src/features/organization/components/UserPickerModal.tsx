@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { X, Search, UserPlus, Loader2, User } from 'lucide-react';
-import { orgApi } from '../api/organizationApi';
-import { useOrgStore } from '../state/useOrganizationStore';
+
+// 🚀 FIX 1: Bỏ Zustand, dùng React Query Hooks để tận dụng Cache và Auto-Refetch
+import { useGetUnassignedUsers, useAssignUserToTeam } from '../hooks/useOrgQueries'; 
 
 export interface UserPickerModalProps {
   isOpen: boolean;
@@ -11,7 +12,8 @@ export interface UserPickerModalProps {
 }
 
 export interface UnassignedUser {
-  id: string;
+  id?: string;
+  _id?: string; // 🚀 FIX 2: Thêm _id để đón chuẩn dữ liệu MongoDB
   full_name: string;
   email: string;
   role_id: string | null;
@@ -23,57 +25,44 @@ const UserPickerModal: React.FC<UserPickerModalProps> = ({
   targetDeptId, 
   targetTeamId 
 }) => {
-  const { fetchTree } = useOrgStore();
+  // 🚀 Tự động lấy danh sách (Hook này sẽ trả về dữ liệu nhanh chóng từ cache)
+  const { data: users = [], isLoading } = useGetUnassignedUsers();
   
-  const [users, setUsers] = useState<UnassignedUser[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  // 🚀 Hook gán user: Khi gán xong, nó sẽ tự động update cây phòng ban và danh sách trống
+  const assignMutation = useAssignUserToTeam();
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [assigningUserId, setAssigningUserId] = useState<string | null>(null);
 
-  // 🚀 TẢI DANH SÁCH USER UNASSIGNED KHI MỞ MODAL
+  // Reset tìm kiếm mỗi khi mở lại modal
   useEffect(() => {
-    if (isOpen) {
-      const fetchUnassignedUsers = async () => {
-        setIsLoading(true);
-        try {
-          const res: any = await orgApi.getUnassignedUsers();
-          
-          const payload = res.data || res; 
-          const userData = payload.data || payload.content || payload; 
-          
-          setUsers(Array.isArray(userData) ? userData : []);
-          
-        } catch (error) {
-          console.error("Lỗi lấy danh sách user chưa gán:", error);
-        } finally {
-          setIsLoading(false);
-        }
-      };
-
-      fetchUnassignedUsers();
-      setSearchQuery('');
-    }
+    if (isOpen) setSearchQuery('');
   }, [isOpen]);
 
-  // 🚀 LỌC DANH SÁCH USER THEO TỪ KHÓA TÌM KIẾM
+  // LỌC DANH SÁCH USER THEO TỪ KHÓA TÌM KIẾM
   const filteredUsers = useMemo(() => {
     if (!searchQuery.trim()) return users;
     const lowerQuery = searchQuery.toLowerCase();
     return users.filter(
-      u => (u.full_name && u.full_name.toLowerCase().includes(lowerQuery)) || 
-           (u.email && u.email.toLowerCase().includes(lowerQuery))
+      (u: UnassignedUser) => (u.full_name && u.full_name.toLowerCase().includes(lowerQuery)) || 
+                             (u.email && u.email.toLowerCase().includes(lowerQuery))
     );
   }, [users, searchQuery]);
 
-  // 🚀 XỬ LÝ GÁN USER VÀO TEAM
+  // XỬ LÝ GÁN USER VÀO TEAM
   const handleAssignUser = async (userId: string) => {
-    if (!targetTeamId || !targetDeptId) return;
+    if (!targetTeamId || !targetDeptId || !userId) return;
 
     setAssigningUserId(userId);
     try {
-      await orgApi.assignUserToTeam(userId, targetTeamId, targetDeptId);
-      setUsers(prev => prev.filter(u => u.id !== userId));
-      fetchTree();
+      // Dùng hàm mutateAsync từ React Query
+      await assignMutation.mutateAsync({ 
+        userId, 
+        teamId: targetTeamId, 
+        departmentId: targetDeptId 
+      });
+      // 💡 Quá xịn: Bạn KHÔNG cần phải tự tay setUsers hay gọi fetchTree() nữa.
+      // React Query (useAssignUserToTeam) sẽ tự động làm mới data ngầm.
     } catch (error: any) {
       console.error("Lỗi khi gán user:", error);
       alert(error.response?.data?.message || "Có lỗi xảy ra khi gán nhân sự.");
@@ -99,10 +88,7 @@ const UserPickerModal: React.FC<UserPickerModalProps> = ({
               <p className="text-xs font-medium text-slate-400 mt-0.5">Chọn nhân sự chưa có nhóm làm việc</p>
             </div>
           </div>
-          <button 
-            onClick={onClose} 
-            className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-colors self-start"
-          >
+          <button onClick={onClose} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-colors self-start">
             <X size={20} />
           </button>
         </div>
@@ -130,45 +116,43 @@ const UserPickerModal: React.FC<UserPickerModalProps> = ({
             </div>
           ) : filteredUsers.length > 0 ? (
             <div className="space-y-2">
-              {filteredUsers.map((user) => (
-                <div 
-                  key={user.id} 
-                  className="group flex items-center justify-between p-4 bg-white hover:bg-indigo-50/50 rounded-2xl border border-slate-100 hover:border-indigo-100 shadow-sm hover:shadow-md transition-all duration-300"
-                >
-                  <div className="flex items-center gap-4">
-                    {/* Avatar Gradient Đồng Bộ */}
-                    <div className="w-11 h-11 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 text-white font-black text-sm flex items-center justify-center uppercase shadow-sm">
-                      {user.full_name ? user.full_name.charAt(0) : <User size={18} />}
-                    </div>
-                    <div>
-                      <p className="font-bold text-sm text-slate-800 group-hover:text-indigo-700 transition-colors">
-                        {user.full_name}
-                      </p>
-                      <p className="text-[12px] font-medium text-slate-400 mt-0.5">
-                        {user.email}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <button 
-                    onClick={() => handleAssignUser(user.id)}
-                    disabled={assigningUserId === user.id}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-slate-50 text-slate-600 border border-slate-200 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all duration-300 active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none group-hover:bg-indigo-50 group-hover:text-indigo-600 group-hover:border-indigo-200"
+              {filteredUsers.map((user: UnassignedUser) => {
+                // 🚀 FIX 3: Chuẩn hóa ID tránh lỗi undefined của MongoDB
+                const activeId = user._id || user.id || '';
+                
+                return (
+                  <div 
+                    key={activeId} 
+                    className="group flex items-center justify-between p-4 bg-white hover:bg-indigo-50/50 rounded-2xl border border-slate-100 hover:border-indigo-100 shadow-sm hover:shadow-md transition-all duration-300"
                   >
-                    {assigningUserId === user.id ? (
-                      <>
-                        <Loader2 size={16} className="animate-spin" />
-                        Đang gán...
-                      </>
-                    ) : (
-                      <>
-                        <UserPlus size={16} />
-                        Thêm
-                      </>
-                    )}
-                  </button>
-                </div>
-              ))}
+                    <div className="flex items-center gap-4">
+                      <div className="w-11 h-11 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 text-white font-black text-sm flex items-center justify-center uppercase shadow-sm">
+                        {user.full_name ? user.full_name.charAt(0) : <User size={18} />}
+                      </div>
+                      <div>
+                        <p className="font-bold text-sm text-slate-800 group-hover:text-indigo-700 transition-colors">
+                          {user.full_name}
+                        </p>
+                        <p className="text-[12px] font-medium text-slate-400 mt-0.5">
+                          {user.email}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <button 
+                      onClick={() => handleAssignUser(activeId)}
+                      disabled={assigningUserId === activeId}
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-slate-50 text-slate-600 border border-slate-200 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all duration-300 active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none group-hover:bg-indigo-50 group-hover:text-indigo-600 group-hover:border-indigo-200"
+                    >
+                      {assigningUserId === activeId ? (
+                        <><Loader2 size={16} className="animate-spin" /> Đang gán...</>
+                      ) : (
+                        <><UserPlus size={16} /> Thêm</>
+                      )}
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <div className="text-center py-16">

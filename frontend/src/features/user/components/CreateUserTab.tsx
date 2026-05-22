@@ -3,7 +3,8 @@ import { UserPlus, Mail, Lock, Shield, User, Loader2, CheckCircle2 } from 'lucid
 import { userApi } from '../api/userApi'; // Điều chỉnh đường dẫn import nếu cần
 
 interface RoleOption {
-  id: string;
+  _id?: string; // Thêm _id của MongoDB
+  id?: string;
   name: string;
 }
 
@@ -36,9 +37,10 @@ const CreateUserTab: React.FC = () => {
         
         setRoles(roleData);
         
-        // Gán role mặc định là Role đầu tiên
+        // 🚀 Gán role mặc định là Role đầu tiên (ưu tiên lấy _id)
         if (roleData.length > 0) {
-          setFormData(prev => ({ ...prev, role: roleData[0].id }));
+          const firstRoleId = roleData[0]._id || roleData[0].id || '';
+          setFormData(prev => ({ ...prev, role: firstRoleId }));
         }
       } catch (error) {
         console.error("Lỗi lấy danh sách Role:", error);
@@ -198,11 +200,15 @@ const CreateUserTab: React.FC = () => {
                     {isLoadingRoles ? (
                       <option value="">Đang tải danh sách quyền...</option>
                     ) : roles.length > 0 ? (
-                      roles.map((r) => (
-                        <option key={r.id} value={r.id}>
-                          {r.name}
-                        </option>
-                      ))
+                      roles.map((r) => {
+                        // 🚀 Lấy ID chuẩn của MongoDB
+                        const roleId = r._id || r.id;
+                        return (
+                          <option key={roleId} value={roleId}>
+                            {r.name}
+                          </option>
+                        );
+                      })
                     ) : (
                       <option value="">Chưa có quyền hạn nào</option>
                     )}

@@ -4,6 +4,7 @@ const Team = require('../../team/models/team.model');
 const activityService = require('../../activity/services/activity.service');
 const eventBus = require('../../../common/utils/eventBus');
 const AppError = require('../../../common/exceptions/AppError');
+const bcrypt = require('bcryptjs');
 
 // ==========================================
 // 1. QUẢN LÝ HỒ SƠ (PROFILE CORE)
@@ -122,4 +123,35 @@ exports.revokeAccess = async (userId, actorId) => {
     });
 
     return { success: true };
+};
+
+exports.createUser = async ({ full_name, email, password, role_id }) => {
+    // 1. Kiểm tra đầu vào
+    if (!full_name || !email || !password || !role_id) {
+        throw new AppError('Vui lòng điền đầy đủ thông tin', 400);
+    }
+
+    // 2. Kiểm tra email đã tồn tại chưa
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+        throw new AppError('Email này đã được sử dụng trong hệ thống', 409);
+    }
+
+    // 3. Mã hóa mật khẩu
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // 4. Lưu vào Database
+    const newUser = await User.create({
+        full_name,
+        email,
+        password_hash: hashedPassword, // 🚀 SỬA THÀNH CHỮ NÀY
+        role_id,
+        status: 'ACTIVE' 
+    });
+
+    // 5. Ẩn password trước khi trả về cho Controller
+    newUser.password = undefined;
+    
+    return newUser;
 };

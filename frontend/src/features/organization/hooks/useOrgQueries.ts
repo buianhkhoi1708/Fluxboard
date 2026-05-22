@@ -2,10 +2,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { orgApi } from '../api/organizationApi';
 
 // 1. QUẢN LÝ QUERY KEYS TẬP TRUNG
-// Cách này giúp tránh gõ sai chính tả và dễ dàng invalidate (làm mới) data sau này
 export const ORG_QUERY_KEYS = {
   tree: ['orgTree'] as const,
-  departmentDetail: (id: string) => ['department', id] as const,
+  departmentDetail: (id: string) => ['department', id] as const, // Có thể xóa nếu UI không còn dùng
   unassignedUsers: ['unassignedUsers'] as const,
   searchUsers: (keyword: string) => ['searchUsers', keyword] as const,
 };
@@ -18,39 +17,16 @@ export const useGetOrgTree = (params?: any) => {
   return useQuery({
     queryKey: ORG_QUERY_KEYS.tree,
     queryFn: async () => {
-      // BƯỚC 1: Lấy danh sách các phòng ban (Chuyển từ Zustand sang đây)
-      const deptRes: any = await orgApi.getOrgTree({ size: 100, ...params }); 
+      // 🚀 GỌI ĐÚNG 1 LẦN: Lấy toàn bộ cây phòng ban, teams, và members từ Backend
+      const res: any = await orgApi.getOrgTree({ size: 100, ...params }); 
       
-      let rawDepts = [];
-      if (Array.isArray(deptRes)) rawDepts = deptRes;
-      else if (Array.isArray(deptRes.data)) rawDepts = deptRes.data;
-      else if (Array.isArray(deptRes.data?.data)) rawDepts = deptRes.data.data;
-      else if (Array.isArray(deptRes.data?.data?.content)) rawDepts = deptRes.data.data.content;
-
-      // BƯỚC 2: Gọi API lấy chi tiết (Hierarchy) cho từng phòng ban
-      const fullTreePromises = rawDepts.map(async (dept: any) => {
-        try {
-          const detailRes: any = await orgApi.getDepartmentHierarchy(dept.id);
-          const detailData = detailRes.data?.data || detailRes.data || {};
-
-          return {
-            ...dept,
-            ...detailData, 
-            teams: (detailData.teams || []).map((t: any) => ({
-              ...t,
-              members: t.members || []
-            }))
-          };
-        } catch (detailError) {
-          console.warn(`Không lấy được chi tiết cho phòng ban ${dept.id}`, detailError);
-          return { ...dept, teams: [] }; 
-        }
-      });
-
-      // Chờ tất cả tải xong và trả về dữ liệu (TanStack Query sẽ tự động gán vào biến 'data')
-      const fullTree = await Promise.all(fullTreePromises);
+      // Bóc tách dữ liệu an toàn tùy theo format response của hệ thống
+      const fullTree = res.data?.data?.content || res.data?.data || res.data || res || [];
+      
       return fullTree;
     },
+    // Tối ưu UI: Giữ cache trong 5 phút để chuyển tab không bị giật/load lại liên tục
+    staleTime: 5 * 60 * 1000, 
   });
 };
 
@@ -58,8 +34,8 @@ export const useGetUnassignedUsers = (params?: any) => {
   return useQuery({
     queryKey: ORG_QUERY_KEYS.unassignedUsers,
     queryFn: async () => {
-      const { data } = await orgApi.getUnassignedUsers(params);
-      return data?.data || data?.content || data;
+      const res: any = await orgApi.getUnassignedUsers(params);
+      return res.data?.data || res.data?.content || res.data || [];
     },
   });
 };
@@ -73,7 +49,6 @@ export const useCreateDepartment = () => {
   return useMutation({
     mutationFn: orgApi.createDepartment,
     onSuccess: () => {
-      // 🚀 Tự động load lại sơ đồ tổ chức ngay khi tạo thành công!
       queryClient.invalidateQueries({ queryKey: ORG_QUERY_KEYS.tree });
     },
   });
@@ -127,8 +102,9 @@ export const useAssignUserToTeam = () => {
     mutationFn: ({ userId, teamId, departmentId }: { userId: string; teamId: string; departmentId: string }) => 
       orgApi.assignUserToTeam(userId, teamId, departmentId),
     onSuccess: () => {
+      // 🚀 Cập nhật lại sơ đồ và làm mới luôn danh sách người rảnh
       queryClient.invalidateQueries({ queryKey: ORG_QUERY_KEYS.tree });
-      queryClient.invalidateQueries({ queryKey: ORG_QUERY_KEYS.unassignedUsers }); // Cập nhật lại danh sách rảnh
+      queryClient.invalidateQueries({ queryKey: ORG_QUERY_KEYS.unassignedUsers });
     },
   });
 };
@@ -140,6 +116,8 @@ export const useRemoveUserFromTeam = () => {
       orgApi.removeUserFromTeam(teamId, userId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ORG_QUERY_KEYS.tree });
+      // Thêm dòng này nếu muốn refetch danh sách unassigned user ngay khi vừa gỡ ai đó ra
+      queryClient.invalidateQueries({ queryKey: ORG_QUERY_KEYS.unassignedUsers });
     },
   });
 };

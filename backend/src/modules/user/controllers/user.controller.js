@@ -1,4 +1,5 @@
 const userService = require('../services/user.service');
+const bcrypt = require('bcryptjs');
 
 // ==========================================
 // 1. PROFILE CORE
@@ -101,4 +102,19 @@ exports.updatePreferences = async (req, res, next) => {
         const prefs = await userService.updateNotificationPreferences(req.user.id, prefData);
         res.status(200).json({ success: true, data: prefs });
     } catch (error) { next(error); }
+};
+
+exports.createUser = async (req, res, next) => {
+    try {
+        // req.body chứa { full_name, email, password, role_id } từ frontend gửi lên
+        const newUser = await userService.createUser(req.body);
+        
+        res.status(201).json({ 
+            success: true, 
+            data: newUser, 
+            message: 'Tạo tài khoản thành công' 
+        });
+    } catch (error) { 
+        next(error); 
+    }
 };

@@ -28,6 +28,6 @@ router.put('/me/preferences', userController.updatePreferences);
 router.get('/unassigned', requirePermission('ORGANIZATION', 'READ'), userController.getUnassignedUsers);
 
 router.get('/:id', userController.getUserById);
-router.put('/:id/assign-team', requirePermission('ORGANIZATION', 'WRITE'), userController.assignToTeam);
-
+router.post('/', requirePermission('SYSTEM', 'WRITE', 'SYSTEM'), userController.createUser);
+router.post('/teams/:teamId/users', userController.assignToTeam);
 module.exports = router;

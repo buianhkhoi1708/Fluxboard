@@ -93,7 +93,7 @@ app.use('/api/v1/rbac', require('./src/modules/rbac/routes/rbac.routes'));
 // --- Phân hệ Cơ cấu Tổ chức (Đợt 1) ---
 app.use('/api/v1/departments', require('./src/modules/department/routes/department.routes'));
 app.use('/api/v1/teams', require('./src/modules/team/routes/team.routes'));
-app.use('/api/v1/organization', require('./src/modules/organization/routes/organization.routes'));
+app.use('/api/v1/organizations', require('./src/modules/organization/routes/organization.routes'));
 
 // --- Phân hệ Dự án & Kanban ---
 app.use('/api/v1/projects', require('./src/modules/project/routes/project.routes'));

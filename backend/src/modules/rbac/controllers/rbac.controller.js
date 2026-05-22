@@ -71,3 +71,19 @@ exports.removePermission = async (req, res, next) => {
         res.status(200).json({ success: true, data: role });
     } catch (error) { next(error); }
 };
+
+exports.getPermissionsByRole = async (req, res, next) => {
+    try {
+        const { roleId } = req.params;
+        
+        // Tìm Role và populate để lấy chi tiết các object permission
+        const role = await Role.findById(roleId).populate('permission_ids').lean();
+        
+        if (!role) throw new AppError('Role not found', 404);
+        
+        // Trả về mảng các quyền để frontend (Zustand) có thể map() lấy id
+        res.status(200).json({ success: true, data: role.permission_ids });
+    } catch (error) { 
+        next(error); 
+    }
+};

@@ -4,38 +4,36 @@ import { useRolesDictionary } from './useRbacQueries';
 
 export const useRoleAccess = () => {
   const { user } = useAuthStore();
-  
-  // Lấy từ điển Role (đã được cache 1 tiếng, gọi 100 lần cũng chỉ tốn 1 request)
   const { data: roles = [], isLoading } = useRolesDictionary();
 
-  // 🚀 DỊCH ROLE ID SANG TÊN ROLE
   const currentRoleName = useMemo(() => {
     if (!user) return "GUEST";
 
-    // Trường hợp 1: Nếu Backend đã tốt bụng trả về sẵn tên Role trong object user
-    const rawRoleName = user.system_role;
+    // 1. Nếu Backend có sẵn tên Role (role_name, system_role...)
+    const rawRoleName = user.system_role || (user as any).role_name || (user as any).role;
     if (rawRoleName) return String(rawRoleName).toUpperCase().trim();
 
-    // Trường hợp 2: Nếu Backend chỉ trả về role_id, ta dùng Từ điển để tra cứu
+    // 2. Tra cứu bằng role_id (FIX LỖI _id CỦA MONGODB TẠI ĐÂY)
     const roleId = user.role_id;
     if (roleId && roles.length > 0) {
-      const matchedRole = roles.find(r => r.id === roleId);
+      // Thêm r._id để bắt đúng ID từ MongoDB
+      const matchedRole = roles.find(r => 
+        String(r._id || r.id) === String(roleId)
+      );
+      
       if (matchedRole) return matchedRole.name.toUpperCase().trim();
     }
 
-    // Fallback mặc định an toàn nhất
     return "MEMBER"; 
   }, [user, roles]);
 
-  // 🚀 HÀM KIỂM TRA QUYỀN
   const hasAccess = (allowedRoles: string[]) => {
-    // Nếu chưa load xong từ điển, tạm thời chặn (hoặc cho qua tùy bạn)
-    if (isLoading) return false;
+    const hasRoleNameReady = user?.system_role || (user as any).role_name || (user as any).role;
+    if (isLoading && !hasRoleNameReady) return false;
 
-    // "Kim bài miễn tử": Nếu tên Role có chữ ADMIN thì cho qua hết mọi chốt
+    // Kích hoạt full quyền nếu là SYSTEM_ADMIN hoặc ADMIN
     if (currentRoleName.includes('ADMIN')) return true;
     
-    // Ngược lại, xem Role hiện tại có nằm trong danh sách cho phép không
     return allowedRoles.some(role => currentRoleName.includes(role.toUpperCase()));
   };
 

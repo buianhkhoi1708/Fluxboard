@@ -56,7 +56,7 @@ const OrganizationPage: React.FC<OrganizationPageProps> = () => {
   // ---- Modal handlers ----
   const openCreateDeptModal = () => setModalState({ isOpen: true, mode: 'DEPARTMENT', action: 'CREATE', targetDeptId: null, targetTeam: null, targetDept: null });
   
-  const openEditDeptModal = (dept: OrgDepartment, displayManagerName: string) => {
+  const openEditDeptModal = (dept: any, displayManagerName: string) => {
     setModalState({ isOpen: true, mode: 'DEPARTMENT', action: 'EDIT', targetDeptId: null, targetTeam: null, targetDept: { ...dept, managerName: displayManagerName } });
   };
 
@@ -72,7 +72,7 @@ const OrganizationPage: React.FC<OrganizationPageProps> = () => {
 
   const openCreateTeamModal = (deptId: string) => setModalState({ isOpen: true, mode: 'TEAM', action: 'CREATE', targetDeptId: deptId, targetTeam: null, targetDept: null });
   
-  const openEditTeamModal = (deptId: string, team: OrgTeam, displayLeadName: string) => {
+  const openEditTeamModal = (deptId: string, team: any, displayLeadName: string) => {
     setModalState({ isOpen: true, mode: 'TEAM', action: 'EDIT', targetDeptId: deptId, targetTeam: { ...team, leadName: displayLeadName }, targetDept: null });
   };
 
@@ -178,13 +178,16 @@ const OrganizationPage: React.FC<OrganizationPageProps> = () => {
         {/* DANH SÁCH PHÒNG BAN */}
         {!isLoading && !isError && orgTree.length > 0 && (
           <div className="space-y-10 pb-20">
-            {orgTree.map((dept: OrgDepartment) => {
-              const allDeptMembers = dept.teams?.flatMap(t => t.members || []) || [];
-              const managerInfo = allDeptMembers.find(m => m.id === dept.manager_id || m.userId === dept.manager_id);
-              const displayManagerName = dept.manager_name || dept.managerName || managerInfo?.full_name || managerInfo?.fullName || 'Chưa phân công';
+            {orgTree.map((dept: any) => {
+              // 🚀 FIX: Lấy tên Trưởng phòng trực tiếp từ Object manager_id
+              const managerObj = dept.manager_id;
+              const displayManagerName = managerObj?.full_name || managerObj?.fullName || dept.manager_name || dept.managerName || 'Chưa phân công';
+              
+              // Đảm bảo lấy ID chuẩn của phòng ban
+              const departmentId = dept._id || dept.id;
 
               return (
-                <div key={dept.id} className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg shadow-slate-200/20 border border-slate-200/80 overflow-hidden transition-all hover:shadow-xl hover:shadow-indigo-100/20 hover:border-indigo-200/60">
+                <div key={departmentId} className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg shadow-slate-200/20 border border-slate-200/80 overflow-hidden transition-all hover:shadow-xl hover:shadow-indigo-100/20 hover:border-indigo-200/60">
                   
                   {/* Department Header */}
                   <div className="px-6 md:px-8 py-5 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -210,7 +213,7 @@ const OrganizationPage: React.FC<OrganizationPageProps> = () => {
                             <Edit2 size={16} />
                           </button>
                           <button 
-                            onClick={() => handleDeleteDepartment(dept.id, dept.name)}
+                            onClick={() => handleDeleteDepartment(departmentId, dept.name)}
                             title="Xóa Phòng ban"
                             className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover/dept:opacity-100"
                           >
@@ -223,7 +226,7 @@ const OrganizationPage: React.FC<OrganizationPageProps> = () => {
                       </div>
                     </div>
                     <button 
-                      onClick={() => openCreateTeamModal(dept.id)} 
+                      onClick={() => openCreateTeamModal(departmentId)} 
                       className="flex items-center gap-1.5 text-sm font-bold text-slate-600 bg-white border border-slate-200 px-5 py-2.5 rounded-xl hover:text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50 transition-all shadow-sm active:scale-95"
                     >
                       <Plus size={18} /> Thêm Team
@@ -232,13 +235,16 @@ const OrganizationPage: React.FC<OrganizationPageProps> = () => {
 
                   {/* Teams Grid */}
                   <div className="p-6 md:p-8 grid grid-cols-1 xl:grid-cols-2 gap-6">
-                    {dept.teams && dept.teams.length > 0 ? dept.teams.map((team: OrgTeam) => {
-                      const actualLeadId = team.leadId || team.lead_id;
-                      const leaderInfo = team.members?.find((m: any) => m.id === actualLeadId || m.userId === actualLeadId);
-                      const displayLeadName = team.lead_name || team.leadName || leaderInfo?.full_name || leaderInfo?.fullName || 'Chưa gán';
+                    {dept.teams && dept.teams.length > 0 ? dept.teams.map((team: any) => {
+                      // 🚀 FIX: Lấy tên Trưởng nhóm trực tiếp từ Object lead_id
+                      const leadObj = team.lead_id || team.leadId;
+                      const displayLeadName = leadObj?.full_name || leadObj?.fullName || team.lead_name || team.leadName || 'Chưa gán';
+                      
+                      // Đảm bảo lấy ID chuẩn của team
+                      const teamIdToUse = team._id || team.id;
 
                       return (
-                        <div key={team.id} className="group/team bg-white/90 backdrop-blur-sm border border-slate-200 rounded-2xl p-5 md:p-6 shadow-sm hover:shadow-md hover:shadow-indigo-100/20 hover:border-indigo-300 transition-all duration-200 relative">
+                        <div key={teamIdToUse} className="group/team bg-white/90 backdrop-blur-sm border border-slate-200 rounded-2xl p-5 md:p-6 shadow-sm hover:shadow-md hover:shadow-indigo-100/20 hover:border-indigo-300 transition-all duration-200 relative">
                           
                           <div className="flex justify-between items-start mb-5">
                             <div className="flex items-center gap-4">
@@ -263,14 +269,14 @@ const OrganizationPage: React.FC<OrganizationPageProps> = () => {
                             
                             <div className="flex items-center gap-1 opacity-0 group-hover/team:opacity-100 transition-all">
                               <button 
-                                onClick={() => openEditTeamModal(dept.id, team, displayLeadName)}
+                                onClick={() => openEditTeamModal(departmentId, team, displayLeadName)}
                                 title="Cập nhật thông tin Team"
                                 className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
                               >
                                 <Edit2 size={16} />
                               </button>
                               <button 
-                                onClick={() => handleDeleteTeam(team.id, team.name)}
+                                onClick={() => handleDeleteTeam(teamIdToUse, team.name)}
                                 title="Xóa Team"
                                 className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
                               >
@@ -281,8 +287,9 @@ const OrganizationPage: React.FC<OrganizationPageProps> = () => {
 
                           {/* Member list */}
                           <div className="space-y-2 mb-5 min-h-[80px]">
-                            {team.members && team.members.length > 0 ? team.members.map((member: OrgMember) => {
-                              const memberId = member.id || member.userId || member.user_id;
+                            {team.members && team.members.length > 0 ? team.members.map((member: any) => {
+                              // Đảm bảo lấy ID chuẩn của member
+                              const memberId = member._id || member.id || member.userId || member.user_id;
                               const memberName = member.full_name || member.fullName || 'U';
 
                               return (
@@ -302,7 +309,7 @@ const OrganizationPage: React.FC<OrganizationPageProps> = () => {
                                   </div>
 
                                   <button 
-                                    onClick={() => handleRemoveMember(team.id, memberId as string, memberName)}
+                                    onClick={() => handleRemoveMember(teamIdToUse, memberId as string, memberName)}
                                     title="Gỡ khỏi Team"
                                     className="hidden group-hover/member:flex items-center justify-center w-8 h-8 rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white transition-all shadow-sm"
                                   >
@@ -318,7 +325,7 @@ const OrganizationPage: React.FC<OrganizationPageProps> = () => {
                           </div>
 
                           <button 
-                            onClick={() => openAddMemberModal(dept.id, team.id)} 
+                            onClick={() => openAddMemberModal(departmentId, teamIdToUse)} 
                             className="w-full py-3 bg-slate-50 hover:bg-indigo-50 border border-slate-100 hover:border-indigo-200 rounded-xl text-[13px] font-bold text-slate-600 hover:text-indigo-700 transition-all flex justify-center items-center gap-2 active:scale-[0.99]"
                           >
                             <UserPlus size={16} /> Bổ sung nhân sự
