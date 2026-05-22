@@ -92,7 +92,7 @@ const ResetPasswordPage = () => {
       
       {/* HIỆU ỨNG VÀ TEXT */}
       <div className="hidden lg:flex lg:w-[45%] relative bg-indigo-600 overflow-hidden items-center justify-center p-16">
-        <div className="absolute -bottom-[10%] -left-[10%] w-[500px] h-[500px] bg-indigo-800 rounded-full shadow-2xl animate-blob"></div>
+        <div className="absolute -bottom-[10%] -left-[10%] w-125 h-125 bg-indigo-800 rounded-full shadow-2xl animate-blob"></div>
         <div className="absolute bottom-[5%] left-[20%] w-[350px] h-[350px] bg-indigo-700 rounded-full shadow-xl animate-blob animation-delay-2000"></div>
         <div className="absolute -top-[20%] -left-[10%] w-[600px] h-[600px] bg-indigo-500/30 rounded-full animate-blob animation-delay-4000"></div>
         <div className="absolute top-[10%] -right-[10%] w-[300px] h-[300px] bg-indigo-500/20 rounded-full animate-blob animation-delay-6000"></div>
