@@ -1,9 +1,9 @@
-import React from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import React, { useEffect } from "react";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { NuqsAdapter } from "nuqs/adapters/react-router";
 import MainLayout from "./layouts/MainLayout";
 import BoardPage from "./pages/BoardPage";
-import { SocketProvider } from "./context/SocketContext";
+import { SocketProvider, useSocket } from "./context/SocketContext"; 
 import AdminRBACPage from "./pages/AdminRBACPage";
 import WorkspacesPage from "./pages/WorkspacesPage";
 import BoardView from "./features/board/components/BoardView";
@@ -21,25 +21,60 @@ import CreateUserTab from "./features/user/components/CreateUserTab";
 import MyTasksPage from "./pages/MyTasksPage";
 import UnauthorizedPage from "./pages/UnauthorizedPage";
 import NotificationsPage from "./pages/NotificationsPage";
+import { useQueryClient } from "@tanstack/react-query";
+
+// =========================================================
+// THÀNH PHẦN LẮNG NGHE BẢO MẬT HỆ THỐNG (SECURITY LISTENER)
+// =========================================================
+const SecurityListener: React.FC = () => {
+  const { socket } = useSocket(); // 💡 Sửa lỗi: Destructure lấy thực thể socket instance từ Context Object
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!socket) return;
+
+    // Lắng nghe tín hiệu đăng xuất cưỡng chế từ máy chủ thời gian thực
+    socket.on("force_logout", (data: { reason: string }) => {
+      console.warn(`[SECURITY] Force logout triggered: ${data.reason}`);
+      
+      // Dọn sạch token, bộ nhớ đệm ứng dụng và bộ nhớ Cache của TanStack Query
+      localStorage.removeItem("accessToken");
+      sessionStorage.clear();
+      queryClient.clear();
+
+      // Điều hướng ngay lập tức về trang đăng nhập kèm lý do hệ thống
+      navigate("/login", { replace: true, state: { reason: data.reason } });
+    });
+
+    return () => {
+      socket.off("force_logout");
+    };
+  }, [socket, navigate, queryClient]);
+
+  return null; // Thành phần chạy ngầm không render giao diện
+};
 
 function App() {
   return (
     <SocketProvider>
       <BrowserRouter>
         <NuqsAdapter>
+          {/* Đặt SecurityListener bên trong BrowserRouter để có thể sử dụng useNavigate */}
+          <SecurityListener />
+          
           <Routes>
 
             {/* ROUTE CÔNG KHAI (Không cần đăng nhập) */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
-            <Route path="/403" element={<UnauthorizedPage />} /> {/* Trang báo lỗi không có quyền */}
+            <Route path="/403" element={<UnauthorizedPage />} />
 
             {/* ROUTE CẦN ĐĂNG NHẬP */}
             <Route element={<ProtectedRoute />}>
               <Route element={<MainLayout />}>
                 
-                {/* Đã đăng nhập thì chuyển hướng "/" về Dashboard thay vì Login */}
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
                 {/* ========================================== */}
@@ -51,10 +86,9 @@ function App() {
                 <Route path="/workspaces" element={<WorkspacesPage />} />
                 <Route path="/aigenerateboard" element={<AiBoardGeneratorPage />} />
                 <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
-                <Route path="/settings" element={<SettingsPage />} /> {/* Thường settings cá nhân ai cũng có */}
-                <Route path="/mytasks" element={<MyTasksPage />} /> {/* Thường settings cá nhân ai cũng có */}
-                <Route path="/notifications" element={<NotificationsPage />} /> {/* Thường settings cá nhân ai cũng có */}
-
+                <Route path="/settings" element={<SettingsPage />} /> 
+                <Route path="/mytasks" element={<MyTasksPage />} /> 
+                <Route path="/notifications" element={<NotificationsPage />} /> 
 
                 {/* ========================================== */}
                 {/* 🔴 KHU VỰC QUẢN TRỊ (Chỉ Admin hoặc Role được cấp phép) */}
