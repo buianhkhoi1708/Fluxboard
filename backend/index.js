@@ -1,4 +1,4 @@
-require('dotenv').config();
+﻿require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
@@ -93,6 +93,7 @@ app.use('/api/v1/activities', require('./src/modules/activity/routes/activity.ro
 app.use('/api/v1/dashboard', require('./src/modules/dashboard/routes/dashboard.routes'));
 app.use('/api/v1/notifications', require('./src/modules/notification/routes/notification.routes'));
 app.use('/api/v1/deadlines', require('./src/modules/deadline/routes/deadline.routes'));
+app.use('/api/v1/settings', require('./src/modules/setting/routes/setting.routes'));
 
 // =========================================================
 // 7. XỬ LÝ LỖI (ERROR HANDLING)
