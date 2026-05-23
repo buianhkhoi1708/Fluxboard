@@ -15,7 +15,7 @@ exports.getMetricsByRole = async (jwtUser, queryParams) => {
     const userId = jwtUser._id || jwtUser.id;
     const fullUser = await User.findById(userId).lean();
 
-    // Lấy ID roles từ user (tên trường phải đúng với model User của Sếp)
+    // Lấy ID roles từ user
    const userRoleIds = fullUser.role_id ? [fullUser.role_id] : [];
 
     // Tìm role từ DB và lấy tên
@@ -163,17 +163,26 @@ const getManagerMetrics = async (userId, userTeamId, queryParams) => {
         : [];
     const teamUserIds = teamUsers.map(u => u._id);
 
-    // Tính toán Workload (Dựa trên Story Points hoặc số lượng Task chưa hoàn thành)
+    // Tính toán Workload (🚀 Đã sửa $or cho teamUserIds)
     const teamWorkload = await Task.aggregate([
-        { $match: { is_done: false, is_deleted: false, assignee_id: { $in: teamUserIds } } },
+        { 
+            $match: { 
+                is_done: false, 
+                is_deleted: false, 
+                $or: [
+                    { assignee_id: { $in: teamUserIds } },
+                    { assignees_user_id: { $in: teamUserIds } }
+                ]
+            } 
+        },
         { $lookup: { from: 'taskdeadlines', localField: '_id', foreignField: 'task_id', as: 'dl' } },
         { $unwind: { path: '$dl', preserveNullAndEmptyArrays: true } },
         { $lookup: { from: 'users', localField: 'assignee_id', foreignField: '_id', as: 'assignee' } },
-        { $unwind: '$assignee' },
+        { $unwind: { path: '$assignee', preserveNullAndEmptyArrays: true } },
         { 
             $group: { 
                 _id: '$assignee_id', 
-                full_name: { $first: '$assignee.full_name' },
+                full_name: { $first: { $ifNull: ['$assignee.full_name', 'Chưa có người nhận (Đa Assignee)'] } },
                 assigned_points: { $sum: { $ifNull: ['$story_point', 1] } },
                 tasks_overdue: { $sum: { $cond: [{ $eq: ['$dl.is_overdue', true] }, 1, 0] } }
             } 
@@ -185,7 +194,7 @@ const getManagerMetrics = async (userId, userTeamId, queryParams) => {
         }
     ]);
 
-    // Truy vấn trạng thái deadline
+    // Truy vấn trạng thái deadline (🚀 Đã sửa $or)
     const deadlineStats = await TaskDeadline.aggregate([
         { 
             $lookup: { 
@@ -193,7 +202,16 @@ const getManagerMetrics = async (userId, userTeamId, queryParams) => {
             } 
         },
         { $unwind: '$task' },
-        { $match: { 'task.is_deleted': false, 'task.assignee_id': { $in: teamUserIds }, 'task.is_done': false } },
+        { 
+            $match: { 
+                'task.is_deleted': false, 
+                'task.is_done': false,
+                $or: [
+                    { 'task.assignee_id': { $in: teamUserIds } },
+                    { 'task.assignees_user_id': { $in: teamUserIds } }
+                ]
+            } 
+        },
         {
             $group: {
                 _id: null,
@@ -224,7 +242,7 @@ const getManagerMetrics = async (userId, userTeamId, queryParams) => {
 
     const stats = deadlineStats[0] || { on_track: 0, at_risk: 0, overdue: 0 };
 
-    // Truy xuất các Task At Risk hoặc Overdue
+    // Truy xuất các Task At Risk hoặc Overdue (🚀 Đã sửa $or trong Match của Populate)
     const atRiskRaw = await TaskDeadline.find({
         is_deleted: false,
         $or: [
@@ -233,12 +251,19 @@ const getManagerMetrics = async (userId, userTeamId, queryParams) => {
         ]
     }).populate({
         path: 'task_id',
-        match: { is_deleted: false, is_done: false, assignee_id: { $in: teamUserIds } },
+        match: { 
+            is_deleted: false, 
+            is_done: false, 
+            $or: [
+                { assignee_id: { $in: teamUserIds } },
+                { assignees_user_id: { $in: teamUserIds } }
+            ]
+        },
         populate: { path: 'assignee_id', select: 'full_name' }
     }).lean();
 
     const atRiskTasks = atRiskRaw
-        .filter(d => d.task_id)
+        .filter(d => d.task_id) // Lọc bỏ nếu task_id bị null do match failed
         .map(d => {
             const isOverdue = d.is_overdue || new Date(d.due_date) < now;
             const hoursLeft = Math.max(0, Math.floor((new Date(d.due_date) - now) / (1000 * 60 * 60)));
@@ -246,7 +271,7 @@ const getManagerMetrics = async (userId, userTeamId, queryParams) => {
             return {
                 task_id: d.task_id._id,
                 title: d.task_id.title,
-                assignee_name: d.task_id.assignee_id ? d.task_id.assignee_id.full_name : 'Unassigned',
+                assignee_name: d.task_id.assignee_id ? d.task_id.assignee_id.full_name : 'Đội nhóm',
                 due_date: d.due_date,
                 status: isOverdue ? "OVERDUE" : "AT_RISK",
                 hours_left: isOverdue ? 0 : hoursLeft
@@ -275,7 +300,14 @@ const getMemberMetrics = async (userId, queryParams) => {
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
     const contributionRaw = await Task.aggregate([
-        { $match: { assignee_id: userObjectId, is_deleted: false } },
+        { $match: { 
+            // 🚀 Tìm trong cả assignee_id VÀ mảng assignees_user_id
+            $or: [
+                { assignee_id: userObjectId },
+                { assignees_user_id: userObjectId }
+            ],
+            is_deleted: false 
+        } },
         { $lookup: { from: 'taskdeadlines', localField: '_id', foreignField: 'task_id', as: 'dl' } },
         { $unwind: { path: '$dl', preserveNullAndEmptyArrays: true } },
         { 
@@ -303,13 +335,20 @@ const getMemberMetrics = async (userId, queryParams) => {
     const cInfo = contributionRaw[0] || { total_assigned: 0, tasks_completed_this_week: 0, total_completed: 0, on_time_completed: 0 };
     const onTimeRate = cInfo.total_completed > 0 ? parseFloat(((cInfo.on_time_completed / cInfo.total_completed) * 100).toFixed(1)) : 0;
 
-    // Truy vấn Focus Board (High/Critical/Urgent)
+    // Truy vấn Focus Board (High/Critical/Urgent) - 🚀 Đã sửa lại với $or
     const tasks = await Task.find({
-        assignee_id: userId,
+        $or: [
+            { assignee_id: userId },
+            { assignees_user_id: userId }
+        ],
         is_done: false,
         is_deleted: false,
         priority: { $in: ['HIGH', 'CRITICAL', 'URGENT'] } 
-    }).select('_id title priority').lean();
+    })
+    .select('_id title priority')
+    .select('_id title priority story_point')
+    .lean();
+    
 
     const taskIds = tasks.map(t => t._id);
     const deadlines = await TaskDeadline.find({ task_id: { $in: taskIds } }).lean();

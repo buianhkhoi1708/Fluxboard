@@ -15,7 +15,7 @@ router.get('/permissions', checkRbacRead, rbacController.getPermissions);
 router.post('/permissions', checkRbacWrite, rbacController.createPermission);
 
 // Phân hệ Roles
-router.get('/roles', checkRbacRead, rbacController.getRoles);
+router.get('/roles', rbacController.getRoles);
 router.post('/roles', checkRbacWrite, rbacController.createRole);
 router.get('/roles/:roleId/permissions', checkRbacRead, rbacController.getPermissionsByRole);
 

@@ -29,38 +29,46 @@ export const useGetBoardDetail = (boardId: string) => {
     queryFn: async () => {
       const response = await boardApi.getBoard(boardId);
       
-      // 1. Tìm object chính (lớp bọc)
-      let coreData = response;
-      while (coreData && coreData.data && !coreData.projectId && !coreData.project_id) {
-        coreData = coreData.data;
-      }
+      // Sửa lại: Dùng response.data nếu có để tránh lỗi cấu trúc
+      const coreData = response?.data || response;
 
-      // 🚀 2. TỐI ƯU CẤU TRÚC ĐỂ UI KHÔNG BỊ TRẮNG
-      // Backend đang trả về: name, column_order_ids
-      // Frontend cần: board_name, columns
+      // 🚀 FIX: Dữ liệu an toàn hơn
       const formattedBoard = {
-  ...coreData,
-  board_name: coreData?.name || 'Bảng công việc',
-  columns: (coreData?.column_order_ids || []).map(col => ({
-    ...col,
-    tasks: col.task_order_ids || [] // 👈 Ánh xạ sang 'tasks' để UI dùng chung
-  })),
-};
+        ...coreData,
+        board_name: coreData?.name || 'Bảng công việc',
+        columns: Array.isArray(coreData?.column_order_ids) 
+          ? coreData.column_order_ids.map((col: any) => ({
+              ...col,
+              // Check kỹ xem task_order_ids có tồn tại không
+              tasks: col.task_order_ids || [] 
+            }))
+          : []
+      };
 
-      // 🚀 3. BƠM DATA VÀO KHO (Giữ nguyên logic cũ của sếp)
+      // Đồng bộ member (giữ nguyên)
       const projectId = coreData?.projectId || coreData?.project_id;
       if (projectId) {
-        boardApi.getProjectMembers(projectId)
-          .then(res => {
+        boardApi.getProjectMembers(projectId).then(res => {
             const members = (res as any)?.data?.data || (res as any)?.data || res || [];
             useUserStore.getState().saveUsersToCache(members, projectId);
-          })
-          .catch(err => console.error("❌ Lỗi đồng bộ danh bạ dự án:", err));
+        }).catch(err => console.error("❌ Lỗi đồng bộ:", err));
       }
 
       return formattedBoard as unknown as Board;
     },
     enabled: !!boardId,
+  });
+};
+
+// 🚀 FIX MỌI NƠI: Đảm bảo tất cả dùng chung 1 KEY CHUẨN
+export const useMoveTask = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: any) => boardApi.moveTask(data.taskId, data.columnId, data.order, data.boardId),
+    onSuccess: (_, variables) => {
+      // Dùng hàm key chuẩn, không gõ tay ['board', ...] nữa
+      queryClient.invalidateQueries({ queryKey: BOARD_QUERY_KEYS.boardDetail(variables.boardId) });
+    }
   });
 };
 
@@ -115,16 +123,6 @@ export const useUpdateTask = () => {
   });
 };
 
-export const useMoveTask = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ taskId, columnId, order, boardId }: { taskId: string; columnId: string; order: number; boardId: string }) => 
-      boardApi.moveTask(taskId, columnId, order, boardId),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: BOARD_QUERY_KEYS.boardDetail(variables.boardId) });
-    },
-  });
-};
 
 export const useDeleteTask = () => {
   const queryClient = useQueryClient();

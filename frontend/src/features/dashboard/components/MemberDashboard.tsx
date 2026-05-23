@@ -9,19 +9,15 @@ interface MemberDashboardProps {
   data: MemberDashboardData | null;
 }
 
-
 export const MemberDashboardSkeleton = () => (
   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 pb-12 animate-pulse">
-    {/* Cột trái */}
     <div className="lg:col-span-1 flex flex-col gap-6 lg:gap-8">
-      {/* Contribution skeleton */}
       <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/80 p-6 space-y-4">
         <div className="h-5 w-40 bg-slate-200 rounded-md" />
         <div className="h-12 w-24 bg-slate-200 rounded-md" />
         <div className="h-3 bg-slate-200 rounded-full" />
         <div className="h-3 w-16 bg-slate-200 rounded-md ml-auto" />
       </div>
-      {/* Focus list skeleton */}
       <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/80 p-6 flex-1 space-y-4">
         <div className="h-5 w-36 bg-slate-200 rounded-md" />
         {[...Array(3)].map((_, i) => (
@@ -36,7 +32,6 @@ export const MemberDashboardSkeleton = () => (
         ))}
       </div>
     </div>
-    {/* Cột phải: Bar chart skeleton */}
     <div className="lg:col-span-2 bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/80 p-6 space-y-4">
       <div className="h-5 w-48 bg-slate-200 rounded-md" />
       <div className="h-64 bg-slate-100 rounded-2xl" />
@@ -48,14 +43,14 @@ const MemberDashboard = ({ data }: MemberDashboardProps) => {
   if (!data) return <MemberDashboardSkeleton />;
 
   // ==========================================
-  // 🧠 RÚT TRÍCH DATA TỪ BACKEND DTO
+  // 🧠 RÚT TRÍCH DATA KHỚP HOÀN TOÀN VỚI BACKEND
   // ==========================================
-  const contribution = data.my_contribution || { completed_tasks: 0, total_assigned: 0 };
+  const contribution = data.my_contribution || { tasks_completed_this_week: 0, total_assigned: 0 };
   const focusBoard = data.my_focus_board || [];
 
   const contributionPercent = useMemo(() => {
     if (!contribution.total_assigned) return 0;
-    return Math.round((contribution.completed_tasks / contribution.total_assigned) * 100);
+    return Math.round((contribution.tasks_completed_this_week / contribution.total_assigned) * 100);
   }, [contribution]);
 
   const getPriorityStyles = (priority: string) => {
@@ -73,15 +68,19 @@ const MemberDashboard = ({ data }: MemberDashboardProps) => {
     return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
   };
 
+  // Chuẩn bị data cho biểu đồ (bảo vệ lỗi nếu backend không gửi story_point)
+  const chartData = focusBoard.map(task => ({
+    ...task,
+    story_point: task.story_point || 0 // Mặc định là 0 nếu thiếu
+  }));
+
   return (
-    // 🚀 Tăng gap-8 và padding-bottom cho đồng bộ
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 font-sans animate-in fade-in zoom-in-95 duration-700 pb-12">
       
-      {/* ================= CỘT TRÁI: TIẾN ĐỘ & DANH SÁCH TASK ================= */}
+      {/* ================= CỘT TRÁI ================= */}
       <div className="lg:col-span-1 flex flex-col gap-6 lg:gap-8">
         
         {/* BOX 1: MY CONTRIBUTION */}
-        {/* 🚀 Phóng to Card, bo góc sâu, gradient nền nhẹ */}
         <div className="bg-gradient-to-b from-white to-indigo-50/20 p-7 lg:p-8 rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 transition-all hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]">
           <div className="flex justify-between items-start mb-6">
             <div>
@@ -94,12 +93,12 @@ const MemberDashboard = ({ data }: MemberDashboardProps) => {
           </div>
           
           <div className="flex items-end gap-2 mb-4">
-            {/* 🚀 Phóng to con số KPI đập thẳng vào mắt */}
-            <span className="text-[52px] font-black leading-none tracking-tighter text-slate-800">{contribution.completed_tasks}</span>
+            <span className="text-[52px] font-black leading-none tracking-tighter text-slate-800">
+              {contribution.tasks_completed_this_week}
+            </span>
             <span className="text-lg font-bold text-slate-400 mb-1.5">/ {contribution.total_assigned}</span>
           </div>
           
-          {/* 🚀 Thanh Bar dày dặn hơn (h-4) */}
           <div className="w-full bg-slate-100 rounded-full h-4 mb-3 overflow-hidden shadow-inner">
             <div 
               className="bg-gradient-to-r from-indigo-500 to-purple-500 h-full rounded-full transition-all duration-1000 ease-out relative" 
@@ -128,7 +127,6 @@ const MemberDashboard = ({ data }: MemberDashboardProps) => {
                </div>
             ) : (
               focusBoard.map((task) => (
-                // 🚀 Thẻ Task xịn xò hơn, hiệu ứng hover rõ ràng hơn
                 <div key={task.task_id} className="group p-4 bg-white border border-slate-100 shadow-sm rounded-2xl hover:border-indigo-200 hover:shadow-md transition-all cursor-pointer flex flex-col gap-3">
                   <div className="flex justify-between items-start gap-3">
                     <p className="text-[15px] font-bold text-slate-800 group-hover:text-indigo-600 leading-snug line-clamp-2 transition-colors">
@@ -145,7 +143,7 @@ const MemberDashboard = ({ data }: MemberDashboardProps) => {
                       {formatDate(task.due_date)}
                     </span>
                     <span className="text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-md border border-indigo-100">
-                      {task.story_point} Pts
+                      {task.story_point || 0} Pts
                     </span>
                   </div>
                 </div>
@@ -153,10 +151,9 @@ const MemberDashboard = ({ data }: MemberDashboardProps) => {
             )}
           </div>
         </div>
-
       </div>
 
-      {/* ================= CỘT PHẢI: BIỂU ĐỒ SỨC NẶNG TASK ================= */}
+      {/* ================= CỘT PHẢI: BIỂU ĐỒ ================= */}
       <div className="lg:col-span-2 bg-gradient-to-b from-white to-blue-50/10 p-7 lg:p-8 rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 flex flex-col min-h-[480px] transition-all hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]">
         <div className="flex justify-between items-start mb-8 shrink-0">
           <div>
@@ -166,16 +163,15 @@ const MemberDashboard = ({ data }: MemberDashboardProps) => {
           <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-500 shadow-sm border border-indigo-100"><ShieldAlert size={24} strokeWidth={2.5}/></div>
         </div>
 
-        {focusBoard.length === 0 ? (
+        {chartData.length === 0 ? (
            <div className="flex-1 flex items-center justify-center text-sm font-bold text-slate-300 uppercase tracking-widest bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
              Không có dữ liệu biểu đồ
            </div>
         ) : (
           <div className="flex-1 w-full relative -ml-4 mt-2">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={focusBoard} margin={{ top: 10, right: 0, left: -15, bottom: 0 }}>
+              <BarChart data={chartData} margin={{ top: 10, right: 0, left: -15, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#e2e8f0" />
-                
                 <XAxis 
                   dataKey="title" 
                   axisLine={false} 
@@ -184,24 +180,14 @@ const MemberDashboard = ({ data }: MemberDashboardProps) => {
                   dy={12} 
                   tickFormatter={(val) => val.length > 8 ? val.substring(0, 8) + '...' : val}
                 />
-                
-                <YAxis 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fill: '#64748b', fontSize: 12, fontWeight: 700 }} 
-                  dx={-5}
-                />
-                
-                {/* 🚀 Tooltip to đẹp hơn */}
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12, fontWeight: 700 }} dx={-5} />
                 <Tooltip 
                   cursor={{ fill: '#f8fafc' }} 
                   contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontWeight: 'bold', fontSize: '13px', padding: '12px 16px' }} 
                   formatter={(value: number) => [`${value} Points`, 'Độ khó']}
                 />
-                
-                {/* 🚀 Cột Bar được phóng to bề ngang (barSize 56), bo góc tròn hơn */}
                 <Bar dataKey="story_point" radius={[8, 8, 0, 0]} barSize={56}>
-                  {focusBoard.map((entry, index) => (
+                  {chartData.map((entry, index) => (
                     <Cell 
                       key={`cell-${index}`} 
                       fill={entry.priority === 'CRITICAL' ? '#f43f5e' : entry.priority === 'HIGH' ? '#f59e0b' : '#6366f1'} 

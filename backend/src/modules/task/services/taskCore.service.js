@@ -161,7 +161,11 @@ exports.moveTask = async (taskId, destColumnId, newOrder) => {
 
 exports.getMyTasks = async (userId) => {
     const tasks = await Task.find({ 
-        assignee_id: userId, 
+        // 🚀 CẬP NHẬT: Tìm ID của user ở cả trường cũ lẫn trường mảng mới
+        $or: [
+            { assignee_id: userId },
+            { assignees_user_id: userId } // Tìm trong mảng
+        ],
         is_deleted: false 
     })
     .populate('board_id', 'name')

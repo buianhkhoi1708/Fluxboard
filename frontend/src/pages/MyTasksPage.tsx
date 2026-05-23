@@ -103,7 +103,9 @@ const MyTasksPage = () => {
             <div className="p-5 bg-red-50 rounded-full mb-5">
               <AlertCircle size={56} className="text-red-400" />
             </div>
-            <h3 className="text-xl font-bold text-slate-800 mb-2">Tải dữ liệu thất bại</h3>
+            <h3 className="text-xl font-bold text-slate-800 mb-2">
+              Tải dữ liệu thất bại
+            </h3>
             <p className="text-slate-500 text-sm mb-6 max-w-md">
               Có lỗi xảy ra khi tải công việc. Vui lòng thử lại.
             </p>
@@ -123,7 +125,9 @@ const MyTasksPage = () => {
             <div className="p-5 bg-indigo-50 rounded-full mb-5 animate-bounce-slow">
               <CheckCircle2 size={56} className="text-emerald-500" />
             </div>
-            <h3 className="text-xl font-bold text-slate-800 mb-2">Tuyệt vời!</h3>
+            <h3 className="text-xl font-bold text-slate-800 mb-2">
+              Tuyệt vời!
+            </h3>
             <p className="text-slate-500 text-sm max-w-md">
               Không còn đầu việc nào cần xử lý vào lúc này.
             </p>
@@ -135,12 +139,16 @@ const MyTasksPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {myTasks.map((task: any) => (
               <div
-                key={task.id}
+                key={task._id || task.id}
                 onClick={() => {
-                  if (task.board_id) {
-                    navigate(`/board/${task.board_id}?taskId=${task.id}`);
+                  const taskId = task._id || task.id;
+                  // Lấy ID chuẩn xác dù nó là object (sau khi populate) hay chuỗi
+                  const boardId = task.board_id?._id || task.board_id;
+
+                  if (boardId) {
+                    navigate(`/board/${boardId}?taskId=${taskId}`);
                   } else {
-                    console.warn(`Task ${task.id} không tìm thấy board_id.`);
+                    console.warn(`Task ${taskId} không tìm thấy board_id.`);
                   }
                 }}
                 className="bg-white/80 backdrop-blur-sm rounded-xl border border-slate-200/80 shadow-sm hover:shadow-md hover:shadow-indigo-100/20 hover:border-indigo-300 hover:-translate-y-0.5 cursor-pointer transition-all duration-200 p-5 flex flex-col group"
@@ -180,34 +188,16 @@ const MyTasksPage = () => {
                     <Clock className="w-4 h-4 mr-2 text-slate-400" />
                     <span
                       className={
-                        isOverdue(task.due_date) ? "text-red-500 font-semibold" : ""
+                        isOverdue(task.due_date)
+                          ? "text-red-500 font-semibold"
+                          : ""
                       }
                     >
                       Hạn chót: {formatDate(task.due_date)}
                     </span>
                   </div>
 
-                  {task.author && (
-                    <div className="flex items-center text-sm text-slate-600 pt-2">
-                      {task.author.avatar_url ? (
-                        <img
-                          src={task.author.avatar_url}
-                          alt="avatar"
-                          className="w-6 h-6 rounded-full mr-2 ring-2 ring-slate-100"
-                        />
-                      ) : (
-                        <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center mr-2 ring-2 ring-slate-100">
-                          <User className="w-3 h-3 text-indigo-600" />
-                        </div>
-                      )}
-                      <span className="truncate">
-                        Giao bởi:{" "}
-                        <span className="font-medium text-slate-700">
-                          {task.author.full_name}
-                        </span>
-                      </span>
-                    </div>
-                  )}
+                 
                 </div>
               </div>
             ))}

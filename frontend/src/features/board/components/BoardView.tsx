@@ -151,64 +151,84 @@ const BoardView = () => {
   const handleDragEnd = async (e: DragEndEvent) => {
     setActiveTask(null); 
     const { active, over } = e;
-    if (!over || !Array.isArray(board.columns)) return; // 🚀 Bảo vệ DragEnd
+    if (!over) return; 
 
-    const activeColId = active.data.current?.columnId || active.data.current?.listId;
-    const overColId = over.data.current?.columnId || over.data.current?.listId || over.id;
+    // 🚀 BÍ QUYẾT 1: Ép tất cả ID về chuỗi (String) để né lỗi so sánh của MongoDB
+    const activeId = String(active.id);
+    const overId = String(over.id);
+
+    const activeColId = String(active.data.current?.columnId || active.data.current?.listId);
+    const overColId = String(over.data.current?.columnId || over.data.current?.listId || over.id);
+
     if (!activeColId || !overColId) return;
 
-    const sourceColIndex = board.columns.findIndex((c: BoardColumn) => c.id === activeColId || c._id === activeColId);
-    const destColIndex = board.columns.findIndex((c: BoardColumn) => c.id === overColId || c._id === overColId);
-    if (sourceColIndex === -1 || destColIndex === -1) return;
+    let newOrder = 0; // Để gửi xuống API (Index 0-based)
+    
+    const boardKey = BOARD_QUERY_KEYS.boardDetail(currentBoardId);
+    const previousBoard = queryClient.getQueryData(boardKey);
 
-    const newColumns = [...board.columns];
-    let newOrder = 1; 
+    // 🚀 BÍ QUYẾT 2: Dùng callback (oldBoard) để luôn lấy cục data tươi nhất từ RAM
+    queryClient.setQueryData(boardKey, (oldBoard: any) => {
+      if (!oldBoard || !oldBoard.columns) return oldBoard;
 
-    if (activeColId === overColId) {
-      const col = newColumns[sourceColIndex];
-      const tasks = Array.isArray(col.tasks) ? col.tasks : [];
-      const oldIndex = tasks.findIndex((t: Task) => t.id === active.id || t._id === active.id);
-      const newIndex = tasks.findIndex((t: Task) => t.id === over.id || t._id === over.id);
-      
-      newColumns[sourceColIndex] = { ...col, tasks: arrayMove(tasks, oldIndex, newIndex) };
-      newOrder = newIndex + 1; 
-    } else {
+      // Deep clone cực mạnh để không bị dính tham chiếu (reference) cũ
+      const newColumns = JSON.parse(JSON.stringify(oldBoard.columns));
+
+      const sourceColIndex = newColumns.findIndex((c: any) => String(c.id || c._id) === activeColId);
+      const destColIndex = newColumns.findIndex((c: any) => String(c.id || c._id) === overColId);
+
+      if (sourceColIndex === -1 || destColIndex === -1) return oldBoard;
+
       const sourceCol = newColumns[sourceColIndex];
       const destCol = newColumns[destColIndex];
+
+      // Tìm và rút Task ra khỏi cột cũ
+      const taskIndex = sourceCol.tasks.findIndex((t: any) => String(t.id || t._id) === activeId);
+      if (taskIndex === -1) return oldBoard; // Lỗi ẩn không tìm thấy task
       
-      const sourceTasks = Array.isArray(sourceCol.tasks) ? sourceCol.tasks : [];
-      const movedTask = sourceTasks.find((t: Task) => t.id === active.id || t._id === active.id);
-      const newSourceTasks = sourceTasks.filter((t: Task) => t.id !== active.id && t._id !== active.id);
-      const newDestTasks = [...(Array.isArray(destCol.tasks) ? destCol.tasks : [])];
-      
-      if (over.data.current?.type === 'Task') {
-        const newIndex = newDestTasks.findIndex((t: Task) => t.id === over.id || t._id === over.id);
-        if (movedTask) newDestTasks.splice(newIndex, 0, movedTask);
-        newOrder = newIndex + 1;
+      const [movedTask] = sourceCol.tasks.splice(taskIndex, 1);
+
+      // Nhét Task vào cột mới
+      if (activeColId === overColId) {
+        // Kéo trong cùng 1 cột
+        const overIndex = destCol.tasks.findIndex((t: any) => String(t.id || t._id) === overId);
+        const finalIndex = overIndex >= 0 ? overIndex : destCol.tasks.length;
+        
+        destCol.tasks.splice(finalIndex, 0, movedTask);
+        newOrder = finalIndex; // Cập nhật thứ tự mới
       } else {
-        if (movedTask) newDestTasks.push(movedTask);
-        newOrder = newDestTasks.length;
+        // Kéo sang cột khác
+        if (over.data.current?.type === 'Task') {
+          // Kéo thả đè lên 1 task khác ở cột mới
+          const overIndex = destCol.tasks.findIndex((t: any) => String(t.id || t._id) === overId);
+          const finalIndex = overIndex >= 0 ? overIndex : destCol.tasks.length;
+          
+          destCol.tasks.splice(finalIndex, 0, movedTask);
+          newOrder = finalIndex;
+        } else {
+          // Thả vào vùng trống của cột mới
+          destCol.tasks.push(movedTask);
+          newOrder = destCol.tasks.length - 1; 
+        }
       }
-      newColumns[sourceColIndex] = { ...sourceCol, tasks: newSourceTasks };
-      newColumns[destColIndex] = { ...destCol, tasks: newDestTasks };
-    }
 
-    const previousBoard = queryClient.getQueryData(BOARD_QUERY_KEYS.boardDetail(currentBoardId));
-    queryClient.setQueryData(BOARD_QUERY_KEYS.boardDetail(currentBoardId), { ...board, columns: newColumns });
+      return { ...oldBoard, columns: newColumns }; // Vẽ lại giao diện NGAY LẬP TỨC
+    });
 
+    // 🚀 BÍ QUYẾT 3: GỌI API CHẠY NGẦM DƯỚI NỀN
     try {
       await moveTaskApi({
-        taskId: String(active.id), 
+        taskId: activeId, 
         columnId: overColId,
         order: newOrder,
         boardId: currentBoardId
       });
     } catch (error) {
       console.error("Lỗi khi di chuyển task:", error);
-      queryClient.setQueryData(BOARD_QUERY_KEYS.boardDetail(currentBoardId), previousBoard);
+      // Lỗi mạng thì roll-back lại giao diện như cũ
+      queryClient.setQueryData(boardKey, previousBoard);
     }
   };
-
   return (
     <>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={(e) => setActiveTask(e.active.data.current?.task as Task)} onDragEnd={handleDragEnd}>

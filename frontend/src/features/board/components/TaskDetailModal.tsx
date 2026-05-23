@@ -7,9 +7,12 @@ import {
 } from "lucide-react";
 import axios from 'axios';
 
+// 🚀 BƯỚC 1: Bổ sung import useQueryClient
+import { useQueryClient } from '@tanstack/react-query';
+
 import { useBoardStore } from "../stores/useBoardStore";
 import { useUserStore } from "../../user/store/useUserStore"; 
-import { useGetBoardDetail, useUpdateTask, useDeleteTask, useCreateTask, useGetProjectMembers, getPresignedUrl, useAddAttachmentToTask } from '../hooks/useBoardQueries';
+import { useGetBoardDetail, useUpdateTask, useDeleteTask, useCreateTask, useGetProjectMembers, getPresignedUrl, useAddAttachmentToTask, useMoveTask } from '../hooks/useBoardQueries';
 
 import { TaskDetailModalProps, Task } from '../types/index';
 
@@ -57,6 +60,9 @@ const CustomDateInput = forwardRef<HTMLButtonElement, CustomDateInputProps>(
 CustomDateInput.displayName = 'CustomDateInput';
 
 const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task, listId }) => {
+  // 🚀 BƯỚC 2: Khởi tạo queryClient
+  const queryClient = useQueryClient();
+
   const { activeBoardId } = useBoardStore();
   const { data: board } = useGetBoardDetail(activeBoardId as string);
   const getUser = useUserStore((state) => state.getUser);
@@ -67,6 +73,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
   const { mutateAsync: updateApiTask } = useUpdateTask();
   const { mutateAsync: deleteApiTask } = useDeleteTask();
   const { mutateAsync: createApiTask } = useCreateTask();
+  const { mutateAsync: moveApiTask } = useMoveTask();
 
   const [editTitle, setEditTitle] = useState("");
   const [editDesc, setEditDesc] = useState("");
@@ -129,7 +136,6 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
       const rawPriority = task.priority ? String(task.priority).toUpperCase() : "MEDIUM";
       setEditPriority(rawPriority);
       
-      // 🚀 BÍ KÍP 1: Chắc chắn lấy đúng ID của cột hiện tại
       setEditColumnId(task.column_id || listId); 
       
       setEditStoryPoints(task.story_points || task.story_point || 0);
@@ -139,7 +145,6 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
       
       setIsDone(task.status === "DONE" || task.is_done === true);
       
-      // 🚀 BÍ KÍP 2: Bao phủ mọi key mà Backend có thể trả về cho Người thực hiện
       const rawAssignees = task.assignees_user_id || task.assigneesUserId || task.assignees || task.assignee_id || task.assignee_ids;
       const assigneesList = Array.isArray(rawAssignees) ? rawAssignees : (rawAssignees ? [rawAssignees] : []);
       
@@ -181,7 +186,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
 
   if (!isOpen || !task) return null;
 
-const handleSave = async () => {
+  const handleSave = async () => {
     if (!activeBoardId || !board) return;
     setIsSaving(true); 
 
@@ -189,6 +194,7 @@ const handleSave = async () => {
     const finalPriority = editPriority ? editPriority.toUpperCase() : "MEDIUM";
 
     try {
+      // 1. Lưu các thông tin chữ viết, ưu tiên, ngày tháng...
       await updateApiTask({
         taskId: String(task.id || task._id),
         boardId: activeBoardId,
@@ -203,12 +209,31 @@ const handleSave = async () => {
           due_date: editDueDate ? editDueDate.toISOString() : null,
           assignees_user_id: cleanAssignees, 
           assignee_id: cleanAssignees.length > 0 ? cleanAssignees[0] : null,
-          column_id: String(editColumnId), 
           parent_task_id: task.parent_task_id,
-          // 🚀 THÊM DÒNG NÀY: Gửi subtasks từ state local lên Backend
           subtasks: localSubtasks 
         }
       });
+
+      // =====================================
+      // 🚀 2. BÍ KÍP CHUYỂN CỘT CHÍNH THỨC
+      // Nếu cột mới khác cột cũ -> Gọi API Move y hệt như kéo thả!
+      // =====================================
+      if (String(editColumnId) !== String(listId)) {
+        // Tìm cột đích để nhét task vào cuối danh sách
+        const destCol = board?.columns?.find((c: any) => String(c.id || c._id) === String(editColumnId));
+        const newOrder = destCol && destCol.tasks ? destCol.tasks.length : 0; 
+
+        await moveApiTask({
+          taskId: String(task.id || task._id),
+          columnId: String(editColumnId),
+          order: newOrder,
+          boardId: activeBoardId
+        });
+      }
+
+      // Xóa cache và tải lại bảng ngay lập tức
+      await queryClient.invalidateQueries({ queryKey: ['board', activeBoardId] });
+      
       onClose(); 
     } catch (error) {
       console.error("Lỗi khi cập nhật Task:", error);
@@ -223,6 +248,8 @@ const handleSave = async () => {
     if (window.confirm(`Bạn có chắc muốn xóa task "${task.title}"?`)) {
       try {
         await deleteApiTask({ taskId: String(task.id || task._id), boardId: activeBoardId });
+        // Sẵn tiện xóa xong cũng báo bảng load lại cho mượt
+        queryClient.invalidateQueries({ queryKey: ['board', activeBoardId] });
         onClose();
       } catch (error) {
         console.error("Lỗi khi xóa Task:", error);
@@ -230,7 +257,6 @@ const handleSave = async () => {
     }
   };
 
-  // 🚀 Tự động lấy tên cột thông minh (Bao gồm cả 'name' và 'list_name')
   const currentColumn = board?.columns?.find((c: any) => String(c.id || c._id) === String(editColumnId));
   const currentColumnName = currentColumn?.name || currentColumn?.list_name || "Không rõ";
 

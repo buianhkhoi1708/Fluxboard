@@ -29,7 +29,6 @@ export const useRbacStore = create<IRbacState>((set, get) => ({
         rbacApi.getPermissions()
       ]);
       
-      // Xử lý đúng chuẩn ResponseFactory.paged của Mạnh
       const rolesData = rolesRes.data?.data?.content || rolesRes.data?.content || rolesRes.data || [];
       const permsData = permsRes.data?.data?.content || permsRes.data?.content || permsRes.data || [];
       
@@ -39,9 +38,12 @@ export const useRbacStore = create<IRbacState>((set, get) => ({
         isLoading: false 
       });
 
-      // Mặc định load quyền của Role đầu tiên
-      if (rolesData.length > 0) {
-        get().setActiveRole(rolesData[0].id);
+      // 🚀 FIX: Kiểm tra kỹ ID trước khi gọi
+      const firstRole = rolesData[0];
+      if (firstRole && firstRole.id && /^[a-f\d]{24}$/i.test(firstRole.id)) {
+        get().setActiveRole(firstRole.id);
+      } else {
+        console.warn("RBAC: Role đầu tiên không có ID hợp lệ, bỏ qua load quyền.");
       }
     } catch (error) {
       console.error("❌ Lỗi tải dữ liệu RBAC gốc:", error);
@@ -51,10 +53,15 @@ export const useRbacStore = create<IRbacState>((set, get) => ({
 
   // 2. GỌI API THẬT LẤY QUYỀN CỦA ROLE ĐANG CHỌN
   setActiveRole: async (roleId: string) => {
+    // 🚀 FIX: Chặn gọi API nếu ID không chuẩn
+    if (!roleId || !/^[a-f\d]{24}$/i.test(roleId)) {
+        console.warn("RBAC: RoleID không hợp lệ, không gọi API:", roleId);
+        return;
+    }
+
     set({ activeRoleId: roleId, isLoading: true });
     try {
       const res = await rbacApi.getPermissionsByRole(roleId);
-      // Xử lý đúng chuẩn ResponseFactory.ok của Mạnh
       const activePerms = res.data?.data || res.data || [];
       
       const activeIds = activePerms.map((p: any) => p.id);

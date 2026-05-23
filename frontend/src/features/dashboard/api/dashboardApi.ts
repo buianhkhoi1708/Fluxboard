@@ -60,21 +60,21 @@ export interface ManagerDashboardData {
 // ==========================================
 // MEMBER
 // ==========================================
-
 export interface MemberDashboardData {
   my_contribution: {
-    completed_tasks: number;
+    tasks_completed_this_week: number; // Đổi tên cho khớp Backend
     total_assigned: number;
+    on_time_rate: number;
   };
-
   my_focus_board: Array<{
     task_id: string;
     title: string;
     priority: string;
-    story_point: number;
+    story_point?: number; // Có thể Backend chưa trả về
     due_date: string;
     deadline_status: string;
     extensions_used: number;
+    extension_limit: number;
   }>;
 }
 
