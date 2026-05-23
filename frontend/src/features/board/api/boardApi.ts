@@ -30,7 +30,7 @@ export const boardApi = {
       name: payload.name,
       board_id: payload.board_id
     };
-    const response: any = await axiosClient.post('/board-columns', finalPayload);
+    const response: any = await axiosClient.post('/columns', finalPayload);
     return response.data || response;
   },
 
@@ -46,10 +46,14 @@ export const boardApi = {
   },
 
   // --- TASK ---
-  createTask: async (taskData: any) => {
-    const response: any = await axiosClient.post('/tasks', taskData);
+  // boardApi.ts
+// Trong file src/modules/task/api/boardApi.ts
+// Đảm bảo hàm này đang trông như thế này:
+createTask: async (taskData: any) => {
+    // Không cần truyền thêm config header phức tạp nếu axiosClient đã cấu hình tốt
+    const response = await axiosClient.post('/tasks', taskData);
     return response.data || response;
-  },
+},
 
   updateTask: async (taskId: string, updateData: any) => {
     const response: any = await axiosClient.put(`/tasks/${taskId}`, updateData);
@@ -79,9 +83,10 @@ export const boardApi = {
     return response.data || response;
   },
 
-  getProjectMembers: (projectId: string) => {
-    return axiosClient.get(`/projects/${projectId}/members`);
-  },
+getProjectMembers: (projectId: string) => {
+    // Bỏ chữ /projects/ nếu Router của sếp đang ghép nó vào từ file index chính
+    return axiosClient.get(`/projects/${projectId}/members`); 
+},
 
   // --- MEDIA & ATTACHMENT ---
   getPresignedUrl: async (fileName: string, contentType: string): Promise<any> => {

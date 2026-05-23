@@ -103,3 +103,53 @@ exports.deleteProject = async (projectId) => {
 
     return true; 
 };
+
+exports.addMemberToProject = async (projectId, userId, roleIds = []) => {
+    // 1. Kiểm tra Dự án có tồn tại không
+    const project = await Project.findById(projectId).lean();
+    if (!project || project.is_deleted === true) {
+        throw new AppError('Dự án không tồn tại hoặc đã bị xóa', 404, 'NOT_FOUND');
+    }
+
+    // 2. Kiểm tra User có tồn tại không
+    const user = await User.findById(userId).lean();
+    if (!user) {
+        throw new AppError('Nhân sự không tồn tại', 404, 'NOT_FOUND');
+    }
+
+    // 3. Xử lý quyền (Role). Nếu mảng roleIds rỗng, tự động cấp quyền MEMBER mặc định
+    let finalRoleIds = roleIds;
+    if (!finalRoleIds || finalRoleIds.length === 0) {
+        const defaultRole = await Role.findOne({ name: Roles.MEMBER, scope: Scopes.PROJECT }).lean();
+        if (defaultRole) {
+            finalRoleIds = [defaultRole._id];
+        }
+    }
+
+    // 4. Kiểm tra xem người này đã ở trong dự án chưa
+    const existingMember = await ProjectMember.findOne({ project_id: projectId, user_id: userId });
+
+    if (existingMember) {
+        // Nếu đã ở trong dự án rồi và chưa bị xóa -> Bỏ qua, không lỗi, trả về luôn
+        if (existingMember.is_deleted === false) {
+            return existingMember; 
+        } 
+        // Nếu trước đó bị đuổi (is_deleted: true) -> Khôi phục lại
+        else {
+            existingMember.is_deleted = false;
+            existingMember.role_ids = finalRoleIds;
+            await existingMember.save();
+            return existingMember;
+        }
+    }
+
+    // 5. Nếu chưa từng ở trong dự án -> Tạo bản ghi mới
+    const newMember = await ProjectMember.create({
+        project_id: projectId,
+        user_id: userId,
+        role_ids: finalRoleIds,
+        is_deleted: false
+    });
+
+    return newMember;
+};

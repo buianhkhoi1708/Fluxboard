@@ -11,35 +11,105 @@ const notificationService = require('../../notification/services/notification.se
 // ==========================================
 exports.createTask = async (req, res, next) => {
     try {
-        const task = await taskCoreService.createTask(req.body);
+        // 1. CƠ CHẾ BẮT DỮ LIỆU CỨU HỘ
+        // Nếu req.body rỗng, chúng ta thử đọc thủ công từ stream của request
+        let taskData = req.body;
 
-        await activityService.logActivity({
-            action: 'CREATE',
-            source: 'USER',
-            actor_id: req.user.id,
-            target_id: task._id,
-            target_type: 'Task',
-            project_id: task.project_id || null,
-            details: { message: 'Created a new task', title: task.title }
-        });
+        if (!taskData || (typeof taskData === 'object' && Object.keys(taskData).length === 0)) {
+            console.log("🔍 [DEBUG] req.body rỗng, đang đọc dữ liệu thô từ stream...");
+            taskData = await new Promise((resolve) => {
+                let chunks = [];
+                req.on('data', (chunk) => chunks.push(chunk));
+                req.on('end', () => {
+                    try {
+                        const rawBody = Buffer.concat(chunks).toString();
+                        resolve(rawBody ? JSON.parse(rawBody) : null);
+                    } catch (e) { 
+                        console.error("❌ Lỗi parse dữ liệu thô:", e);
+                        resolve(null); 
+                    }
+                });
+            });
+        }
+
+        console.log("📥 [DEBUG] Payload cuối cùng nhận được:", JSON.stringify(taskData, null, 2));
+
+        // 2. KIỂM TRA DỮ LIỆU
+        if (!taskData || Object.keys(taskData).length === 0) {
+            return res.status(400).json({
+                success: false,
+                error: {
+                    code: "INVALID_REQUEST",
+                    message: "Không nhận được dữ liệu (body trống). Vui lòng kiểm tra lại phía Frontend."
+                }
+            });
+        }
+
+        // 3. CHUẨN HÓA PAYLOAD
+        const payload = {
+            ...taskData,
+            board_id: taskData.board_id || taskData.boardId
+        };
+
+        // 4. VALIDATE BẮT BUỘC
+        if (!payload.board_id) {
+            return res.status(400).json({
+                success: false,
+                error: {
+                    code: "VALIDATION_FAILED",
+                    message: "Thiếu trường bắt buộc: board_id"
+                }
+            });
+        }
+
+        // 5. GỌI SERVICE
+        const task = await taskCoreService.createTask(payload);
+
+        // 6. LOG HOẠT ĐỘNG
+        if (task && req.user) {
+            await activityService.logActivity({
+                action: 'CREATE',
+                source: 'USER',
+                actor_id: req.user.id,
+                target_id: task._id,
+                target_type: 'Task',
+                project_id: task.project_id || payload.project_id || null,
+                details: { message: 'Created a new task', title: task.title }
+            });
+        }
         
-        res.status(201).json({ success: true, data: task, message: 'Task created successfully' });
-    } catch (error) { next(error); }
+        // 7. TRẢ KẾT QUẢ
+        res.status(201).json({ 
+            success: true, 
+            data: task, 
+            message: 'Task created successfully' 
+        });
+
+    } catch (error) { 
+        console.error("❌ Lỗi chi tiết tại taskController.createTask:", error);
+        next(error); // Chuyển cho middleware xử lý lỗi tập trung
+    }
 };
 
 exports.updateTask = async (req, res, next) => {
     try {
         const task = await taskCoreService.updateTask(req.params.id, req.body);
 
-        if (req.body.assignee_id) {
-            await notificationService.queueNotification({
-                recipient_id: req.body.assignee_id,
-                sender_id: req.user.id,
-                title: 'New task assigned',
-                message: `You have been assigned to task: ${task.title}`,
-                type: 'ASSIGN_TASK',
-                reference_id: task._id
-            });
+        // 🚀 TỐI ƯU BẮN THÔNG BÁO CHO NHIỀU NGƯỜI
+        const assignees = req.body.assignees_user_id || (req.body.assignee_id ? [req.body.assignee_id] : []);
+        
+        if (assignees.length > 0) {
+            // Lặp qua danh sách user để gửi thông báo cho từng người
+            for (const userId of assignees) {
+                await notificationService.queueNotification({
+                    recipient_id: userId,
+                    sender_id: req.user.id,
+                    title: 'Được giao công việc mới',
+                    message: `Bạn vừa được phân công vào task: ${task.title}`,
+                    type: 'ASSIGN_TASK',
+                    reference_id: task._id
+                });
+            }
         }
 
         await activityService.logActivity({

@@ -29,23 +29,36 @@ export const useGetBoardDetail = (boardId: string) => {
     queryFn: async () => {
       const response = await boardApi.getBoard(boardId);
       
+      // 1. Tìm object chính (lớp bọc)
       let coreData = response;
       while (coreData && coreData.data && !coreData.projectId && !coreData.project_id) {
         coreData = coreData.data;
       }
 
-      // 🚀 BƠM DATA VÀO KHO TOÀN CỤC NGẦM
+      // 🚀 2. TỐI ƯU CẤU TRÚC ĐỂ UI KHÔNG BỊ TRẮNG
+      // Backend đang trả về: name, column_order_ids
+      // Frontend cần: board_name, columns
+      const formattedBoard = {
+  ...coreData,
+  board_name: coreData?.name || 'Bảng công việc',
+  columns: (coreData?.column_order_ids || []).map(col => ({
+    ...col,
+    tasks: col.task_order_ids || [] // 👈 Ánh xạ sang 'tasks' để UI dùng chung
+  })),
+};
+
+      // 🚀 3. BƠM DATA VÀO KHO (Giữ nguyên logic cũ của sếp)
       const projectId = coreData?.projectId || coreData?.project_id;
       if (projectId) {
         boardApi.getProjectMembers(projectId)
           .then(res => {
-            const members = (res as any)?.data?.content || (res as any)?.data || res || [];
+            const members = (res as any)?.data?.data || (res as any)?.data || res || [];
             useUserStore.getState().saveUsersToCache(members, projectId);
           })
           .catch(err => console.error("❌ Lỗi đồng bộ danh bạ dự án:", err));
       }
 
-      return coreData as Board; // 🚀 ÉP KIỂU TRẢ VỀ LÀ BOARD
+      return formattedBoard as unknown as Board;
     },
     enabled: !!boardId,
   });
@@ -75,14 +88,17 @@ export const useCreateBoard = () => {
     },
   });
 };
-
 export const useCreateTask = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    // 🚀 2. ÉP KIỂU TASKDATA LÀ PARTIAL<TASK> (Chấp nhận thiếu vài trường)
-    mutationFn: ({ taskData, boardId }: { taskData: Partial<Task>; boardId: string }) => boardApi.createTask(taskData),
+    // Sếp chỉ cần nhận 1 tham số là taskData
+    mutationFn: (taskData: Partial<Task>) => boardApi.createTask(taskData),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: BOARD_QUERY_KEYS.boardDetail(variables.boardId) });
+      // Dùng board_id trong biến gửi đi để invalidate cache
+      const boardId = variables.board_id;
+      if (boardId) {
+        queryClient.invalidateQueries({ queryKey: BOARD_QUERY_KEYS.boardDetail(boardId as string) });
+      }
     },
   });
 };

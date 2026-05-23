@@ -12,21 +12,18 @@ import {
 import { arrayMove } from '@dnd-kit/sortable';
 import { Save, Sparkles, Filter, Users, Plus, X } from 'lucide-react'; 
 import { useRealtimeEvent } from '../../../hooks/useRealtimeEvent'
-import { useParams, useSearchParams } from 'react-router-dom'; // 🚀 Đã import useSearchParams
+import { useParams, useSearchParams } from 'react-router-dom'; 
 import { useQueryClient } from '@tanstack/react-query';
 
 import { useGetBoardDetail, useMoveTask, useCreateColumn, BOARD_QUERY_KEYS } from '../hooks/useBoardQueries';
 
 import { Task, BoardColumn } from '../types/index';
-
-// 🚀 IMPORT MODAL TASK DETAIL CỦA SẾP VÀO ĐÂY
 import TaskDetailModal from './TaskDetailModal'; 
 
 const BoardView = () => {
   const { id } = useParams();
   const currentBoardId = id || '69d22692ef24ae604f65ae89'; 
 
-  // 🚀 1. LẮNG NGHE URL TỪ MY TASKS TRUYỀN SANG
   const [searchParams, setSearchParams] = useSearchParams();
   const taskIdFromUrl = searchParams.get('taskId');
 
@@ -45,10 +42,11 @@ const BoardView = () => {
   const [newColName, setNewColName] = useState("");
   const newColInputRef = useRef<HTMLInputElement>(null);
 
-  // 🚀 2. STATE QUẢN LÝ BẬT/TẮT MODAL BẰNG ID
   const [selectedTaskDetailId, setSelectedTaskDetailId] = useState<string | null>(null);
 
-  // 🚀 3. NẾU CÓ TASK_ID TRÊN URL -> BẬT MODAL & DỌN DẸP URL
+  // 🚀 Đã bảo vệ: Đồng bộ tên bảng (Hỗ trợ cả name và board_name)
+  const boardTitle = board?.name || board?.board_name || 'Bảng công việc';
+
   useEffect(() => {
     if (taskIdFromUrl && board) {
       setSelectedTaskDetailId(taskIdFromUrl);
@@ -57,9 +55,9 @@ const BoardView = () => {
     }
   }, [taskIdFromUrl, board, searchParams, setSearchParams]);
 
-  // 🚀 4. TRẠM TÌM KIẾM: TỰ ĐỘNG LÔI DATA TASK & COLUMN ID RA TỪ CÁI SELECTED ID
   const selectedTaskData = useMemo(() => {
-    if (!selectedTaskDetailId || !board?.columns) return { task: null, listId: '' };
+    // 🚀 Đã bảo vệ: Kiểm tra columns có phải là mảng không
+    if (!selectedTaskDetailId || !Array.isArray(board?.columns)) return { task: null, listId: '' };
 
     for (const col of board.columns) {
       const foundTask = col.tasks?.find((t: Task) => String(t.id || t._id) === String(selectedTaskDetailId));
@@ -88,17 +86,20 @@ const BoardView = () => {
     queryClient.invalidateQueries({ queryKey: BOARD_QUERY_KEYS.boardDetail(currentBoardId) });
   });
 
-  const projectId = board?.projectId || board?.project_id;
-
   const activeMembersInBoard = React.useMemo(() => {
-    if (!board || !board.columns) return [];
+    // 🚀 Đã bảo vệ: Đảm bảo columns là mảng trước khi chạy forEach
+    if (!board || !Array.isArray(board.columns)) return [];
     
     const assignedUserIds = new Set<string>();
     
     board.columns.forEach((col: BoardColumn) => {
-      if (!col.tasks) return;
+      // 🚀 Đã bảo vệ: Đảm bảo tasks là mảng
+      if (!Array.isArray(col.tasks)) return;
+      
       col.tasks.forEach((task: Task) => {
         const assignees = task.assignees_user_id || task.assigneesUserId || task.assignees || [];
+        if (!Array.isArray(assignees)) return;
+
         assignees.forEach((item: any) => {
           const userId = typeof item === 'object' ? (item.id || item._id) : item;
           if (userId) assignedUserIds.add(String(userId));
@@ -107,7 +108,8 @@ const BoardView = () => {
     });
 
     return Array.from(assignedUserIds).map(userId => {
-      return userDictionary[userId] || { id: userId, full_name: 'Member', avatar_url: null }; 
+      // 🚀 Đã bảo vệ: userDictionary có thể chưa load kịp
+      return userDictionary?.[userId] || { id: userId, full_name: 'Member', avatar_url: null }; 
     });
   }, [board, userDictionary]);
 
@@ -121,7 +123,7 @@ const BoardView = () => {
       await createColumnApi({
         list_name: newColName.trim(),
         project_id: String(board.projectId || board.project_id),
-        order: board.columns ? board.columns.length + 1 : 1,
+        order: Array.isArray(board.columns) ? board.columns.length + 1 : 1,
         boardId: activeBoardId
       });
       setNewColName("");
@@ -140,22 +142,16 @@ const BoardView = () => {
         </div>
       </div>
       <div className="flex flex-col items-center gap-1">
-        <span className="text-base font-bold text-slate-700 tracking-tight">Đang đồng bộ không gian làm việc...</span>
+        <span className="text-base font-bold text-slate-700 tracking-tight">Đang tải không gian làm việc...</span>
         <span className="text-xs font-medium text-slate-400">Vui lòng chờ trong giây lát</span>
       </div>
     </div>
   );
 
-  const handleDragStart = (e: DragStartEvent) => {
-    if (e.active.data.current?.type === 'Task') {
-      setActiveTask(e.active.data.current.task as Task);
-    }
-  };
-
   const handleDragEnd = async (e: DragEndEvent) => {
     setActiveTask(null); 
     const { active, over } = e;
-    if (!over) return;
+    if (!over || !Array.isArray(board.columns)) return; // 🚀 Bảo vệ DragEnd
 
     const activeColId = active.data.current?.columnId || active.data.current?.listId;
     const overColId = over.data.current?.columnId || over.data.current?.listId || over.id;
@@ -170,20 +166,23 @@ const BoardView = () => {
 
     if (activeColId === overColId) {
       const col = newColumns[sourceColIndex];
-      const oldIndex = col.tasks.findIndex((t: Task) => t.id === active.id || t._id === active.id);
-      const newIndex = col.tasks.findIndex((t: Task) => t.id === over.id || t._id === over.id);
+      const tasks = Array.isArray(col.tasks) ? col.tasks : [];
+      const oldIndex = tasks.findIndex((t: Task) => t.id === active.id || t._id === active.id);
+      const newIndex = tasks.findIndex((t: Task) => t.id === over.id || t._id === over.id);
       
-      newColumns[sourceColIndex] = { ...col, tasks: arrayMove(col.tasks, oldIndex, newIndex) };
+      newColumns[sourceColIndex] = { ...col, tasks: arrayMove(tasks, oldIndex, newIndex) };
       newOrder = newIndex + 1; 
     } else {
       const sourceCol = newColumns[sourceColIndex];
       const destCol = newColumns[destColIndex];
-      const movedTask = sourceCol.tasks.find((t: Task) => t.id === active.id || t._id === active.id);
-      const newSourceTasks = sourceCol.tasks.filter((t: Task) => t.id !== active.id && t._id !== active.id);
-      const newDestTasks = [...(destCol.tasks || [])];
+      
+      const sourceTasks = Array.isArray(sourceCol.tasks) ? sourceCol.tasks : [];
+      const movedTask = sourceTasks.find((t: Task) => t.id === active.id || t._id === active.id);
+      const newSourceTasks = sourceTasks.filter((t: Task) => t.id !== active.id && t._id !== active.id);
+      const newDestTasks = [...(Array.isArray(destCol.tasks) ? destCol.tasks : [])];
       
       if (over.data.current?.type === 'Task') {
-        const newIndex = destCol.tasks.findIndex((t: Task) => t.id === over.id || t._id === over.id);
+        const newIndex = newDestTasks.findIndex((t: Task) => t.id === over.id || t._id === over.id);
         if (movedTask) newDestTasks.splice(newIndex, 0, movedTask);
         newOrder = newIndex + 1;
       } else {
@@ -212,18 +211,18 @@ const BoardView = () => {
 
   return (
     <>
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={(e) => setActiveTask(e.active.data.current?.task as Task)} onDragEnd={handleDragEnd}>
         <div className="absolute inset-0 flex flex-col bg-slate-50/50 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-50/40 via-slate-50 to-white overflow-hidden">
 
           {/* HEADER */}
           <div className="shrink-0 px-4 py-3 md:px-6 bg-white/70 backdrop-blur-xl border-b border-white shadow-sm flex flex-wrap sm:flex-nowrap justify-between items-center gap-3 z-10">
             <div className="flex items-center gap-3 w-full sm:w-auto min-w-0">
               <div className="w-9 h-9 md:w-11 md:h-11 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-black text-lg md:text-xl shadow-md shrink-0">
-                {board.board_name?.charAt(0) || 'F'}
+                {boardTitle.charAt(0).toUpperCase()}
               </div>
               <div className="flex flex-col min-w-0 flex-1">
                 <h2 className="text-base md:text-xl font-black text-slate-800 tracking-tight truncate">
-                  {board.board_name}
+                  {boardTitle}
                 </h2>
               </div>
             </div>
@@ -264,20 +263,16 @@ const BoardView = () => {
                 <Filter size={16} className="w-4 h-4" />
                 <span className="hidden sm:inline">Lọc</span>
               </button>
-              <button className="flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-black text-white px-3 py-1.5 md:px-4 rounded-lg text-xs md:text-sm font-bold transition-all active:scale-95 shadow-md shrink-0">
-                <Save size={16} className="text-indigo-200 w-4 h-4" />
-                <span className="hidden sm:inline">Lưu dự án</span>
-              </button>
             </div>
           </div>
 
           {/* VÙNG CỘT KÉO THẢ */}
           <div className="flex-1 w-full p-4 md:p-6 overflow-x-auto overflow-y-hidden flex flex-nowrap gap-4 md:gap-6 items-start custom-scrollbar">
-            {board.columns?.map((col: BoardColumn) => (
+            {/* 🚀 Đã bảo vệ: Lọc lỗi array.map is not a function */}
+            {(Array.isArray(board.columns) ? board.columns : []).map((col: BoardColumn) => (
               <Column 
                 key={col.id || col._id} 
                 list={col} 
-                // 🚀 Dòng này giúp bấm task bình thường trong Bảng cũng bật được modal:
                 onOpenTaskDetail={(taskId: string) => setSelectedTaskDetailId(taskId)} 
               />
             ))}
@@ -323,7 +318,6 @@ const BoardView = () => {
         </DragOverlay>
       </DndContext>
 
-      {/* 🚀 RÁP COMPONENT TASK DETAIL VÀO CUỐI CÙNG NHƯ MỘT PORTAL */}
       {selectedTaskData.task && (
         <TaskDetailModal
           isOpen={!!selectedTaskDetailId}

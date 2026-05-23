@@ -115,46 +115,33 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClose, colu
     setIsSaving(true);
 
     try {
-      const createdTaskResponse: any = await createTaskApi({
-        boardId: activeBoardId,
-        taskData: {
-          title: title.trim(),
-          description: desc,
-          column_id: String(columnId),
-          priority: priority.toUpperCase(),
-          status: "TODO",
-          assignees_user_id: assignees,
-          story_point: Number(storyPoints) || 0,
-          start_date: startDate ? startDate.toISOString() : null,
-          due_date: dueDate ? dueDate.toISOString() : null,
-          parent_task_id: null
-        }
-      });
+      const payload = {
+        board_id: String(activeBoardId),
+        title: title.trim(),
+        description: desc,
+        column_id: String(columnId),
+        priority: priority.toUpperCase(),
+        status: "TODO",
+        assignees_user_id: assignees,
+        story_point: Number(storyPoints) || 0,
+        start_date: startDate ? startDate.toISOString() : null,
+        due_date: dueDate ? dueDate.toISOString() : null,
+        // 🚀 ĐÚNG CHUẨN BACKEND: Map mảng subtasks thành mảng object trước khi gửi
+        subtasks: subtasks.map(stTitle => ({
+          title: stTitle,
+          is_done: false
+        }))
+      };
 
-      const newParentId = createdTaskResponse?.data?.id || createdTaskResponse?.data?._id || createdTaskResponse?.id || createdTaskResponse?._id;
-
-      if (newParentId && subtasks.length > 0) {
-        await Promise.all(subtasks.map(stTitle => 
-          createTaskApi({
-            boardId: activeBoardId,
-            taskData: {
-              title: stTitle,
-              description: "",
-              column_id: String(columnId),
-              parent_task_id: String(newParentId),
-              priority: "MEDIUM",
-              status: "TODO",
-              story_point: 0,
-              assignees_user_id: []
-            }
-          })
-        ));
-      }
-
+      // Gọi 1 API duy nhất để tạo Task kèm toàn bộ Subtask
+      await createTaskApi(payload);
+    
+      // Đóng modal, React Query sẽ lo việc refetch và hiển thị
       onClose();
+
     } catch (error) {
-      console.error("Lỗi tạo Task mới:", error);
-      alert("Tạo Task thất bại! Vui lòng thử lại.");
+      console.error("Lỗi tạo Task:", error);
+      alert("Tạo Task thất bại!");
     } finally {
       setIsSaving(false);
     }

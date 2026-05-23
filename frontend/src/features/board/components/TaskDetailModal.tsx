@@ -76,6 +76,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
   const [editStartDate, setEditStartDate] = useState<Date | null>(null);
   const [editDueDate, setEditDueDate] = useState<Date | null>(null);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
+  const [localSubtasks, setLocalSubtasks] = useState<any[]>([]);
   
   const [isDone, setIsDone] = useState(false);
   
@@ -83,7 +84,6 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
   const [isAssigneePopupOpen, setIsAssigneePopupOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // LOGIC UPLOAD FILE
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const { mutateAsync: addAttachment } = useAddAttachmentToTask();
@@ -95,32 +95,23 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
     setIsUploading(true);
     try {
       const urls = await getPresignedUrl(file.name, file.type);
-      
-      // 1. Lấy uploadUrl từ API trả về (tùy key backend sếp viết)
       const uploadUrl = urls.uploadUrl || urls.upload_url || urls.url;
-
-      // 🚀 2. BÍ KÍP: Tự động chế ra Public URL bằng cách cắt bỏ phần token sau dấu '?'
       const finalPublicUrl = urls.publicUrl || urls.public_url || uploadUrl.split('?')[0];
 
-      // Đẩy file lên Cloud
-      await axios.put(uploadUrl, file, {
-        headers: { 'Content-Type': file.type }
-      });
+      await axios.put(uploadUrl, file, { headers: { 'Content-Type': file.type } });
 
-      // Gọi API nộp link vào Task
       await addAttachment({
         taskId: String(task.id || task._id),
         boardId: activeBoardId,
         payload: {
           file_name: file.name,
-          file_url: finalPublicUrl, // Đã có link chuẩn, không bao giờ bị null nữa!
+          file_url: finalPublicUrl,
           content_type: file.type,
           file_size: file.size
         }
       });
 
       if (fileInputRef.current) fileInputRef.current.value = ''; 
-
     } catch (error) {
       console.error("Lỗi upload:", error);
       alert("Tải lên thất bại. Vui lòng thử lại!");
@@ -133,26 +124,30 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
     if (isOpen && task) {
       setEditTitle(task.title || "");
       setEditDesc(task.description || "");
+      setLocalSubtasks(task.subtasks || []);
       
       const rawPriority = task.priority ? String(task.priority).toUpperCase() : "MEDIUM";
       setEditPriority(rawPriority);
-      setEditColumnId(listId);
+      
+      // 🚀 BÍ KÍP 1: Chắc chắn lấy đúng ID của cột hiện tại
+      setEditColumnId(task.column_id || listId); 
+      
       setEditStoryPoints(task.story_points || task.story_point || 0);
+      
       setEditStartDate(task.start_date ? new Date(task.start_date) : null);
       setEditDueDate(task.due_date ? new Date(task.due_date) : null);
       
-      setIsDone(task.status === "DONE");
+      setIsDone(task.status === "DONE" || task.is_done === true);
       
-      const assigneesList = task.assignees_user_id || task.assigneesUserId || task.assignees || [];
+      // 🚀 BÍ KÍP 2: Bao phủ mọi key mà Backend có thể trả về cho Người thực hiện
+      const rawAssignees = task.assignees_user_id || task.assigneesUserId || task.assignees || task.assignee_id || task.assignee_ids;
+      const assigneesList = Array.isArray(rawAssignees) ? rawAssignees : (rawAssignees ? [rawAssignees] : []);
+      
       const normalizedIds = assigneesList
-        .map((item: any) => {
-          if (typeof item === 'object') {
-            return item.user_id || item.id || item._id;
-          }
-          return item;
-        })
-        .filter((id: any) => id !== undefined && id !== null && String(id) !== "undefined" && String(id) !== "")
+        .map((item: any) => typeof item === 'object' ? item.user_id || item.id || item._id : item)
+        .filter((id: any) => id !== undefined && id !== null && String(id) !== "undefined" && String(id) !== "" && !String(id).startsWith("temp-"))
         .map((id: any) => String(id));
+        
       setEditAssignees(normalizedIds);
       
       setIsSaving(false);
@@ -169,13 +164,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
 
   const toggleAssignee = (userId: string) => {
     if (!userId || userId.startsWith('temp-') || userId === "undefined") return;
-    setEditAssignees(prev => {
-      if (prev.includes(userId)) {
-        return prev.filter(id => id !== userId); 
-      } else {
-        return [...prev, userId]; 
-      }
-    });
+    setEditAssignees(prev => prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]);
   };
 
   const calculatedDays = useMemo(() => {
@@ -192,7 +181,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
 
   if (!isOpen || !task) return null;
 
-  const handleSave = async () => {
+const handleSave = async () => {
     if (!activeBoardId || !board) return;
     setIsSaving(true); 
 
@@ -208,12 +197,16 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
           description: editDesc,
           priority: finalPriority, 
           status: isDone ? "DONE" : (task.status === "DONE" ? "TODO" : task.status || "TODO"), 
+          is_done: isDone,
           story_point: Number(editStoryPoints) || 0, 
           start_date: editStartDate ? editStartDate.toISOString() : null,
           due_date: editDueDate ? editDueDate.toISOString() : null,
           assignees_user_id: cleanAssignees, 
+          assignee_id: cleanAssignees.length > 0 ? cleanAssignees[0] : null,
           column_id: String(editColumnId), 
-          parent_task_id: task.parent_task_id
+          parent_task_id: task.parent_task_id,
+          // 🚀 THÊM DÒNG NÀY: Gửi subtasks từ state local lên Backend
+          subtasks: localSubtasks 
         }
       });
       onClose(); 
@@ -237,72 +230,9 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
     }
   };
 
-  const handleToggleSubtask = async (subtask: Task) => {
-    if (!activeBoardId) return;
-    const newStatus = (subtask.status === "DONE" || subtask.is_done) ? "TODO" : "DONE";
-    const subtaskPriority = subtask.priority ? String(subtask.priority).toUpperCase() : "MEDIUM";
-    
-    const subAssignees = subtask.assignees_user_id || subtask.assigneesUserId || subtask.assignees || [];
-    const cleanSubAssignees = subAssignees
-      .map((item: any) => {
-        if (typeof item === 'object') return item.user_id || item.id || item._id;
-        return item;
-      })
-      .filter((id: any) => id && String(id) !== "undefined" && !String(id).startsWith('temp-'))
-      .map((id: any) => String(id));
-
-    try {
-      await updateApiTask({
-        taskId: String(subtask.id || subtask._id),
-        boardId: activeBoardId,
-        updateData: {
-          title: subtask.title,
-          description: subtask.description || "",
-          priority: subtaskPriority, 
-          status: newStatus,
-          story_point: Number(subtask.story_point || subtask.story_points) || 0,
-          start_date: subtask.start_date || null,
-          due_date: subtask.due_date || null,
-          assignees_user_id: cleanSubAssignees,
-          column_id: String(listId),
-          parent_task_id: String(task.id || task._id)
-        }
-      });
-    } catch (error) {
-      console.error("Lỗi khi toggle subtask:", error);
-    }
-  };
-
-  const handleAddSubtask = async () => {
-    if (!newSubtaskTitle.trim() || !activeBoardId) return;
-    try {
-      await createApiTask({
-        boardId: activeBoardId,
-        taskData: {
-          title: newSubtaskTitle.trim(),
-          description: "",
-          priority: "MEDIUM",
-          status: "TODO",
-          story_point: 0,
-          assignees_user_id: [],
-          column_id: String(listId),
-          parent_task_id: String(task.id || task._id)
-        }
-      });
-      setNewSubtaskTitle(""); 
-    } catch (error) {
-      console.error("Lỗi tạo subtask:", error);
-    }
-  };
-
-  const handleDeleteSubtask = async (subtaskId: string) => {
-    if (!activeBoardId || String(subtaskId) === "undefined" || String(subtaskId).startsWith('temp-')) return;
-    try {
-      await deleteApiTask({ taskId: subtaskId, boardId: activeBoardId });
-    } catch (error) {
-      console.error("Lỗi xóa subtask:", error);
-    }
-  };
+  // 🚀 Tự động lấy tên cột thông minh (Bao gồm cả 'name' và 'list_name')
+  const currentColumn = board?.columns?.find((c: any) => String(c.id || c._id) === String(editColumnId));
+  const currentColumnName = currentColumn?.name || currentColumn?.list_name || "Không rõ";
 
   const modalContent = (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 md:p-12">
@@ -321,7 +251,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
             />
             <p className="text-[13px] text-slate-500 px-3 mt-1.5 font-medium flex items-center gap-1.5">
               Vị trí hiện tại: <span className="font-bold px-2 py-0.5 rounded-md border border-slate-200/60 bg-indigo-50 text-indigo-700">
-                {board?.columns?.find((c: any) => String(c.id || c._id) === String(editColumnId))?.list_name || "Không rõ"}
+                {currentColumnName}
               </span>
             </p>
           </div>
@@ -349,7 +279,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
         <div className="flex-1 overflow-y-auto custom-scrollbar p-6 lg:p-8">
           <div className="flex flex-col md:flex-row gap-8 lg:gap-10">
             
-            {/* 🚀 CỘT TRÁI */}
+            {/* CỘT TRÁI */}
             <div className="flex-1 flex flex-col gap-8">
               
               {/* Mô tả */}
@@ -366,7 +296,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
                 />
               </div>
 
-              {/* 🚀 KHU VỰC TÀI LIỆU ĐÍNH KÈM Ở ĐÂY */}
+              {/* TÀI LIỆU ĐÍNH KÈM */}
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2.5 text-slate-800 font-bold text-lg">
@@ -377,14 +307,8 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
                     </span>
                   </div>
                   
-                  {/* Nút Upload Trực Tiếp */}
                   <div>
-                    <input 
-                      type="file" 
-                      ref={fileInputRef} 
-                      onChange={handleFileUpload} 
-                      className="hidden" 
-                    />
+                    <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
                     <button 
                       onClick={() => fileInputRef.current?.click()}
                       disabled={isUploading}
@@ -396,7 +320,6 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
                   </div>
                 </div>
 
-                {/* Danh sách File đã up */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {(task.attachments || []).length === 0 ? (
                     <div className="col-span-full p-6 border-2 border-dashed border-slate-200 rounded-[1.5rem] text-center text-sm font-medium text-slate-400 bg-slate-50/30">
@@ -430,27 +353,39 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
                 <div className="flex items-center gap-2.5 text-slate-800 mb-4 font-bold text-lg">
                   <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg"><CheckSquare size={18} /></div>
                   <h3>Checklist Việc Con</h3>
-                  <span className="ml-1.5 text-xs font-black bg-slate-200 text-slate-600 px-2.5 py-1 rounded-full">{(task.subtasks || []).length}</span>
+                  <span className="ml-1.5 text-xs font-black bg-slate-200 text-slate-600 px-2.5 py-1 rounded-full">{localSubtasks.length}</span>
                 </div>
 
                 <div className="bg-white border border-slate-200/80 rounded-2xl p-2.5 shadow-sm">
                   <div className="flex flex-col gap-1 max-h-64 overflow-y-auto custom-scrollbar pr-1">
-                    {(task.subtasks || []).map((st: Task, idx: number) => {
-                      const subtaskId = st.id || st._id;
-                      return (
-                        <div key={`subtask-${subtaskId || idx}`} className="group/st flex items-center gap-3 p-2.5 hover:bg-slate-50/80 rounded-xl transition-all border border-transparent hover:border-slate-100">
-                          <button onClick={() => handleToggleSubtask(st)} className="shrink-0 transition-transform active:scale-90">
-                            {st.status === "DONE" ? <CheckSquare size={18} className="text-emerald-500" /> : <Square size={18} className="text-slate-300 hover:text-indigo-400 transition-colors" />}
-                          </button>
-                          <span className={`text-[15px] flex-1 truncate ${st.status === "DONE" ? "line-through text-slate-400" : "text-slate-700 font-medium"}`}>{st.title}</span>
-                          <button onClick={() => handleDeleteSubtask(String(subtaskId))} className="opacity-0 group-hover/st:opacity-100 p-1.5 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all">
-                            <X size={16} />
-                          </button>
-                        </div>
-                      );
-                    })}
+                    {localSubtasks.map((st: any, idx: number) => (
+                      <div key={idx} className="group/st flex items-center gap-3 p-2.5 hover:bg-slate-50/80 rounded-xl transition-all border border-transparent hover:border-slate-100">
+                        <button 
+                          type="button"
+                          onClick={() => {
+                            const next = [...localSubtasks];
+                            next[idx].is_done = !next[idx].is_done;
+                            setLocalSubtasks(next);
+                          }} 
+                          className="shrink-0 transition-transform active:scale-90"
+                        >
+                          {st.is_done ? <CheckSquare size={18} className="text-emerald-500" /> : <Square size={18} className="text-slate-300 hover:text-indigo-400 transition-colors" />}
+                        </button>
+                        <span className={`text-[15px] flex-1 truncate ${st.is_done ? "line-through text-slate-400" : "text-slate-700 font-medium"}`}>
+                          {st.title}
+                        </span>
+                        <button 
+                          type="button"
+                          onClick={() => setLocalSubtasks(localSubtasks.filter((_, i) => i !== idx))} 
+                          className="opacity-0 group-hover/st:opacity-100 p-1.5 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    ))}
                   </div>
 
+                  {/* 🚀 Ô INPUT ĐỂ THÊM SUBTASK */}
                   <div className="mt-2 p-1.5 pt-3 border-t border-slate-100 flex items-center gap-3">
                     <div className="p-1.5 bg-slate-100 rounded-lg text-slate-400"><Plus size={16} /></div>
                     <input
@@ -459,43 +394,26 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && newSubtaskTitle.trim()) {
                           e.preventDefault();
-                          handleAddSubtask();
+                          setLocalSubtasks([...localSubtasks, { title: newSubtaskTitle.trim(), is_done: false }]);
+                          setNewSubtaskTitle("");
                         }
                       }}
-                      placeholder="Thêm một việc con (Nhấn Enter để lưu)..."
+                      placeholder="Thêm việc con và nhấn Enter..."
                       className="flex-1 text-[15px] font-medium bg-transparent outline-none text-slate-700 placeholder:text-slate-400"
                     />
                   </div>
                 </div>
               </div>
-
-              {/* AI Suggestion */}
-              {(task.ai_estimation_reason) && (
-                <div className="bg-gradient-to-br from-amber-50 to-orange-50/50 border border-amber-200/60 rounded-2xl p-5 flex gap-4 shadow-sm relative overflow-hidden">
-                  <Sparkles size={120} className="absolute -bottom-6 -right-6 text-amber-500/5 rotate-12" />
-                  <div className="p-2.5 bg-amber-100/80 text-amber-600 rounded-xl h-fit shadow-sm backdrop-blur-sm relative z-10"><Sparkles size={22} /></div>
-                  <div className="relative z-10">
-                    <h4 className="text-[15px] font-black text-amber-900 tracking-tight flex items-center gap-2 mb-1.5">
-                      AI Phân tích & Đánh giá
-                      <span className="bg-amber-200/50 text-amber-800 text-[11px] px-2 py-0.5 rounded-full border border-amber-300/30">
-                        {task.ai_suggested_points || 0} Pts
-                      </span>
-                    </h4>
-                    <p className="text-[14px] text-amber-800/80 leading-relaxed font-medium">
-                      {task.ai_estimation_reason}
-                    </p>
-                  </div>
-                </div>
-              )}
             </div>
 
-            {/* 🚀 CỘT PHẢI */}
+            {/* CỘT PHẢI */}
             <div className="w-full md:w-[280px] flex flex-col gap-6 shrink-0">
               <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col gap-5">
                 <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-indigo-500"></span> Thông số
                 </h4>
 
+                {/* 🚀 FIX MENU CỘT */}
                 <div className="flex flex-col gap-2">
                   <label className="text-[13px] font-bold text-slate-600 flex items-center gap-2">
                     <KanbanSquare size={15} className="text-slate-400" /> Cột / Giai đoạn
@@ -510,7 +428,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
                         const colId = col.id || col._id;
                         return (
                           <option key={`col-${colId || idx}`} value={String(colId)}>
-                            {col.list_name}
+                            {col.name || col.list_name}
                           </option>
                         );
                       })}
@@ -519,14 +437,15 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
                   </div>
                 </div>
 
+                {/* 🚀 FIX USER */}
                 <div className="flex flex-col gap-3 mt-2">
                   <label className="text-[13px] font-bold text-slate-600 flex items-center gap-2"><User size={15} className="text-slate-400" /> Người thực hiện</label>
                   <div className="flex flex-wrap gap-2 relative">
-                    {editAssignees.filter(id => id && id !== "undefined" && !id.startsWith('temp-')).length > 0 ? (
-                      editAssignees.filter(id => id && id !== "undefined" && !id.startsWith('temp-')).map((userId: string, idx: number) => {
+                    {editAssignees.length > 0 ? (
+                      editAssignees.map((userId: string, idx: number) => {
                         const member = getUser(userId, projectId);
-                        const displayName = member?.full_name || "Unnamed";
-                        const avatarUrl = member?.avatar_url;
+                        const displayName = member?.full_name || member?.name || "Thành viên";
+                        const avatarUrl = member?.avatar_url || member?.avatarUrl;
                         const initial = String(displayName).charAt(0).toUpperCase();
 
                         return (
@@ -601,6 +520,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
                   </div>
                 </div>
 
+                {/* Priority */}
                 <div className="flex flex-col gap-2">
                   <label className="text-[13px] font-bold text-slate-600 flex items-center gap-2"><Flag size={15} className="text-slate-400" /> Mức Ưu tiên</label>
                   <div className="relative">
@@ -618,6 +538,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
                   </div>
                 </div>
 
+                {/* Story Points */}
                 <div className="flex flex-col gap-2">
                   <label className="text-[13px] font-bold text-slate-600 flex items-center gap-2"><Target size={15} className="text-slate-400" /> Story Points</label>
                   <input

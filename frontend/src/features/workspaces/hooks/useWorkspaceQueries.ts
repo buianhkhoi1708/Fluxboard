@@ -16,37 +16,18 @@ export const useWorkspaces = () => {
       const response: any = await workspaceApi.getProjectOverviews(pageParam as number, 2);
       const rawData = response.content || response.data?.content || response.data || [];
       
-      // Lọc bỏ dự án đã xóa
-      const activeProjects = rawData.filter((item: WorkspaceOverview) => {
-        const p = item.project;
-        return p && (p.is_deleted === false || p.is_deleted === undefined);
-      }) as WorkspaceOverview[];
+      // 🚀 2. Lọc bỏ dự án đã xóa (SỬA LẠI: Lấy trực tiếp từ item vì data đã phẳng)
+      const activeProjects = rawData.filter((item: any) => {
+        return item.is_deleted === false || item.is_deleted === undefined;
+      });
 
-      // 🚀 2. GỌI THÊM API LẤY MEMBER CHO TỪNG DỰ ÁN (Chạy song song bằng Promise.all)
-      const projectsWithMembers = await Promise.all(
-        activeProjects.map(async (item) => {
-          const pid = item.project?.id || item.project?._id;
-          if (!pid) return { ...item, members: [] };
-
-          try {
-            // Gọi API lấy members mà sếp vừa nhắc
-            const membersRes: any = await workspaceApi.getProjectMembers(String(pid));
-            const membersData = membersRes.data?.data || membersRes.data?.content || membersRes.data || membersRes || [];
-            
-            // Gộp members vào trong object project để UI có cái xài
-            return { ...item, members: membersData };
-          } catch (error) {
-            console.error(`Lỗi khi lấy member cho project ${pid}:`, error);
-            return { ...item, members: [] }; // Lỗi thì trả về mảng rỗng để không crash app
-          }
-        })
-      );
-
-      // 3. Lưu User vào Cache toàn cục để các modal khác bốc ra nhanh
-      projectsWithMembers.forEach(item => {
-        const pid = item.project?.id || item.project?._id;
+      // 🚀 3. Lưu User vào Cache (Không cần gọi Promise.all lấy member nữa vì Backend đã trả sẵn)
+      activeProjects.forEach((item: any) => {
+        const pid = item.id || item._id;
         if (pid && item.members && item.members.length > 0) {
-          useUserStore.getState().saveUsersToCache(item.members, String(pid));
+          // Bóc tách user_id ra để lưu vào Cache
+          const usersToCache = item.members.map((m: any) => m.user_id || m);
+          useUserStore.getState().saveUsersToCache(usersToCache, String(pid));
         }
       });
 
@@ -54,7 +35,7 @@ export const useWorkspaces = () => {
       const isLastPage = response.last !== undefined ? response.last : rawData.length < 2;
       
       return {
-        data: projectsWithMembers, // 🚀 Trả về danh sách ĐÃ CÓ MEMBERS
+        data: activeProjects, // Trả thẳng mảng dự án ra UI
         nextPage: !isLastPage ? (pageParam as number) + 1 : undefined,
       };
     },

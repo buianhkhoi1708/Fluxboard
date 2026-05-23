@@ -61,3 +61,41 @@ exports.assignProjectToTeam = async (req, res, next) => {
         next(error);
     }
 };
+exports.addMemberToProject = async (req, res, next) => {
+    try {
+        const projectId = req.params.id; // Lấy :id từ URL
+        const { user_id, role_ids } = req.body; // Lấy dữ liệu từ Payload
+
+        if (!user_id) {
+            const AppError = require('../../../common/exceptions/AppError');
+            throw new AppError('user_id is required', 400);
+        }
+
+        // Gọi thẳng vào projectService đã được import ở đầu file
+        const result = await projectService.addMemberToProject(projectId, user_id, role_ids || []);
+
+        res.status(200).json({
+            success: true,
+            message: 'Đã thêm thành viên vào dự án',
+            data: result
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+exports.getOverviews = async (req, res, next) => {
+    try {
+        // Tạm thời gọi chung logic với getUserProjects
+        const projects = await projectService.getUserProjects(req.user.id);
+        
+        res.status(200).json({ 
+            success: true, 
+            data: projects,
+            content: projects, // Trả thêm trường content để khớp với Frontend
+            last: true // Giả lập phân trang (last page)
+        });
+    } catch (error) { 
+        next(error); 
+    }
+};

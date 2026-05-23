@@ -9,7 +9,14 @@ exports.createTeam = async (req, res, next) => {
 
 exports.getTeamsByDepartment = async (req, res, next) => {
     try {
-        const teams = await teamService.getTeamsByDepartment(req.params.departmentId);
+        const { departmentId } = req.params;
+        
+        // Gọi xuống Service để nấu dữ liệu
+        const teams = await teamService.getTeamsByDepartment(departmentId);
+        
+        // Trả về cho Frontend
         res.status(200).json({ success: true, data: teams });
-    } catch (error) { next(error); }
+    } catch (error) { 
+        next(error); // Ở ĐÂY DÙNG NEXT THÌ KHÔNG BAO GIỜ LỖI NHÉ!
+    }
 };

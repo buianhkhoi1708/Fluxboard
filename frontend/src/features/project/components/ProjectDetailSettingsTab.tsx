@@ -4,6 +4,7 @@ import { Save, AlertTriangle, Trash2, CheckCircle, XCircle, X } from 'lucide-rea
 // 🚀 ĐỔI SANG DÙNG HOOKS TANSTACK QUERY
 import { 
     useProjectOverview, 
+    useProjectDetail,
     useUpdateProjectInfo, 
     useDeleteProject 
 } from '../hooks/useProjectQueries';
@@ -12,11 +13,10 @@ const ProjectSettingsTab = ({ projectId }) => {
     const navigate = useNavigate();
 
     // 🚀 BỐC DỮ LIỆU BẰNG REACT QUERY
-    const { data: projectOverview } = useProjectOverview(projectId);
+    const { data: currentProject } = useProjectDetail(projectId);
     const { mutateAsync: updateProject, isPending: isUpdating } = useUpdateProjectInfo(projectId);
     const { mutateAsync: deleteProject, isPending: isDeleting } = useDeleteProject(projectId);
 
-    const currentProject = projectOverview?.project;
     const isActionLoading = isUpdating || isDeleting;
 
     const [formData, setFormData] = useState({
@@ -37,15 +37,16 @@ const ProjectSettingsTab = ({ projectId }) => {
     };
 
     useEffect(() => {
-        if (currentProject) {
-            setFormData({
-                name: currentProject.name || '',
-                status: currentProject.status || 'ACTIVE',
-                departmentId: currentProject.departmentId || currentProject.department_id || 'DEP-DEFAULT',
-                ownerId: currentProject.ownerId || currentProject.owner_id || '' 
-            });
-        }
-    }, [currentProject]);
+    if (currentProject) {
+        setFormData({
+            name: currentProject.name || '',
+            status: currentProject.status || 'ACTIVE',
+            // Lưu ý: JSON Sếp gửi dùng department_id (có gạch dưới), Sếp check lại key cho đúng nhé
+            departmentId: currentProject.department_id || 'DEP-DEFAULT',
+            ownerId: currentProject.owner_id || '' 
+        });
+    }
+}, [currentProject]);
 
     const handleSave = async () => {
         if (!formData.name.trim()) {

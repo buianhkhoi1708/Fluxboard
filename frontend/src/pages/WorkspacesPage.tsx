@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useUserStore } from '../features/user/store/useUserStore';
 import { useWorkspaces } from '../features/workspaces/hooks/useWorkspaceQueries';
@@ -50,13 +50,17 @@ const WorkspacesPage = () => {
   const [isBoardModalOpen, setIsBoardModalOpen] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
 
-  // Làm phẳng & loại trùng lặp dữ liệu từ các trang
+  // 🚀 Làm phẳng & loại trùng lặp dữ liệu từ các trang (Đã fix khớp với JSON)
   const allProjects = useMemo(() => {
     if (!data?.pages) return [];
-    const flatData = data.pages.flatMap(page => page.data);
+    
+    // Lấy dữ liệu mảng project từ các page
+    const flatData = data.pages.flatMap(page => page.data || page || []);
+    
     const uniqueData = Array.from(
       new Map(flatData.map(item => {
-        const projectId = item.project?.id || item.project?._id;
+        // Bản thân item chính là project
+        const projectId = item.id || item._id;
         return [projectId, item];
       })).values()
     );
@@ -65,7 +69,7 @@ const WorkspacesPage = () => {
 
   const filteredProjects = useMemo(() => {
     return allProjects.filter(item =>
-      item.project?.name?.toLowerCase().includes(searchTerm.toLowerCase())
+      item.name?.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [allProjects, searchTerm]);
 
@@ -163,19 +167,20 @@ const WorkspacesPage = () => {
         {/* DANH SÁCH KHÔNG GIAN LÀM VIỆC */}
         {!isLoading && filteredProjects.length > 0 && (
           <div className="space-y-8">
-            {filteredProjects.map((item, index) => {
-              const workspace = item.project;
-              const boardsData = item.boards || [];
-              const membersData = item.members || [];
+            {filteredProjects.map((workspace, index) => {
+              // 🚀 Lấy thông tin trực tiếp từ workspace
+              const workspaceId = workspace.id || workspace._id;
+              const boardsData = workspace.boards || [];
+              const membersData = workspace.members || [];
 
-              if (!workspace) return null;
+              if (!workspaceId) return null;
 
               const isLastElement = index === filteredProjects.length - 1;
 
               return (
                 <section
                   ref={isLastElement ? triggerRef : null}
-                  key={workspace.id || workspace._id}
+                  key={workspaceId}
                   className="bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/80 shadow-lg shadow-slate-200/20 p-5 md:p-6 transition-all duration-300 hover:shadow-xl hover:shadow-indigo-100/20 hover:border-indigo-200/60 hover:-translate-y-0.5"
                 >
                   {/* Đầu mục không gian làm việc */}
@@ -188,7 +193,7 @@ const WorkspacesPage = () => {
                       </div>
                       <div>
                         <Link
-                          to={`/projects/${workspace.id || workspace._id}?tab=boards`}
+                          to={`/projects/${workspaceId}?tab=boards`}
                           className="transition-colors"
                         >
                           <h2 className="text-lg font-bold text-slate-800 tracking-tight hover:text-indigo-600 transition-colors">
@@ -202,7 +207,7 @@ const WorkspacesPage = () => {
 
                           {/* Xem trước thành viên */}
                           <Link
-                            to={`/projects/${workspace.id || workspace._id}?tab=members`}
+                            to={`/projects/${workspaceId}?tab=members`}
                             title="Quản lý thành viên"
                             className="flex items-center gap-2 bg-slate-100/80 hover:bg-indigo-50 px-2.5 py-1 rounded-full cursor-pointer transition-all group"
                           >
@@ -211,10 +216,12 @@ const WorkspacesPage = () => {
                             {membersData.length > 0 ? (
                               <div className="flex items-center -space-x-1.5">
                                 {membersData.slice(0, 4).map((rawMember, idx) => {
-                                  const memberId = rawMember.user_id || rawMember.id || rawMember._id;
-                                  const member = getUser(memberId, workspace.id || workspace._id) || rawMember;
-                                  const displayName = member.full_name || member.name || 'Thành viên';
-                                  const avatarUrl = member.avatar_url || member.avatarUrl;
+                                  // 🚀 Fix bóc tách đúng object user_id từ API
+                                  const userObj = rawMember.user_id || rawMember; 
+                                  const memberId = userObj._id || userObj.id;
+                                  
+                                  const displayName = userObj.full_name || userObj.name || 'Thành viên';
+                                  const avatarUrl = userObj.avatar_url || userObj.avatarUrl;
                                   const initial = displayName.charAt(0).toUpperCase();
 
                                   return (
@@ -282,7 +289,7 @@ const WorkspacesPage = () => {
                     {/* Nút thêm bảng */}
                     <button
                       onClick={() => {
-                        setSelectedProjectId(workspace.id || workspace._id);
+                        setSelectedProjectId(workspaceId);
                         setIsBoardModalOpen(true);
                       }}
                       className="group border-2 border-dashed border-slate-300 rounded-xl p-5 flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-indigo-600 hover:border-indigo-400 hover:bg-indigo-50/50 transition-all duration-200 min-h-[104px] backdrop-blur-sm active:scale-95 hover:shadow-sm"
