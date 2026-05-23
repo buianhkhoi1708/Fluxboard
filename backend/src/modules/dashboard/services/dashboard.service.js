@@ -10,31 +10,33 @@ const mongoose = require('mongoose');
 const kpiCache = new Map();
 const CACHE_TTL = 15 * 60 * 1000; // 15 phút
 
-exports.getMetricsByRole = async (jwtUser, queryParams) => {
-    let roleNames = ['MEMBER']; 
-    const userId = jwtUser._id || jwtUser.id;
 
+exports.getMetricsByRole = async (jwtUser, queryParams) => {
+    const userId = jwtUser._id || jwtUser.id;
     const fullUser = await User.findById(userId).lean();
 
-    // Sửa trường truy vấn thành system_role_ids để đồng bộ chính xác dữ liệu từ MongoDB
-    if (fullUser && fullUser.role_id && fullUser.role_id.length > 0) {
-        const roles = await Role.find({ _id: { $in: fullUser.role_id } }).select('name').lean();
-        roleNames = roles.map(r => r.name);
-    }
+    // Lấy ID roles từ user (tên trường phải đúng với model User của Sếp)
+   const userRoleIds = fullUser.role_id ? [fullUser.role_id] : [];
 
+    // Tìm role từ DB và lấy tên
+    const roles = await Role.find({ _id: { $in: userRoleIds } }).select('name').lean();
+    const roleNames = roles.map(r => (r.name || "").toUpperCase());
+
+    // 🏆 QUYỀN ĐƯỢC ĐỊNH NGHĨA CHUẨN THEO PHÂN QUYỀN CỦA SẾP
     const systemRoles = ['SYSTEM_ADMIN', 'ADMIN'];
-    const managerRoles = ['PROJECT_ADMIN', 'PM', 'LEAD', 'MANAGER'];
+    const managerRoles = ['PROJECT_ADMIN', 'PM', 'LEAD', 'MANAGER', 'MANAGER'];
 
     const hasSystemRole = roleNames.some(r => systemRoles.includes(r));
     const hasManagerRole = roleNames.some(r => managerRoles.includes(r));
 
-    if (hasSystemRole) {
-        return await getSystemAdminMetrics(queryParams);
-    } else if (hasManagerRole) {
-        return await getManagerMetrics(userId, fullUser?.team_id, queryParams);
-    } else {
-        return await getMemberMetrics(userId, queryParams);
-    }
+    console.log("DEBUG - User ID:", userId);
+    console.log("DEBUG - Roles tìm thấy:", roleNames);
+    console.log("DEBUG - Is Admin:", hasSystemRole);
+
+    if (hasSystemRole) return await getSystemAdminMetrics(queryParams);
+    if (hasManagerRole) return await getManagerMetrics(userId, fullUser?.team_id, queryParams);
+    
+    return await getMemberMetrics(userId, queryParams);
 };
 
 // ==========================================
@@ -48,7 +50,7 @@ const getSystemAdminMetrics = async (queryParams) => {
         orgKpi = kpiCache.get('orgKpi').data;
     } else {
         const [totalUsers, totalDepartments, totalTeams] = await Promise.all([
-            User.countDocuments({ status: 'ACTIVE', is_deleted: false }),
+            User.countDocuments({ status: "ACTIVE" }),
             Department.countDocuments({ is_deleted: false }),
             Team.countDocuments({ is_deleted: false })
         ]);

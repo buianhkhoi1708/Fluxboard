@@ -4,9 +4,10 @@ import { dashboardApi } from '../api/dashboardApi';
 
 export const useDashboardMetrics = (filters?: { time_range?: string; department_id?: string; team_id?: string }) => {
   return useQuery({
-    queryKey: ['dashboard', 'metrics', filters], 
+    // Sử dụng || {} để đảm bảo key luôn là object, không bao giờ là null/undefined
+    queryKey: ['dashboard', 'metrics', filters || {}], 
     queryFn: () => dashboardApi.getMetrics(filters),
-    staleTime: 1000 * 60 * 5, // Cache 5 phút
+    staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
   });
 };

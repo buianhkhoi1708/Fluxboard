@@ -9,15 +9,15 @@ import MemberDashboard from '../features/dashboard/components/MemberDashboard';
 
 import { LayoutDashboard, RefreshCw, AlertTriangle, Loader2 } from 'lucide-react';
 
-// Giao diện chờ xác thực quyền – hiển thị cho mọi role
-const RoleLoadingScreen = () => (
+// Giao diện chờ – hiển thị chung cho cả việc load quyền và load dữ liệu
+const LoadingScreen = ({ message = "Đang tải dữ liệu..." }: { message?: string }) => (
   <div className="flex flex-col items-center justify-center h-[400px] gap-4">
     <div className="relative">
       <div className="absolute inset-0 bg-indigo-200/30 blur-2xl rounded-full"></div>
       <Loader2 size={48} className="animate-spin text-indigo-600 relative z-10" />
     </div>
     <p className="text-sm font-bold text-slate-400 uppercase tracking-widest animate-pulse">
-      Đang xác thực quyền truy cập...
+      {message}
     </p>
   </div>
 );
@@ -28,7 +28,7 @@ const DashboardPage = () => {
   const { data: rolesList, isLoading: isRolesLoading } = useRolesDictionary();
 
   // Xác định role sau khi từ điển đã tải
- const currentRoleName = useMemo(() => {
+  const currentRoleName = useMemo(() => {
     if (!user) return "MEMBER";
 
     // 1. Lấy tên role từ Object (đã populate từ Backend)
@@ -56,14 +56,18 @@ const DashboardPage = () => {
     
     return roleString;
   }, [user, rolesList]);
-  const renderDashboardByRole = () => {
+
+const renderDashboardByRole = () => {
+    // Vì dashboardApi đã bóc vỏ sạch sẽ, 'data' của useQuery chính là dữ liệu ta cần!
+    const dashboardData = data || null;
+
     if (currentRoleName.includes('ADMIN') || currentRoleName === 'SYSTEM_ADMIN' || currentRoleName === 'PROJECT_ADMIN') {
-      return <AdminDashboard data={data || null} />;
+      return <AdminDashboard data={dashboardData} />;
     }
     if (currentRoleName.includes('MANAGER') || currentRoleName.includes('PM') || currentRoleName.includes('LEAD')) {
-      return <ManagerDashboard data={data || null} />;
+      return <ManagerDashboard data={dashboardData} />;
     }
-    return <MemberDashboard data={data || null} />;
+    return <MemberDashboard data={dashboardData} />;
   };
 
   return (
@@ -84,11 +88,15 @@ const DashboardPage = () => {
           </div>
         </div>
 
-        {/* 1. ĐANG XÁC THỰC QUYỀN (chưa có role) -> hiển thị giao diện chờ */}
-        {isRolesLoading && <RoleLoadingScreen />}
+        {/* 1. ĐANG TẢI QUYỀN HOẶC TẢI DỮ LIỆU DASHBOARD */}
+        {(isRolesLoading || isDashboardLoading) && (
+          <LoadingScreen 
+            message={isRolesLoading ? "Đang xác thực quyền truy cập..." : "Đang tải dữ liệu bảng điều khiển..."} 
+          />
+        )}
 
         {/* 2. CÓ QUYỀN NHƯNG LỖI DỮ LIỆU DASHBOARD */}
-        {!isRolesLoading && isError && (
+        {!isRolesLoading && !isDashboardLoading && isError && (
           <div className="bg-white/80 backdrop-blur-sm border border-dashed border-rose-200 rounded-2xl p-16 flex flex-col items-center justify-center text-center shadow-sm">
             <div className="p-5 bg-rose-50 rounded-full mb-5">
               <AlertTriangle size={56} className="text-rose-400" />
@@ -107,8 +115,8 @@ const DashboardPage = () => {
           </div>
         )}
 
-        {/* 3. ĐÃ CÓ QUYỀN & KHÔNG LỖI -> Render dashboard thật (component tự lo loading dữ liệu) */}
-        {!isRolesLoading && !isError && (
+        {/* 3. ĐÃ CÓ QUYỀN, ĐÃ TẢI XONG & KHÔNG LỖI -> Render dashboard thật */}
+        {!isRolesLoading && !isDashboardLoading && !isError && (
           <div className="animate-in fade-in slide-in-from-bottom-6 duration-700">
             {renderDashboardByRole()}
           </div>

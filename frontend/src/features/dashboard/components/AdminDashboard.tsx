@@ -1,11 +1,24 @@
 import React, { memo } from "react";
 import type { ReactNode } from "react";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
 } from "recharts";
 import {
-  MoreVertical, Users, Building2, Network, ShieldAlert,
-  CheckCircle2, Clock, AlertTriangle,
+  MoreVertical,
+  Users,
+  Building2,
+  Network,
+  ShieldAlert,
+  CheckCircle2,
+  Clock,
+  AlertTriangle,
 } from "lucide-react";
 import type { AdminDashboardData } from "../api/dashboardApi";
 import { useGetOrgTree } from "../../organization/hooks/useOrgQueries";
@@ -18,7 +31,10 @@ export const AdminDashboardSkeleton = () => (
     {/* 3 StatCard skeletons */}
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 lg:gap-6">
       {[...Array(3)].map((_, i) => (
-        <div key={i} className="bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/80 p-5 lg:p-6 shadow-sm">
+        <div
+          key={i}
+          className="bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/80 p-5 lg:p-6 shadow-sm"
+        >
           <div className="flex justify-between items-start mb-3">
             <div className="h-4 w-24 bg-slate-200 rounded-md" />
             <div className="h-8 w-8 bg-slate-200 rounded-xl" />
@@ -35,7 +51,10 @@ export const AdminDashboardSkeleton = () => (
         <div className="h-5 w-48 bg-slate-200 rounded-md" />
         <div className="space-y-3">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="flex items-center justify-between p-4 rounded-2xl bg-slate-100">
+            <div
+              key={i}
+              className="flex items-center justify-between p-4 rounded-2xl bg-slate-100"
+            >
               <div className="flex items-center gap-3.5">
                 <div className="w-10 h-10 rounded-xl bg-slate-200" />
                 <div className="space-y-2">
@@ -59,7 +78,7 @@ export const AdminDashboardSkeleton = () => (
 );
 
 // ==========================================
-// STAT CARD (ĐỒNG BỘ GIAO DIỆN MỚI)
+// STAT CARD
 // ==========================================
 interface StatCardProps {
   title: string;
@@ -69,7 +88,13 @@ interface StatCardProps {
   className?: string;
 }
 
-const StatCard = ({ title, value, icon, subtitle, className = "" }: StatCardProps) => (
+const StatCard = ({
+  title,
+  value,
+  icon,
+  subtitle,
+  className = "",
+}: StatCardProps) => (
   <div
     className={`bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/80 shadow-lg shadow-slate-200/20 p-5 lg:p-6 flex flex-col transition-all duration-300 hover:shadow-xl hover:shadow-indigo-100/20 hover:-translate-y-0.5 ${className}`}
   >
@@ -80,7 +105,9 @@ const StatCard = ({ title, value, icon, subtitle, className = "" }: StatCardProp
             {icon}
           </div>
         )}
-        <h3 className="font-extrabold text-[12px] uppercase tracking-widest text-slate-500">{title}</h3>
+        <h3 className="font-extrabold text-[12px] uppercase tracking-widest text-slate-500">
+          {title}
+        </h3>
       </div>
       <button className="text-slate-300 hover:text-indigo-600 p-1.5 rounded-lg hover:bg-indigo-50 transition-colors">
         <MoreVertical size={18} />
@@ -89,10 +116,14 @@ const StatCard = ({ title, value, icon, subtitle, className = "" }: StatCardProp
 
     <div className="mt-auto pt-3">
       {value !== undefined && (
-        <div className="text-[36px] leading-none font-black tracking-tighter text-slate-800">{value}</div>
+        <div className="text-[36px] leading-none font-black tracking-tighter text-slate-800">
+          {value}
+        </div>
       )}
       {subtitle && (
-        <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-2">{subtitle}</div>
+        <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-2">
+          {subtitle}
+        </div>
       )}
     </div>
   </div>
@@ -106,29 +137,46 @@ interface AdminDashboardProps {
 }
 
 const AdminDashboard = ({ data }: AdminDashboardProps) => {
-  const { data: orgDepartments, isLoading: isOrgLoading } = useGetOrgTree();
+  const { data: orgDepartments } = useGetOrgTree();
 
-  // Loading state: hiển thị skeleton
-  if (!data || isOrgLoading) {
+  // QUAN TRỌNG: Chỉ check !data, không check isOrgLoading để tránh bị kẹt Skeleton
+  if (!data) {
     return <AdminDashboardSkeleton />;
   }
 
-  const kpi = data.organization_kpi || { total_users: 0, total_departments: 0, total_teams: 0 };
-  const health = data.company_deadline_health || { on_track: 0, at_risk: 0, overdue: 0, total_extensions: 0 };
+  const kpi = data.organization_kpi || {
+    total_active_members: 0,
+    total_departments: 0,
+    total_teams: 0,
+  };
+  
+  const health = data.company_deadline_health || {
+    on_track: 0,
+    at_risk: 0,
+    overdue: 0,
+    total_extensions_this_week: 0,
+  };
 
-  const chartData = (data.department_points_distribution || []).map((dept) => {
-    let deptName = "Chưa gán";
-    if (dept.department_id !== "Unassigned") {
-      const foundDept = orgDepartments?.find((d: any) => String(d.id) === String(dept.department_id));
-      deptName = foundDept
-        ? foundDept.name || foundDept.department_name || foundDept.list_name
-        : `Phòng ${dept.department_id.substring(0, 4).toUpperCase()}`;
+  const chartData = (data.department_performance || []).map((dept) => {
+    // Ưu tiên lấy tên từ API trả về sẵn
+    let deptName = dept.department_name || "Chưa gán";
+
+    // Nếu muốn chính xác hơn thì map với orgDepartments (nếu đã tải xong)
+    if (orgDepartments && dept.department_id && dept.department_id !== "unassigned") {
+      const foundDept = orgDepartments.find(
+        (d: any) => String(d.id) === String(dept.department_id)
+      );
+      if (foundDept) {
+        deptName = foundDept.name || foundDept.department_name || foundDept.list_name || deptName;
+      }
     }
+
     return {
       name: deptName,
-      total: dept.total_points,
-      completed: dept.completed_points,
-      remaining: dept.total_points - dept.completed_points,
+      // API trả về on_time_rate là %, ta lấy đó làm giá trị hoàn thành
+      completed: dept.on_time_rate || 0,
+      // Phần còn lại để đạt 100%
+      remaining: Math.max(0, 100 - (dept.on_time_rate || 0)),
     };
   });
 
@@ -138,7 +186,7 @@ const AdminDashboard = ({ data }: AdminDashboardProps) => {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 lg:gap-6">
         <StatCard
           title="Tổng Nhân Sự"
-          value={kpi.total_users.toLocaleString()}
+          value={kpi.total_active_members.toLocaleString()}
           icon={<Users size={18} />}
           subtitle="Tài khoản hoạt động"
           className="border-l-4 border-l-indigo-500"
@@ -165,8 +213,12 @@ const AdminDashboard = ({ data }: AdminDashboardProps) => {
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/80 shadow-lg shadow-slate-200/20 p-6 flex flex-col min-h-[400px] transition-all hover:shadow-xl hover:shadow-indigo-100/20">
           <div className="flex justify-between items-start mb-5 shrink-0">
             <div>
-              <h3 className="font-black text-lg text-slate-800 tracking-tight">Cảnh Báo Deadline</h3>
-              <p className="text-xs text-slate-500 font-medium mt-1">Sức khỏe toàn công ty</p>
+              <h3 className="font-black text-lg text-slate-800 tracking-tight">
+                Cảnh Báo Deadline
+              </h3>
+              <p className="text-xs text-slate-500 font-medium mt-1">
+                Sức khỏe toàn công ty
+              </p>
             </div>
             <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-500 shadow-sm border border-indigo-100">
               <ShieldAlert size={20} strokeWidth={2} />
@@ -180,11 +232,17 @@ const AdminDashboard = ({ data }: AdminDashboardProps) => {
                   <CheckCircle2 size={20} strokeWidth={2.5} />
                 </div>
                 <div>
-                  <div className="font-bold text-sm text-emerald-900 leading-tight">Đúng Tiến Độ</div>
-                  <div className="text-[10px] font-black text-emerald-500/80 uppercase tracking-widest mt-1">On Track</div>
+                  <div className="font-bold text-sm text-emerald-900 leading-tight">
+                    Đúng Tiến Độ
+                  </div>
+                  <div className="text-[10px] font-black text-emerald-500/80 uppercase tracking-widest mt-1">
+                    On Track
+                  </div>
                 </div>
               </div>
-              <span className="text-2xl font-black text-emerald-600">{health.on_track}</span>
+              <span className="text-2xl font-black text-emerald-600">
+                {health.on_track}
+              </span>
             </div>
 
             <div className="flex items-center justify-between p-4 rounded-2xl bg-amber-50/70 border border-amber-100 transition-colors hover:bg-amber-50">
@@ -193,11 +251,17 @@ const AdminDashboard = ({ data }: AdminDashboardProps) => {
                   <AlertTriangle size={20} strokeWidth={2.5} />
                 </div>
                 <div>
-                  <div className="font-bold text-sm text-amber-900 leading-tight">Nguy Cơ Trễ</div>
-                  <div className="text-[10px] font-black text-amber-500/80 uppercase tracking-widest mt-1">At Risk</div>
+                  <div className="font-bold text-sm text-amber-900 leading-tight">
+                    Nguy Cơ Trễ
+                  </div>
+                  <div className="text-[10px] font-black text-amber-500/80 uppercase tracking-widest mt-1">
+                    At Risk
+                  </div>
                 </div>
               </div>
-              <span className="text-2xl font-black text-amber-600">{health.at_risk}</span>
+              <span className="text-2xl font-black text-amber-600">
+                {health.at_risk}
+              </span>
             </div>
 
             <div className="flex items-center justify-between p-4 rounded-2xl bg-rose-50/70 border border-rose-100 transition-colors hover:bg-rose-50">
@@ -206,16 +270,25 @@ const AdminDashboard = ({ data }: AdminDashboardProps) => {
                   <Clock size={20} strokeWidth={2.5} />
                 </div>
                 <div>
-                  <div className="font-bold text-sm text-rose-900 leading-tight">Đã Cháy Hạn</div>
-                  <div className="text-[10px] font-black text-rose-500/80 uppercase tracking-widest mt-1">Overdue</div>
+                  <div className="font-bold text-sm text-rose-900 leading-tight">
+                    Đã Cháy Hạn
+                  </div>
+                  <div className="text-[10px] font-black text-rose-500/80 uppercase tracking-widest mt-1">
+                    Overdue
+                  </div>
                 </div>
               </div>
-              <span className="text-2xl font-black text-rose-600">{health.overdue}</span>
+              <span className="text-2xl font-black text-rose-600">
+                {health.overdue}
+              </span>
             </div>
 
             <div className="mt-2 text-center">
               <span className="inline-block text-[11px] font-bold text-slate-500 bg-white px-3.5 py-2 rounded-xl border border-slate-200/80 shadow-sm">
-                Tổng lượt xin gia hạn (Extensions): <strong className="text-indigo-600 text-[13px] ml-1">{health.total_extensions}</strong>
+                Tổng lượt xin gia hạn:{" "}
+                <strong className="text-indigo-600 text-[13px] ml-1">
+                  {health.total_extensions_this_week || 0}
+                </strong>
               </span>
             </div>
           </div>
@@ -225,9 +298,11 @@ const AdminDashboard = ({ data }: AdminDashboardProps) => {
         <div className="lg:col-span-2 bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/80 shadow-lg shadow-slate-200/20 p-6 flex flex-col min-h-[400px] transition-all hover:shadow-xl hover:shadow-indigo-100/20">
           <div className="flex justify-between items-start mb-6 shrink-0">
             <div>
-              <h3 className="font-black text-lg text-slate-800 tracking-tight">Phân Bổ Điểm Số (Story Points)</h3>
+              <h3 className="font-black text-lg text-slate-800 tracking-tight">
+                Tỉ lệ đúng hạn theo phòng ban
+              </h3>
               <p className="text-xs text-slate-500 font-medium mt-1">
-                So sánh điểm hoàn thành và điểm được giao theo phòng ban
+                So sánh phần trăm nhiệm vụ hoàn thành đúng hạn (Màu xanh)
               </p>
             </div>
           </div>
@@ -239,8 +314,15 @@ const AdminDashboard = ({ data }: AdminDashboardProps) => {
           ) : (
             <div className="flex-1 w-full min-h-[280px] -ml-4">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                <BarChart
+                  data={chartData}
+                  margin={{ top: 10, right: 10, left: -10, bottom: 0 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke="#e2e8f0"
+                  />
                   <XAxis
                     dataKey="name"
                     axisLine={false}
@@ -252,6 +334,7 @@ const AdminDashboard = ({ data }: AdminDashboardProps) => {
                     axisLine={false}
                     tickLine={false}
                     tick={{ fill: "#475569", fontSize: 11, fontWeight: 700 }}
+                    domain={[0, 100]}
                   />
                   <Tooltip
                     cursor={{ fill: "#f8fafc" }}
@@ -263,11 +346,19 @@ const AdminDashboard = ({ data }: AdminDashboardProps) => {
                       fontSize: "12px",
                       padding: "8px 12px",
                     }}
+                    formatter={(value: number) => [`${value}%`]}
                   />
-                  <Legend iconType="circle" wrapperStyle={{ fontSize: "12px", fontWeight: 600, paddingTop: "16px" }} />
+                  <Legend
+                    iconType="circle"
+                    wrapperStyle={{
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      paddingTop: "16px",
+                    }}
+                  />
                   <Bar
                     dataKey="completed"
-                    name="Điểm hoàn thành"
+                    name="Đúng hạn (%)"
                     stackId="a"
                     fill="#6366f1"
                     barSize={36}
@@ -276,7 +367,7 @@ const AdminDashboard = ({ data }: AdminDashboardProps) => {
                   />
                   <Bar
                     dataKey="remaining"
-                    name="Điểm còn lại"
+                    name="Trễ hạn (%)"
                     stackId="a"
                     fill="#cbd5e1"
                     barSize={36}
