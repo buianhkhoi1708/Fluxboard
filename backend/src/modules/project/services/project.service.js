@@ -1,4 +1,6 @@
 const Project = require('../models/project.model'); 
+const ProjectMember = require('../../projectMember/models/projectMember.model'); 
+const Board = require('../../board/models/board.model'); 
 const Role = require('../../rbac/models/role.model');
 const User = require('../../user/models/user.model');
 const { Roles, Scopes } = require('../../rbac/constants/rbac.enum'); 
@@ -6,148 +8,148 @@ const AppError = require('../../../common/exceptions/AppError');
 const boardService = require('../../board/services/board.service');
 const mongoose = require('mongoose');
 
-// Định danh cứng bộ sưu tập thành viên chuẩn để triệt tiêu bảng rác 'projectmembers'
-const PROJECT_MEMBERS_COLLECTION = 'project_members';
-
-const toSafeIdArray = (id) => {
-    if (!id) return [];
-    const idStr = id.toString();
-    const arr = [idStr];
-    if (mongoose.Types.ObjectId.isValid(idStr)) {
-        arr.push(new mongoose.Types.ObjectId(idStr));
-    }
-    return arr;
-};
-
 exports.createProject = async (ownerId, projectData) => {
-    const normalizedData = {
-        ...projectData,
-        owner_id: ownerId.toString(),
-        department_id: projectData.department_id ? projectData.department_id.toString() : null,
-        is_deleted: false
-    };
-
-    const project = await Project.create(normalizedData);
+    const project = await Project.create({ ...projectData, owner_id: ownerId, is_deleted: false }); 
     
     const adminRole = await Role.findOne({ name: Roles.PM, scope: Scopes.PROJECT }).lean();
     if (!adminRole) {
-        throw new AppError('Default PM role configuration missing in system', 500, 'INTERNAL_SERVER_ERROR');
+        throw new AppError('The PM role is not yet present. Please run the RBAC seed file!', 500);
     }
 
-    // Ghi nhận thành viên trực tiếp vào bộ sưu tập chuẩn project_members cấu trúc mảng role_ids
-    await mongoose.connection.db.collection(PROJECT_MEMBERS_COLLECTION).insertOne({
-        project_id: project._id.toString(),
-        user_id: ownerId.toString(),
-        role_ids: [adminRole._id.toString()],
-        is_active: true,
-        is_deleted: false,
-        created_at: new Date(),
-        updated_at: new Date()
+    await ProjectMember.create({ 
+        project_id: project._id, 
+        user_id: ownerId, 
+        role_ids: [adminRole._id], 
+        is_deleted: false
     });
 
     return project; 
 };
 
 exports.getUserProjects = async (userId) => {
-    const userIdStr = userId.toString();
-
-    // 1. Tìm tất cả các dự án mà User là thành viên trong bảng project_members
-    const memberships = await mongoose.connection.db
-        .collection(PROJECT_MEMBERS_COLLECTION)
-        .find({ user_id: userIdStr, is_deleted: false, is_active: true })
-        .toArray();
-        
-    const joinedProjectIds = memberships.map(m => m.project_id.toString());
-
-    // 2. Tìm các dự án do User làm chủ hoặc được tham gia vào
-    const projects = await Project.find({
-        $or: [
-            { owner_id: userIdStr },
-            { _id: { $in: joinedProjectIds.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) } }
-        ],
-        is_deleted: false
-    }).lean();
-
-    return projects;
-};
-
-exports.getProjectDetail = async (projectId) => {
-    const safeProjectIds = toSafeIdArray(projectId);
-    const project = await Project.findOne({ _id: { $in: safeProjectIds }, is_deleted: false }).lean(); 
-    if (!project) {
-        throw new AppError('Project target entity not found', 404, 'NOT_FOUND'); 
+    // Giải quyết lỗi Data Type Mismatch: Tạo mảng chứa cả dạng String và ObjectId của userId
+    const ownerIds = [userId];
+    if (mongoose.Types.ObjectId.isValid(userId)) {
+        ownerIds.push(new mongoose.Types.ObjectId(userId));
     }
 
-    const projectIdStr = project._id.toString();
+    const memberships = await ProjectMember.find({ user_id: userId, is_deleted: { $ne: true } }).select('project_id').lean(); 
+    const projectIds = memberships.map(m => m.project_id); 
+    
+    // Quét toàn bộ bản ghi bằng toán tử $ne (phòng trường hợp khuyết trường is_deleted trong db)
+    const projects = await Project.find({ 
+        $or: [
+            { owner_id: { $in: ownerIds } }, // Khớp cả dạng String lẫn ObjectId
+            { _id: { $in: projectIds } }
+        ],
+        is_deleted: { $ne: true } 
+    }).sort({ created_at: -1 }).lean(); 
 
-    // Thực hiện truy vấn song song tối ưu hóa phần cứng RAM/CPU
-    const Board = require('../../board/models/board.model');
-    const [boards, membersFlat] = await Promise.all([ 
-        Board.find({ project_id: projectIdStr, is_deleted: { $ne: true } }).select('_id name description created_at').lean(), 
-        mongoose.connection.db.collection(PROJECT_MEMBERS_COLLECTION)
-            .find({ project_id: projectIdStr, is_deleted: false })
-            .toArray()
-    ]);
+    // Trả về cấu trúc phẳng (Flat Array) đính kèm thuộc tính để tương thích hoàn toàn với map() của FE cũ
+    const flatProjectsData = await Promise.all(projects.map(async (project) => {
+        const [boards, members] = await Promise.all([
+            Board.find({ project_id: project._id, is_deleted: { $ne: true } }).select('_id name description created_at').lean(),
+            ProjectMember.find({ project_id: project._id, is_deleted: { $ne: true } })
+                .populate('user_id', 'full_name email avatar_url')
+                .populate('role_ids', 'name')
+                .lean()
+        ]);
 
-    // Populate thủ công thông tin chi tiết User và các Vai trò từ mảng role_ids liên kết lai Java
-    const populatedMembers = await Promise.all(membersFlat.map(async (member) => {
-        const userDoc = await User.findOne({ _id: { $in: toSafeIdArray(member.user_id) } })
-            .select('full_name email avatar_url').lean();
-            
-        // Xử lý cả trường hợp phân quyền dạng đơn role_id hoặc mảng role_ids
-        let targetRoleIds = member.role_ids || (member.role_id ? [member.role_id] : []);
-        const rolesDocs = await Role.find({ 
-            _id: { $in: targetRoleIds.map(id => mongoose.Types.ObjectId.isValid(id.toString()) ? new mongoose.Types.ObjectId(id.toString()) : id) } 
-        }).select('name').lean();
-
+        // Đính kèm trực tiếp vào object project, trả về mảng phẳng theo đúng ước định của useProjectStore.ts
         return {
-            _id: member._id.toString(),
-            project_id: projectIdStr,
-            user_id: userDoc || { _id: member.user_id },
-            role_ids: rolesDocs.map(r => ({ name: r.name })),
-            is_active: member.is_active
+            ...project,
+            id: project._id.toString(),
+            boards: boards,
+            members: members
         };
     }));
 
+    return flatProjectsData;
+};
+
+exports.getProjectDetail = async (projectId) => {
+    const project = await Project.findById(projectId).lean(); 
+    if (!project || project.is_deleted === true) throw new AppError('Project not found', 404, 'NOT_FOUND'); 
+
+    const [boards, members] = await Promise.all([ 
+        Board.find({ project_id: projectId, is_deleted: { $ne: true } }).select('_id name description created_at').lean(), 
+        ProjectMember.find({ project_id: projectId, is_deleted: { $ne: true } }) 
+            .populate('user_id', 'full_name email avatar_url') 
+            .populate('role_ids', 'name')
+            .lean()
+    ]);
+
     project.boards = boards; 
-    project.members = populatedMembers; 
+    project.members = members; 
     return project; 
 };
 
 exports.updateProject = async (projectId, updateData) => {
-    const safeProjectIds = toSafeIdArray(projectId);
-    const project = await Project.findOneAndUpdate(
-        { _id: { $in: safeProjectIds }, is_deleted: false }, 
-        { $set: updateData }, 
-        { new: true }
-    ).lean(); 
-    
-    if (!project) throw new AppError('Project target entity not found', 404, 'NOT_FOUND'); 
+    const project = await Project.findByIdAndUpdate(projectId, updateData, { new: true }).lean(); 
+    if (!project || project.is_deleted === true) throw new AppError('Project not found', 404, 'NOT_FOUND'); 
     return project; 
 };
 
 exports.deleteProject = async (projectId) => {
-    const projectIdStr = projectId.toString();
-    const safeProjectIds = toSafeIdArray(projectId);
+    const project = await Project.findByIdAndUpdate(projectId, { is_deleted: true }, { new: true }).lean(); 
+    if (!project) throw new AppError('Project not found', 404, 'NOT_FOUND'); 
 
-    const project = await Project.findOneAndUpdate(
-        { _id: { $in: safeProjectIds } }, 
-        { $set: { is_deleted: true } }, 
-        { new: true }
-    ).lean(); 
-    
-    if (!project) throw new AppError('Project target entity not found', 404, 'NOT_FOUND'); 
+    await ProjectMember.updateMany({ project_id: projectId }, { $set: { is_deleted: true, is_active: false } });
 
-    // Cascade xóa mềm toàn bộ thực thể liên đới trực tiếp trong hệ thống Node.js
-    await mongoose.connection.db.collection(PROJECT_MEMBERS_COLLECTION)
-        .updateMany({ project_id: projectIdStr }, { $set: { is_deleted: true } });
-        
-    const Board = require('../../board/models/board.model');
-    const boards = await Board.find({ project_id: projectIdStr }).select('_id').lean();
-    
+    const boards = await Board.find({ project_id: projectId, is_deleted: { $ne: true } }).select('_id').lean();
     for (const b of boards) {
         await boardService.deleteBoard(b._id);
     }
 
-    return true;
+    return true; 
+};
+
+exports.addMemberToProject = async (projectId, userId, roleIds = []) => {
+    // 1. Kiểm tra Dự án có tồn tại không
+    const project = await Project.findById(projectId).lean();
+    if (!project || project.is_deleted === true) {
+        throw new AppError('Dự án không tồn tại hoặc đã bị xóa', 404, 'NOT_FOUND');
+    }
+
+    // 2. Kiểm tra User có tồn tại không
+    const user = await User.findById(userId).lean();
+    if (!user) {
+        throw new AppError('Nhân sự không tồn tại', 404, 'NOT_FOUND');
+    }
+
+    // 3. Xử lý quyền (Role). Nếu mảng roleIds rỗng, tự động cấp quyền MEMBER mặc định
+    let finalRoleIds = roleIds;
+    if (!finalRoleIds || finalRoleIds.length === 0) {
+        const defaultRole = await Role.findOne({ name: Roles.MEMBER, scope: Scopes.PROJECT }).lean();
+        if (defaultRole) {
+            finalRoleIds = [defaultRole._id];
+        }
+    }
+
+    // 4. Kiểm tra xem người này đã ở trong dự án chưa
+    const existingMember = await ProjectMember.findOne({ project_id: projectId, user_id: userId });
+
+    if (existingMember) {
+        // Nếu đã ở trong dự án rồi và chưa bị xóa -> Bỏ qua, không lỗi, trả về luôn
+        if (existingMember.is_deleted === false) {
+            return existingMember; 
+        } 
+        // Nếu trước đó bị đuổi (is_deleted: true) -> Khôi phục lại
+        else {
+            existingMember.is_deleted = false;
+            existingMember.role_ids = finalRoleIds;
+            await existingMember.save();
+            return existingMember;
+        }
+    }
+
+    // 5. Nếu chưa từng ở trong dự án -> Tạo bản ghi mới
+    const newMember = await ProjectMember.create({
+        project_id: projectId,
+        user_id: userId,
+        role_ids: finalRoleIds,
+        is_deleted: false
+    });
+
+    return newMember;
 };
