@@ -103,3 +103,35 @@ exports.revokeAccess = async (userId, actorId) => {
 
     return { success: true };
 };
+
+// src/modules/user/services/user.service.js
+
+exports.getAllUsers = async ({ page, size }) => {
+    // Sếp có thể import Model User vào nếu chưa có
+    const User = require('../models/user.model'); // Sửa đường dẫn nếu cần
+
+    const skip = page * size;
+    
+    // Đếm tổng số user
+    const totalElements = await User.countDocuments();
+    
+    // Lấy danh sách (Có thể populate thêm role_id, department_id, team_id tùy cấu trúc Database của Sếp)
+    const users = await User.find()
+        .select('-password') // KHÔNG BAO GIỜ trả về password ra ngoài nhé Sếp
+        .populate('role_id', 'name scope')
+        .populate('team_id', 'name')
+        .populate('department_id', 'name')
+        .sort({ created_at: -1 })
+        .skip(skip)
+        .limit(size)
+        .lean();
+
+    return {
+        users,
+        page,
+        size,
+        totalElements,
+        totalPages: Math.ceil(totalElements / size),
+        hasNext: (page + 1) * size < totalElements
+    };
+};

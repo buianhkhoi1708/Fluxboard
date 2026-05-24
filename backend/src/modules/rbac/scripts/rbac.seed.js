@@ -12,11 +12,16 @@ const seedRbac = async () => {
 
         // 1. Khởi tạo quyền cốt lõi
         const permissionsData = [
+            // Quyền Project
             { resource: Resources.PROJECT, action: Actions.CREATE, scope: Scopes.SYSTEM, description: 'Create new projects' },
             { resource: Resources.PROJECT, action: Actions.READ, scope: Scopes.PROJECT, description: 'View project details' },
             { resource: Resources.PROJECT, action: Actions.UPDATE, scope: Scopes.PROJECT, description: 'Update project information' },
             { resource: Resources.PROJECT, action: Actions.DELETE, scope: Scopes.PROJECT, description: 'Delete projects' },
-            { resource: Resources.PROJECT, action: Actions.MANAGE_MEMBERS, scope: Scopes.PROJECT, description: 'Manage project members' }
+            { resource: Resources.PROJECT, action: Actions.MANAGE_MEMBERS, scope: Scopes.PROJECT, description: 'Manage project members' },
+            
+            // 🚀 THÊM QUYỀN RBAC ĐỂ ROUTER KHÔNG BỊ CHẶN NỮA
+            { resource: 'RBAC', action: Actions.READ, scope: Scopes.SYSTEM, description: 'View Roles & Permissions' },
+            { resource: 'RBAC', action: Actions.WRITE, scope: Scopes.SYSTEM, description: 'Manage Roles & Permissions' }
         ];
 
         const savedPermissions = {};
@@ -30,20 +35,23 @@ const seedRbac = async () => {
         }
 
         // 2. Khởi tạo danh sách Roles mặc định (SYSTEM & PROJECT)
-        const rolesData = [
+     const rolesData = [
             // --- SYSTEM SCOPE ---
             {
                 name: 'SYSTEM_ADMIN',
                 scope: Scopes.SYSTEM,
                 description: 'Full control over the whole system',
-                permission_ids: [] 
+                // 🚀 TRÙM CUỐI: Gắn TẤT CẢ các quyền (bao gồm cả RBAC) vào đây
+                permission_ids: Object.values(savedPermissions) 
             },
             {
                 name: 'ADMIN',
                 scope: Scopes.SYSTEM,
                 description: 'System administrator',
                 permission_ids: [
-                    savedPermissions[`${Resources.PROJECT}_${Actions.CREATE}_${Scopes.SYSTEM}`]
+                    savedPermissions[`${Resources.PROJECT}_${Actions.CREATE}_${Scopes.SYSTEM}`],
+                    // Thêm quyền RBAC READ cho Admin nếu Sếp muốn họ xem được danh sách
+                    savedPermissions[`RBAC_${Actions.READ}_${Scopes.SYSTEM}`]
                 ]
             },
             {

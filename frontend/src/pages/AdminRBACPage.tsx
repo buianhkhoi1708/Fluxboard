@@ -3,7 +3,7 @@ import { Shield, Plus, Settings2, Layout, Edit2, Trash2, Loader2 } from 'lucide-
 import { useRbacStore } from '../features/rbac/store/useRbacStore';
 
 // ==============================================================================
-// 1. CÁC COMPONENT UI PHỤ TRỢ (giữ nguyên nội dung, chỉ điều chỉnh nhẹ style nếu cần)
+// 1. CÁC COMPONENT UI PHỤ TRỢ
 // ==============================================================================
 
 const PageHeader = ({ onNewRole }) => (
@@ -48,7 +48,7 @@ const RoleCard = ({ role, isActive, onClick }) => (
       <h3 className={`font-bold text-sm transition-colors ${isActive ? 'text-indigo-700' : 'text-slate-700 group-hover:text-indigo-600'}`}>
         {role.name}
       </h3>
-      <span className={`text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${role.scope === 'GLOBAL' ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-100 text-slate-500'}`}>
+      <span className={`text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${role.scope === 'GLOBAL' || role.scope === 'SYSTEM' ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-100 text-slate-500'}`}>
         {role.scope}
       </span>
     </div>
@@ -69,36 +69,43 @@ const RoleCard = ({ role, isActive, onClick }) => (
   </div>
 );
 
-const PermissionToggleCard = ({ perm, isChecked, isSystemAdmin, onToggle }) => (
-  <label
-    className={`group relative flex items-center justify-between p-4 rounded-xl border transition-all duration-200 ${
-      isSystemAdmin
-        ? 'bg-slate-50 border-slate-100 opacity-70 cursor-not-allowed'
-        : 'bg-white border-slate-100 hover:border-indigo-200 hover:shadow-sm cursor-pointer'
-    }`}
-  >
-    <div className="pr-4">
-      <div className="font-bold text-xs text-slate-800 mb-0.5 font-mono">{perm.code}</div>
-      <div className="text-[11px] text-slate-500">{perm.description}</div>
-    </div>
-    <div className="relative inline-flex items-center shrink-0">
-      <input
-        type="checkbox"
-        className="sr-only peer"
-        checked={isChecked}
-        disabled={isSystemAdmin}
-        onChange={() => {
-          if (!isSystemAdmin) onToggle(perm.id, isChecked);
-        }}
-      />
-      <div className="w-9 h-5 bg-slate-200 rounded-full peer peer-checked:bg-indigo-600 transition-all duration-300 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all after:duration-300 peer-checked:after:translate-x-4 shadow-inner" />
-    </div>
-  </label>
-);
+const PermissionToggleCard = ({ perm, isChecked, isSystemAdmin, onToggle }) => {
+  // Fix: Lấy id chuẩn từ MongoDB
+  const permId = perm.id || perm._id;
+  // Fix: Hiển thị Action thay vì Code (Backend không có field 'code')
+  const title = `${perm.action} ${perm.resource}`; 
+
+  return (
+    <label
+      className={`group relative flex items-center justify-between p-4 rounded-xl border transition-all duration-200 ${
+        isSystemAdmin
+          ? 'bg-slate-50 border-slate-100 opacity-70 cursor-not-allowed'
+          : 'bg-white border-slate-100 hover:border-indigo-200 hover:shadow-sm cursor-pointer'
+      }`}
+    >
+      <div className="pr-4">
+        <div className="font-bold text-xs text-slate-800 mb-0.5 font-mono">{title}</div>
+        <div className="text-[11px] text-slate-500">{perm.description || `Quyền ${title}`}</div>
+      </div>
+      <div className="relative inline-flex items-center shrink-0">
+        <input
+          type="checkbox"
+          className="sr-only peer"
+          checked={isChecked}
+          disabled={isSystemAdmin}
+          onChange={() => {
+            if (!isSystemAdmin) onToggle(permId, isChecked);
+          }}
+        />
+        <div className="w-9 h-5 bg-slate-200 rounded-full peer peer-checked:bg-indigo-600 transition-all duration-300 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all after:duration-300 peer-checked:after:translate-x-4 shadow-inner" />
+      </div>
+    </label>
+  );
+};
 
 
 // ==============================================================================
-// 2. COMPONENT CHÍNH (LOGIC GIỮ NGUYÊN, GIAO DIỆN ĐỒNG BỘ)
+// 2. COMPONENT CHÍNH
 // ==============================================================================
 
 const AdminRBACPage = () => {
@@ -117,23 +124,21 @@ const AdminRBACPage = () => {
     fetchInitialData();
   }, [fetchInitialData]);
 
-  // Derived states
-  const activeRole = roles.find((r) => r.id === activeRoleId);
+  // Fix: Lấy id an toàn
+  const activeRole = roles.find((r) => (r.id || r._id) === activeRoleId);
   const isSystemAdmin = activeRole?.name === 'SYSTEM_ADMIN';
 
-  // Gom nhóm quyền theo Module
+  // 🚀 FIX: Gom nhóm quyền theo 'resource' thay vì 'module'
   const groupedPermissions = useMemo(() => {
     return permissions.reduce((acc, perm) => {
-      const moduleName = perm.module || 'Chung';
+      const moduleName = perm.resource || 'Chung';
       if (!acc[moduleName]) acc[moduleName] = [];
       acc[moduleName].push(perm);
       return acc;
     }, {});
   }, [permissions]);
 
-  // Hàm xử lý thêm mới vai trò (tạm thời placeholder)
   const handleCreateNewRole = () => {
-    // Logic mở modal tạo role (có thể tích hợp sau)
     alert('Chức năng tạo vai trò mới sẽ được phát triển.');
   };
 
@@ -143,7 +148,6 @@ const AdminRBACPage = () => {
         
         <PageHeader onNewRole={handleCreateNewRole} />
 
-        {/* HIỆN LOADER NẾU LẦN ĐẦU TẢI */}
         {isLoading && roles.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-slate-400">
             <Loader2 className="animate-spin mb-4 text-indigo-500" size={32} />
@@ -151,12 +155,10 @@ const AdminRBACPage = () => {
           </div>
         )}
 
-        {/* KHU VỰC NỘI DUNG CHÍNH */}
         {roles.length > 0 && (
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/80 shadow-lg overflow-hidden">
             <div className="flex flex-col lg:flex-row gap-0 min-h-[600px] max-h-[calc(100vh-14rem)]">
               
-              {/* CỘT TRÁI: Danh sách Roles */}
               <aside className="w-full lg:w-[320px] shrink-0 border-b lg:border-b-0 lg:border-r border-slate-200 bg-slate-50/50 p-4 lg:p-6 flex flex-col">
                 <div className="flex items-center justify-between mb-3 px-1 shrink-0">
                   <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Danh sách vai trò</span>
@@ -166,18 +168,20 @@ const AdminRBACPage = () => {
                 </div>
                 
                 <div className="overflow-y-auto custom-scrollbar flex-1 -mx-2 pt-2 px-2 pb-4 space-y-2.5">
-                  {roles.map((role) => (
-                    <RoleCard 
-                      key={role.id} 
-                      role={role} 
-                      isActive={activeRoleId === role.id} 
-                      onClick={() => setActiveRole(role.id)} 
-                    />
-                  ))}
+                  {roles.map((role) => {
+                    const roleId = role.id || role._id; // Lấy an toàn
+                    return (
+                      <RoleCard 
+                        key={roleId} 
+                        role={role} 
+                        isActive={activeRoleId === roleId} 
+                        onClick={() => setActiveRole(roleId)} 
+                      />
+                    );
+                  })}
                 </div>
               </aside>
 
-              {/* CỘT PHẢI: Bảng điều khiển Quyền */}
               <section className={`flex-1 flex flex-col min-h-0 transition-all duration-300 ${
                 isLoading && roles.length > 0 ? 'opacity-50 pointer-events-none scale-[0.99]' : 'opacity-100 scale-100'
               }`}>
@@ -212,20 +216,22 @@ const AdminRBACPage = () => {
                         </div>
 
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                          {permsInModule.map((perm) => (
-                            <PermissionToggleCard
-                              key={perm.id}
-                              perm={perm}
-                              isSystemAdmin={isSystemAdmin}
-                              isChecked={isSystemAdmin || activeRolePermissionIds.includes(perm.id)}
-                              onToggle={(permId, isChecked) => togglePermission(activeRoleId, permId, isChecked)}
-                            />
-                          ))}
+                          {permsInModule.map((perm) => {
+                             const permId = perm.id || perm._id;
+                             return (
+                              <PermissionToggleCard
+                                key={permId}
+                                perm={perm}
+                                isSystemAdmin={isSystemAdmin}
+                                isChecked={isSystemAdmin || activeRolePermissionIds.includes(permId)}
+                                onToggle={(id, isChecked) => togglePermission(activeRoleId, id, isChecked)}
+                              />
+                             );
+                          })}
                         </div>
                       </div>
                     ))}
 
-                    {/* Trạng thái trống nếu không có quyền nào */}
                     {Object.keys(groupedPermissions).length === 0 && (
                       <div className="text-center py-12 text-slate-400">
                         <Shield className="mx-auto mb-2 opacity-30" size={32} />
@@ -241,7 +247,6 @@ const AdminRBACPage = () => {
           </div>
         )}
 
-        {/* TRẠNG THÁI TRỐNG: không có roles */}
         {!isLoading && roles.length === 0 && (
           <div className="bg-white/80 backdrop-blur-sm border border-dashed border-indigo-200 rounded-2xl p-16 flex flex-col items-center justify-center text-center shadow-sm mt-4">
             <div className="p-5 bg-indigo-50 rounded-full mb-5">

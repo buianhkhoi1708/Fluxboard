@@ -10,6 +10,8 @@ const requirePermission = typeof requirePermissionModule === 'function'
 
 // Tất cả các tuyến đường quản lý tài khoản bắt buộc phải được xác thực token
 router.use(requireAuth);
+router.get('/', userController.getAllUsers);
+
 
 // ==========================================
 // ĐỊNH TUYẾN QUẢN TRỊ TỔ CHỨC & HỆ THỐNG

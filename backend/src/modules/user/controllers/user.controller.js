@@ -47,3 +47,31 @@ exports.revokeAccess = async (req, res, next) => {
         res.status(200).json({ success: true, message: 'User access revoked successfully' });
     } catch (error) { next(error); }
 };
+
+exports.getAllUsers = async (req, res, next) => {
+    try {
+        // Lấy page và size từ query (Frontend đang gửi page=0&size=100)
+        const { page = 0, size = 100 } = req.query;
+        
+        // Gọi service xử lý logic
+        const result = await userService.getAllUsers({
+            page: parseInt(page),
+            size: parseInt(size)
+        });
+
+        res.status(200).json({ 
+            success: true, 
+            code: 'SUCCESS',
+            data: result.users,
+            meta: {
+                page: result.page,
+                size: result.size,
+                total_elements: result.totalElements,
+                total_pages: result.totalPages,
+                has_next: result.hasNext
+            }
+        });
+    } catch (error) { 
+        next(error); 
+    }
+};

@@ -1,57 +1,160 @@
 import axiosClient from '../../../lib/axiosClient';
 
 export const settingApi = {
-  // Luồng 1: Trích xuất và cập nhật hồ sơ cá nhân / tổ chức liên kết
+
+  /**
+   * =========================================================
+   * PROFILE
+   * =========================================================
+   */
+
   getProfileOverview: () => {
-    return axiosClient.get('/settings/profile');
+    return axiosClient.get(
+      '/settings/profile'
+    );
   },
 
-  updateProfileInfo: (profileData: { full_name?: string; avatar_url?: string }) => {
-    return axiosClient.put('/settings/profile', profileData);
+  updateProfileInfo: (
+    profileData: {
+      full_name?: string;
+      avatar_url?: string;
+    }
+  ) => {
+
+    return axiosClient.put(
+      '/settings/profile',
+      profileData
+    );
   },
 
-  getAvatarPresignedUrl: (fileName: string, contentType: string) => {
-    return axiosClient.get('/media/presigned-url', {
-      params: { fileName, contentType }
-    });
+  /**
+   * =========================================================
+   * UPLOAD AVATAR
+   * =========================================================
+   */
+
+  uploadAvatar: (
+    file: File
+  ) => {
+
+    const formData =
+      new FormData();
+
+    formData.append(
+      'file',
+      file
+    );
+
+    return axiosClient.post(
+      '/media/upload',
+      formData,
+      {
+        headers: {
+          'Content-Type':
+            'multipart/form-data'
+        }
+      }
+    );
   },
 
-  // Luồng 2: Quản lý bảo mật thông tin tin cậy & phiên thiết bị
-  changePassword: (passwordData: any) => {
-    return axiosClient.put('/settings/security/password', passwordData);
+  /**
+   * =========================================================
+   * SECURITY
+   * =========================================================
+   */
+
+  changePassword: (
+    passwordData: any
+  ) => {
+
+    return axiosClient.put(
+      '/settings/security/password',
+      passwordData
+    );
   },
 
   getActiveSessions: () => {
-    return axiosClient.get('/settings/security/sessions');
+
+    return axiosClient.get(
+      '/settings/security/sessions'
+    );
   },
 
   signOutAllSessions: () => {
-    return axiosClient.delete('/settings/security/sessions');
+
+    return axiosClient.delete(
+      '/settings/security/sessions'
+    );
   },
 
-  revokeSessionById: (sessionId: string) => {
-    return axiosClient.delete(`/settings/security/sessions/${sessionId}`);
+  revokeSessionById: (
+    sessionId: string
+  ) => {
+
+    return axiosClient.delete(
+      `/settings/security/sessions/${sessionId}`
+    );
   },
 
-  // Luồng 3: Đồng bộ tùy chọn trung tâm thông báo (Notification Preferences)
+  /**
+   * =========================================================
+   * NOTIFICATION
+   * =========================================================
+   */
+
   getNotificationSettings: () => {
-    return axiosClient.get('/settings/notifications');
+
+    return axiosClient.get(
+      '/settings/notifications'
+    );
   },
 
-  updateNotificationSettings: (settingsData: any) => {
-    return axiosClient.put('/settings/notifications', settingsData);
+  updateNotificationSettings: (
+    settingsData: any
+  ) => {
+
+    return axiosClient.put(
+      '/settings/notifications',
+      settingsData
+    );
   },
 
-  // Luồng nâng cao bổ sung: Xác thực hai lớp (2FA) & Nhật ký bảo mật
+  /**
+   * =========================================================
+   * 2FA
+   * =========================================================
+   */
+
   setup2FA: () => {
-    return axiosClient.post('/settings/security/2fa/setup');
+
+    return axiosClient.post(
+      '/settings/security/2fa/setup'
+    );
   },
 
-  toggle2FA: (data: { enable: boolean; code: string }) => {
-    return axiosClient.put('/settings/security/2fa/toggle', data);
+  toggle2FA: (
+    data: {
+      enable: boolean;
+      code: string;
+    }
+  ) => {
+
+    return axiosClient.put(
+      '/settings/security/2fa/toggle',
+      data
+    );
   },
+
+  /**
+   * =========================================================
+   * SECURITY LOGS
+   * =========================================================
+   */
 
   getSecurityLogs: () => {
-    return axiosClient.get('/settings/security/logs');
+
+    return axiosClient.get(
+      '/settings/security/logs'
+    );
   }
 };

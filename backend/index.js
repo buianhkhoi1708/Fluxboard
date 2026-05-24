@@ -88,7 +88,7 @@ app.use('/api/v1/columns', require('./src/modules/column/routes/column.routes'))
 app.use('/api/v1/tasks', require('./src/modules/task/routes/task.routes'));
 app.use('/api/v1/boards', require('./src/modules/board/routes/board.routes'));
 app.use('/api/v1/ai', require('./src/modules/ai/routes/ai.routes'));
-app.use('/api/v1/media', require('./src/modules/media/routes/media.routes'));
+app.use('/api/v1/media',require('./src/modules/media/routes/media.routes'));
 app.use('/api/v1/activities', require('./src/modules/activity/routes/activity.routes'));
 app.use('/api/v1/dashboard', require('./src/modules/dashboard/routes/dashboard.routes'));
 app.use('/api/v1/notifications', require('./src/modules/notification/routes/notification.routes'));

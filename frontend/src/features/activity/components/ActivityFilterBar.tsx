@@ -3,10 +3,8 @@ import { FunnelIcon, ArrowPathIcon, CalendarDaysIcon, ClockIcon } from "@heroico
 import { useActivityFilters } from "../hooks/useActivityFilters";
 
 const ActivityFilterBar = () => {
-  // Lấy state bộ lọc từ URL
   const [filters, setFilters] = useActivityFilters();
 
-  // Local state đồng bộ với URL ban đầu
   const [localFilters, setLocalFilters] = useState({
     action: filters?.actions || "",
     source_type: filters?.sourceTypes || "",
@@ -14,7 +12,6 @@ const ActivityFilterBar = () => {
     endDate: filters?.to ? filters.to.split('T')[0] : ""
   });
 
-  // Đồng bộ localFilters khi URL thay đổi (back/forward)
   useEffect(() => {
     setLocalFilters({
       action: filters?.actions || "",
@@ -24,29 +21,38 @@ const ActivityFilterBar = () => {
     });
   }, [filters.actions, filters.sourceTypes, filters.from, filters.to]);
 
-  const handleApplyFilter = (e) => {
+  const handleApplyFilter = (e: React.FormEvent) => {
     e.preventDefault();
-    const formattedFilters = {
+    
+    const formattedFilters: any = {
       sourceTypes: localFilters.source_type || undefined,
       actions: localFilters.action || undefined,
       from: undefined,
       to: undefined
     };
 
+    // 🚀 FIX 1: Lấy đúng múi giờ địa phương (Không cộng đuôi Z) để không bị lệch 7 tiếng
     if (localFilters.startDate) {
-      formattedFilters.from = new Date(`${localFilters.startDate}T00:00:00Z`).toISOString();
+      const fromDate = new Date(`${localFilters.startDate}T00:00:00`); 
+      formattedFilters.from = fromDate.toISOString();
     }
     if (localFilters.endDate) {
-      formattedFilters.to = new Date(`${localFilters.endDate}T23:59:59.999Z`).toISOString();
+      const toDate = new Date(`${localFilters.endDate}T23:59:59.999`); 
+      formattedFilters.to = toDate.toISOString();
     }
 
     setFilters(formattedFilters);
   };
 
   const handleClearFilter = () => {
-    const emptyFilters = { action: "", source_type: "", startDate: "", endDate: "" };
-    setLocalFilters(emptyFilters);
-    setFilters({});
+    setLocalFilters({ action: "", source_type: "", startDate: "", endDate: "" });
+    // 🚀 FIX 2: Phải gán rõ undefined cho từng trường thì URL mới hiểu và xóa query đi
+    setFilters({
+      sourceTypes: undefined,
+      actions: undefined,
+      from: undefined,
+      to: undefined
+    });
   };
 
   return (
@@ -60,7 +66,7 @@ const ActivityFilterBar = () => {
           <select
             value={localFilters.source_type}
             onChange={(e) => setLocalFilters({ ...localFilters, source_type: e.target.value })}
-            className="w-full text-sm p-2.5 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all duration-200"
+            className="w-full text-sm p-2.5 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all duration-200 cursor-pointer"
           >
             <option value="">Tất cả</option>
             <option value="PROJECT">📁 Project</option>
@@ -78,14 +84,15 @@ const ActivityFilterBar = () => {
           <select
             value={localFilters.action}
             onChange={(e) => setLocalFilters({ ...localFilters, action: e.target.value })}
-            className="w-full text-sm p-2.5 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all duration-200"
+            className="w-full text-sm p-2.5 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all duration-200 cursor-pointer"
           >
             <option value="">Tất cả</option>
             <option value="CREATE">✨ Tạo mới</option>
             <option value="UPDATE">✏️ Cập nhật</option>
             <option value="DELETE">🗑️ Xóa</option>
             <option value="ADD_MEMBER">👥 Thêm thành viên</option>
-            <option value="MOVE_STATUS">🔄 Chuyển trạng thái</option>
+            {/* 🚀 FIX 3: Sửa lại value thành MOVE cho đúng với Backend */}
+            <option value="MOVE">🔄 Chuyển trạng thái</option>
           </select>
         </div>
 
@@ -99,8 +106,7 @@ const ActivityFilterBar = () => {
             type="date"
             value={localFilters.startDate}
             onChange={(e) => setLocalFilters({ ...localFilters, startDate: e.target.value })}
-            className="w-full text-sm p-2.5 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all duration-200 text-slate-700"
-            placeholder="dd/mm/yyyy"
+            className="w-full text-sm p-2.5 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all duration-200 text-slate-700 cursor-pointer"
           />
         </div>
 
@@ -114,7 +120,7 @@ const ActivityFilterBar = () => {
             type="date"
             value={localFilters.endDate}
             onChange={(e) => setLocalFilters({ ...localFilters, endDate: e.target.value })}
-            className="w-full text-sm p-2.5 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all duration-200 text-slate-700"
+            className="w-full text-sm p-2.5 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all duration-200 text-slate-700 cursor-pointer"
           />
         </div>
 
@@ -134,7 +140,7 @@ const ActivityFilterBar = () => {
             className="flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-800 p-2.5 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95"
             title="Xóa tất cả bộ lọc"
           >
-            <ArrowPathIcon className="w-5 h-5" />
+            <ArrowPathIcon className="w-5 h-5 stroke-2" />
           </button>
         </div>
       </div>

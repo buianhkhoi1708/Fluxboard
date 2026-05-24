@@ -85,20 +85,27 @@ const ActivityLogPage = () => {
     });
   };
 
-  const isEmpty = !data || data.pages?.[0]?.data?.length === 0;
+  // 🚀 HÀM BẢO VỆ: Tự động trích xuất mảng Activity bất chấp axios bọc bao nhiêu lớp
+  const getLogs = (pageData: any): any[] => {
+    if (!pageData) return [];
+    if (Array.isArray(pageData)) return pageData;
+    if (Array.isArray(pageData?.data)) return pageData.data;
+    if (Array.isArray(pageData?.data?.data)) return pageData.data.data;
+    return [];
+  };
+
+  const isEmpty = !data || !data.pages || data.pages.every(page => getLogs(page).length === 0);
 
   return (
     <div className="flex-1 bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 h-full overflow-y-auto no-scrollbar p-4 md:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
-        {/* Header đồng bộ WorkspacesPage */}
-   
-
-         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+        
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div className="space-y-1">
             <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight flex items-center gap-3 text-slate-800">
               <div className="p-2 bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-indigo-100">
-            <Activity className="text-indigo-600" size={20} />
-
+                <Activity className="text-indigo-600" size={20} />
               </div>
               Nhật ký hoạt động
             </h1>
@@ -128,86 +135,90 @@ const ActivityLogPage = () => {
           </div>
         ) : (
           <div className="space-y-4">
-            {data?.pages?.map((page, pageIndex) => (
-              <React.Fragment key={pageIndex}>
-                {page?.data?.map((log: any) => {
-                  const sourceStyle =
-                    SOURCE_TYPE_STYLES[log?.source_type] ||
-                    "bg-slate-100 text-slate-700 border-slate-200/80";
-                  const actionStyle =
-                    ACTION_STYLES[log?.action] || "text-slate-600 font-medium";
+            {data?.pages?.map((page, pageIndex) => {
+              const logs = getLogs(page);
+              
+              return (
+                <React.Fragment key={`page-${pageIndex}`}>
+                  {logs.map((log: any, logIndex: number) => {
+                    const sourceStyle = SOURCE_TYPE_STYLES[log?.source_type] || "bg-slate-100 text-slate-700 border-slate-200/80";
+                    const actionStyle = ACTION_STYLES[log?.action] || "text-slate-600 font-medium";
+                    
+                    // 🚀 Dùng pageIndex & logIndex làm fallback siêu an toàn
+                    const logId = log?.id || log?._id || `fallback-${pageIndex}-${logIndex}`;
 
-                  return (
-                    <div
-                      key={log?.id || Math.random()}
-                      className="group bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md hover:shadow-indigo-100/20 hover:border-indigo-300 transition-all duration-200 hover:-translate-y-0.5"
-                    >
-                      <div className="p-5">
-                        <div className="flex items-start gap-4">
-                          <div className="relative flex-shrink-0">
-                            {log?.actor?.avatar_url ? (
-                              <img
-                                loading="lazy"
-                                src={log.actor.avatar_url}
-                                alt={log.actor.full_name || "User"}
-                                className="w-10 h-10 rounded-full object-cover ring-2 ring-white shadow-sm"
-                                onError={(e: any) => {
-                                  e.target.style.display = "none";
-                                  const fallback = e.target.nextSibling;
-                                  if (fallback) fallback.style.display = "flex";
+                    return (
+                      <div
+                        key={logId}
+                        className="group bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md hover:shadow-indigo-100/20 hover:border-indigo-300 transition-all duration-200 hover:-translate-y-0.5"
+                      >
+                        <div className="p-5">
+                          <div className="flex items-start gap-4">
+                            <div className="relative flex-shrink-0">
+                              {log?.actor?.avatar_url ? (
+                                <img
+                                  loading="lazy"
+                                  src={log.actor.avatar_url}
+                                  alt={log.actor.full_name || "User"}
+                                  className="w-10 h-10 rounded-full object-cover ring-2 ring-white shadow-sm"
+                                  onError={(e: any) => {
+                                    e.target.style.display = "none";
+                                    const fallback = e.target.nextSibling;
+                                    if (fallback) fallback.style.display = "flex";
+                                  }}
+                                />
+                              ) : null}
+                              <div
+                                className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shadow-sm"
+                                style={{
+                                  display: log?.actor?.avatar_url ? "none" : "flex",
                                 }}
-                              />
-                            ) : null}
-                            <div
-                              className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shadow-sm"
-                              style={{
-                                display: log?.actor?.avatar_url ? "none" : "flex",
-                              }}
-                            >
-                              {(log?.actor?.full_name || "S").charAt(0).toUpperCase()}
-                            </div>
-                          </div>
-
-                          <div className="flex-1 min-w-0 space-y-1.5">
-                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                              <span className="font-semibold text-slate-800 text-sm">
-                                {log?.actor?.full_name || "Hệ thống"}
-                              </span>
-                              <span
-                                className={`text-[11px] font-bold px-2 py-0.5 rounded-md border tracking-wide uppercase shadow-sm ${sourceStyle}`}
                               >
-                                {log?.source_type || "UNKNOWN"}
-                              </span>
-                              <span className="text-xs text-slate-400 flex items-center gap-1 ml-auto">
-                                <Clock className="w-3.5 h-3.5 stroke-[1.5]" />
-                                {getRelativeTime(log?.created_at)}
-                              </span>
+                                {(log?.actor?.full_name || "S").charAt(0).toUpperCase()}
+                              </div>
                             </div>
 
-                            <p className="text-slate-700 text-sm leading-relaxed break-words bg-slate-50/80 p-2 rounded-lg">
-                              <span className={`text-xs uppercase mr-1 tracking-wider ${actionStyle}`}>
-                                [{log?.action || "LOG"}]
-                              </span>{" "}
-                              {formatMessage(log?.message)}
-                            </p>
+                            <div className="flex-1 min-w-0 space-y-1.5">
+                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                <span className="font-semibold text-slate-800 text-sm">
+                                  {log?.actor?.full_name || "Hệ thống"}
+                                </span>
+                                <span
+                                  className={`text-[11px] font-bold px-2 py-0.5 rounded-md border tracking-wide uppercase shadow-sm ${sourceStyle}`}
+                                >
+                                  {log?.source_type || "UNKNOWN"}
+                                </span>
+                                <span className="text-xs text-slate-400 flex items-center gap-1 ml-auto">
+                                  <Clock className="w-3.5 h-3.5 stroke-[1.5]" />
+                                  {getRelativeTime(log?.created_at)}
+                                </span>
+                              </div>
 
-                            <div className="text-[11px] text-slate-400 flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              {log?.created_at
-                                ? new Date(log.created_at).toLocaleString("vi-VN", {
-                                    dateStyle: "medium",
-                                    timeStyle: "short",
-                                  })
-                                : ""}
+                              <p className="text-slate-700 text-sm leading-relaxed break-words bg-slate-50/80 p-2 rounded-lg">
+                                <span className={`text-xs uppercase mr-1 tracking-wider ${actionStyle}`}>
+                                  [{log?.action || "LOG"}]
+                                </span>{" "}
+                                {formatMessage(log?.message)}
+                              </p>
+
+                              <div className="text-[11px] text-slate-400 flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {log?.created_at
+                                  ? new Date(log.created_at).toLocaleString("vi-VN", {
+                                      dateStyle: "medium",
+                                      timeStyle: "short",
+                                    })
+                                  : ""}
+                              </div>
                             </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </React.Fragment>
-            ))}
+                    );
+                  })}
+                </React.Fragment>
+              );
+            })}
 
             {hasNextPage && (
               <div className="flex justify-center mt-8 pt-2">

@@ -70,26 +70,27 @@ export const useUpdateProfile = () => {
     mutationFn: async ({ name, file }: { name: string; file: File | null }) => {
       let avatarUrl = undefined;
 
+      // ==========================================
+      // 1. Upload ảnh qua Backend (/media/upload)
+      // ==========================================
       if (file) {
-        const presignedRes: any = await settingApi.getAvatarPresignedUrl(file.name, file.type);
-        const { uploadUrl, fileUrl } = presignedRes.data;
-
-        await fetch(uploadUrl, {
-          method: 'PUT',
-          headers: { 'Content-Type': file.type },
-          body: file
-        });
-        avatarUrl = fileUrl;
+        // Gọi thẳng hàm uploadAvatar trong settingApi (hàm này Sếp dùng FormData rất chuẩn rồi)
+        const uploadRes: any = await settingApi.uploadAvatar(file);
+        
+        // Cần đảm bảo backend trả về: { success: true, data: { url: "..." } }
+        avatarUrl = uploadRes.data.url; 
       }
 
+      // ==========================================
+      // 2. Cập nhật Profile (/settings/profile)
+      // ==========================================
       const updatePayload: { full_name: string; avatar_url?: string } = { full_name: name };
       if (avatarUrl) updatePayload.avatar_url = avatarUrl;
 
       const res: any = await settingApi.updateProfileInfo(updatePayload);
-      return res.data; // Backend trả về tài liệu User dạng phẳng bao gồm { full_name, avatar_url, email }
+      return res.data;
     },
     onSuccess: (resData) => {
-      // 💡 Bước 1: Cập nhật lại chuỗi dữ liệu trong localStorage để phòng hờ trường hợp F5 vẫn giữ tên mới
       const cachedUserRaw = localStorage.getItem('user');
       if (cachedUserRaw) {
         const userObj = JSON.parse(cachedUserRaw);
@@ -98,7 +99,6 @@ export const useUpdateProfile = () => {
         localStorage.setItem('user', JSON.stringify(userObj));
       }
 
-      // 💡 Bước 2: Kích hoạt ghi đè trạng thái của Zustand Store để buộc TopNavbar re-render phản ứng ngay lập tức
       try {
         const authStore = useAuthStore.getState();
         if (authStore && authStore.user) {
@@ -114,7 +114,6 @@ export const useUpdateProfile = () => {
         console.error('Failed to synchronize memory auth store state:', error);
       }
 
-      // Làm mới dữ liệu cache của React Query ngầm
       queryClient.invalidateQueries({ queryKey: SETTING_KEYS.profile });
       queryClient.invalidateQueries({ queryKey: ['user', 'me'] });
     }
