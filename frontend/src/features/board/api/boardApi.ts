@@ -23,6 +23,16 @@ export const boardApi = {
     return response.data || response; 
   },
 
+  updateBoard: async (boardId: string, payload: any): Promise<any> => {
+    const response: any = await axiosClient.put(`/boards/${boardId}`, payload);
+    return response.data || response;
+  },
+
+  deleteBoard: async (boardId: string): Promise<any> => {
+    const response: any = await axiosClient.delete(`/boards/${boardId}`);
+    return response.data || response;
+  },
+
   // --- COLUMN ---
   // 🚀 ĐÃ TỐI ƯU: Chỉ lọc lấy name và board_id gửi đi, loại bỏ hoàn toàn trường 'order' để không bị gãy lỗi 400
   createColumn: async (payload: { name: string; board_id: string; order?: number }) => {
@@ -35,13 +45,13 @@ export const boardApi = {
   },
 
   // 🚀 ĐÃ FIX: Đồng bộ đổi list_name thành name gửi lên API cập nhật cột
-  updateColumn: async (columnId: string, payload: { name: string }) => {
-    const response: any = await axiosClient.put(`/board-columns/${columnId}`, payload);
+ updateColumn: async (columnId: string, payload: { name: string }) => {
+    const response: any = await axiosClient.put(`/columns/${columnId}`, payload);
     return response.data || response;
   },
 
   deleteColumn: async (columnId: string) => {
-    const response: any = await axiosClient.delete(`/board-columns/${columnId}`);
+    const response: any = await axiosClient.delete(`/columns/${columnId}`);
     return response.data || response;
   },
 
@@ -103,5 +113,19 @@ getProjectMembers: (projectId: string) => {
   addAttachmentToTask: async (taskId: string, payload: any): Promise<any> => {
     const response: any = await axiosClient.post(`/tasks/${taskId}/attachments`, payload);
     return response.data || response;
+  },
+
+  uploadFile: async (file: File): Promise<any> => {
+    const formData = new FormData();
+    formData.append('file', file); 
+
+    // 🚀 ĐÃ FIX: Sửa '/upload' thành '/media/upload'
+    const response: any = await axiosClient.post('/media/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    
+    return response.data?.data || response.data; 
   },
 };

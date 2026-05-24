@@ -71,6 +71,19 @@ export const projectApi = {
         return response.data?.data || response.data;
     },
 
+
+    assignProjectToTeam: async (projectId: string, teamId: string) => {
+        const response: any = await axiosClient.post(`/projects/${projectId}/teams/assign`, { team_id: teamId });
+        return response.data?.data || response.data;
+    },
+
+
+    // 🚀 THÊM HÀM XÓA MEMBER ĐỂ FIX LỖI TYPE ERROR
+    removeProjectMember: async (projectId: string, userId: string) => {
+        const response: any = await axiosClient.delete(`/projects/${projectId}/members/${userId}`);
+        return response.data?.data || response.data;
+    },
+
     addMemberToProject: async (projectId: string, userId: string, roleIds: string[]) => {
         const response: any = await axiosClient.post(`/projects/${projectId}/members`, {
             user_id: userId,
@@ -79,8 +92,12 @@ export const projectApi = {
         return response.data?.data || response.data;
     },
 
-    assignProjectToTeam: async (projectId: string, teamId: string) => {
-        const response: any = await axiosClient.post(`/projects/${projectId}/teams/assign`, { team_id: teamId });
+    // 🚀 GỌI XUỐNG PUT /projects/:id/members/:userId
+    updateProjectMember: async (projectId: string, memberId: string, roleIds: string[], isActive: boolean) => {
+        const response: any = await axiosClient.put(`/projects/${projectId}/members/${memberId}`, {
+            role_ids: roleIds, // Backend mong đợi key này
+            is_active: isActive // Backend mong đợi key này
+        });
         return response.data?.data || response.data;
-    }
+    },
 };

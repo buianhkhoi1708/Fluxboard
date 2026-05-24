@@ -10,7 +10,6 @@ export const useAllUsers = () => {
     queryKey: ["users", "all"],
     queryFn: async () => {
       const response = await userApi.getAllUsers();
-      // Bóc tách dữ liệu linh hoạt theo cấu trúc trả về của API
       return response.data?.content || response.data || response || [];
     },
     staleTime: 1000 * 60 * 10,
@@ -34,7 +33,6 @@ export const useGenerateAiBoard = () => {
 
   return useMutation({
     mutationFn: async (payload: any) => {
-      // 🚀 BƯỚC 1: Bóc tách dữ liệu
       const {
         project_id,
         member_ids,
@@ -47,44 +45,40 @@ export const useGenerateAiBoard = () => {
         throw new Error("Danh sách nhân sự không hợp lệ.");
       }
 
-      // 🚀 BƯỚC 2: CHỮA CHÁY LỖI 404 Ở ĐÂY
-      // Sửa `/boards/ai` thành `/boards` và map đúng payload tạo Board chuẩn
+      // 1. TẠO BOARD TRỐNG TRƯỚC
       const boardRes: any = await axiosClient.post("/boards", {
         name: `Dự án AI: ${prompt.substring(0, 15)}...`,
-        project_id: project_id, // 👈 ĐỔI TỪ projectId THÀNH project_id ĐỂ KHỚP BACKEND
+        project_id: project_id,
         status: "ACTIVE",
+        create_default_cols: generation_mode === "SIMPLE"
       });
 
-      console.log("DEBUG - Phản hồi từ /boards:", boardRes); // Log ra để xem cấu trúc thật
-
       const newBoardId =
-        boardRes?.data?._id || // Dạng: { data: { _id: "..." } }
-        boardRes?.data?.id || // Dạng: { data: { id: "..." } }
-        boardRes?._id || // Dạng: { _id: "..." }
-        boardRes?.id || // Dạng: { id: "..." }
-        boardRes?.data?.data?._id || // Dạng: { data: { data: { _id: "..." } } }
-        boardRes?.data?.data?.id; // Dạng: { data: { data: { id: "..." } } }
+        boardRes?.data?._id ||
+        boardRes?.data?.id ||
+        boardRes?._id ||
+        boardRes?.id ||
+        boardRes?.data?.data?._id ||
+        boardRes?.data?.data?.id;
 
       if (!newBoardId) {
-        throw new Error(
-          "Không lấy được ID! Sếp kiểm tra console log bên trên để thấy cấu trúc trả về thật.",
-        );
+        throw new Error("Không lấy được Board ID sau khi tạo bảng rỗng.");
       }
 
-      // 🚀 BƯỚC 3: Gọi API AI (Đường dẫn này đã chuẩn với ai.routes.js của sếp)
+      // 2. GỌI API GEMINI ĐỂ BƠM TASK VÀO BẢNG ĐÓ
       try {
         await axiosClient.post(
           `/ai/generate-board`,
           {
-            board_id: newBoardId, // Sếp phải gửi thêm boardId vào body cho Backend
-            project_id: project_id,
+            board_id: newBoardId, // Backend (ai.service.js) đang dùng boardId
+            project_id: project_id, // Backend đang dùng projectId
             prompt: prompt,
-            member_ids: member_ids,
-            generation_mode,
-            project_start_date,
+            member_ids: member_ids || [], // Đảm bảo không undefined
+            generation_mode: generation_mode || "SIMPLE",
+            start_date: project_start_date, //
           },
           {
-            timeout: 180000,
+            timeout: 180000, // Đợi 3 phút cho AI thoải mái vẽ Task
           },
         );
 

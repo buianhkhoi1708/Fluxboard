@@ -9,7 +9,7 @@ import axios from 'axios';
 
 // 🚀 BƯỚC 1: Bổ sung import useQueryClient
 import { useQueryClient } from '@tanstack/react-query';
-
+import { useUploadFile } from '../hooks/useBoardQueries';
 import { useBoardStore } from "../stores/useBoardStore";
 import { useUserStore } from "../../user/store/useUserStore"; 
 import { useGetBoardDetail, useUpdateTask, useDeleteTask, useCreateTask, useGetProjectMembers, getPresignedUrl, useAddAttachmentToTask, useMoveTask } from '../hooks/useBoardQueries';
@@ -84,6 +84,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
   const [editDueDate, setEditDueDate] = useState<Date | null>(null);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
   const [localSubtasks, setLocalSubtasks] = useState<any[]>([]);
+  const [localAttachments, setLocalAttachments] = useState<any[]>([]);
   
   const [isDone, setIsDone] = useState(false);
   
@@ -94,6 +95,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const { mutateAsync: addAttachment } = useAddAttachmentToTask();
+  const { mutateAsync: uploadFile } = useUploadFile();
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -101,23 +103,28 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
 
     setIsUploading(true);
     try {
-      const urls = await getPresignedUrl(file.name, file.type);
-      const uploadUrl = urls.uploadUrl || urls.upload_url || urls.url;
-      const finalPublicUrl = urls.publicUrl || urls.public_url || uploadUrl.split('?')[0];
+      // 🚀 BƯỚC 1: Đẩy file thẳng lên Backend (qua multer)
+      const uploadResult = await uploadFile(file);
+      
+      // Lấy URL trả về từ backend (Backend của sếp trả về { data: { url: '...' } })
+      const finalUrl = uploadResult?.url || uploadResult?.data?.url;
 
-      await axios.put(uploadUrl, file, { headers: { 'Content-Type': file.type } });
+      if (!finalUrl) {
+          throw new Error("Không lấy được URL từ server!");
+      }
 
+      // 🚀 BƯỚC 2: Lưu thông tin file vào Task
       await addAttachment({
         taskId: String(task.id || task._id),
         boardId: activeBoardId,
         payload: {
-          file_name: file.name,
-          file_url: finalPublicUrl,
-          content_type: file.type,
-          file_size: file.size
+          fileName: file.name,     // 👈 Đổi thành camelCase cho khớp Backend
+          fileUrl: finalUrl,       // 👈 Đổi thành camelCase cho khớp Backend
+          mimeType: file.type      // 👈 Đổi thành mimeType cho khớp Backend
         }
       });
 
+      // Reset lại input file để có thể chọn lại file đó nếu cần
       if (fileInputRef.current) fileInputRef.current.value = ''; 
     } catch (error) {
       console.error("Lỗi upload:", error);
@@ -132,6 +139,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
       setEditTitle(task.title || "");
       setEditDesc(task.description || "");
       setLocalSubtasks(task.subtasks || []);
+      setLocalAttachments(task.attachments || []);
       
       const rawPriority = task.priority ? String(task.priority).toUpperCase() : "MEDIUM";
       setEditPriority(rawPriority);

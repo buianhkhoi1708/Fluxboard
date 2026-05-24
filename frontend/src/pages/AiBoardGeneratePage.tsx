@@ -163,7 +163,8 @@ const AiBoardGeneratorPage = () => {
         prompt: prompt,
         member_ids: validAssignees,
         generation_mode: generationMode,
-        project_start_date: new Date(startDate).toISOString()
+        // 🚀 FIX: Chỉ cần gửi thẳng biến startDate (Nó đã có dạng YYYY-MM-DD rồi)
+        project_start_date: startDate 
       });
 
       navigate(`/board/${newBoardId}`);

@@ -8,6 +8,10 @@ const aiContextSchema = new mongoose.Schema({
         enum: ['GENERATE_BOARD', 'GENERATE_INSIGHTS', 'GENERATE_SUBTASKS', 'SUMMARIZE_ACTIVITY'], 
         required: true 
     },
+    messages: [{
+        role: { type: String, enum: ['user', 'model'] },
+        content: { type: String }
+    }],
     status: { type: String, enum: ['SUCCESS', 'FAILED'], default: 'SUCCESS' }
 }, { timestamps: { createdAt: 'created_at', updatedAt: false } });
 

@@ -192,3 +192,43 @@ export const useAddAttachmentToTask = () => {
     }
   });
 };
+
+export const useUpdateBoard = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ boardId, payload }: { boardId: string, payload: any }) => 
+      boardApi.updateBoard(boardId, payload),
+    onSuccess: (_, variables) => {
+      // Refresh lại chi tiết bảng
+      queryClient.invalidateQueries({ queryKey: BOARD_QUERY_KEYS.boardDetail(variables.boardId) });
+      // Refresh lại danh sách project/workspace nếu cần
+      queryClient.invalidateQueries({ queryKey: ['workspaces'] }); 
+    },
+  });
+};
+
+export const useDeleteBoard = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ boardId, projectId }: { boardId: string, projectId: string }) => 
+      boardApi.deleteBoard(boardId),
+    onSuccess: (_, variables) => {
+      // Refresh lại danh sách board trong project đó
+      queryClient.invalidateQueries({ queryKey: BOARD_QUERY_KEYS.boardsByProject(variables.projectId) });
+      queryClient.invalidateQueries({ queryKey: ['workspaces'] });
+    },
+  });
+};
+
+export const useUploadFile = () => {
+  return useMutation({
+    mutationFn: (file: File) => boardApi.uploadFile(file),
+    onSuccess: (data) => {
+      // data ở đây sẽ là { url: 'https://s3...' } (theo backend sếp viết)
+      console.log("Upload thành công! URL:", data?.url);
+    },
+    onError: (error) => {
+      console.error("Lỗi upload file:", error);
+    }
+  });
+};

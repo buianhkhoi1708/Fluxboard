@@ -16,5 +16,7 @@ router.post('/', columnController.createColumn);
 // (Mở rộng sau này: Sửa tên cột, Xóa cột)
 // router.put('/:id', columnController.updateColumn);
 // router.delete('/:id', columnController.deleteColumn);
+router.put('/:id', columnController.updateColumn);
+router.delete('/:id', columnController.deleteColumn);
 
 module.exports = router;

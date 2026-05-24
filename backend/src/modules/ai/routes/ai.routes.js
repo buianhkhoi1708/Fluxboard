@@ -31,7 +31,12 @@ const aiRateLimiter = (req, res, next) => {
 
 router.use(aiRateLimiter);
 
-router.post('/generate-board', requirePermission('AI_BOARD', 'WRITE', 'SYSTEM'), aiController.generateBoard);
+// 🚀 FIX 1: Đổi hàm xử lý thành generateSmartTasks (hàm xịn nhất)
+router.post('/generate-board', requirePermission('AI_BOARD', 'WRITE', 'SYSTEM'), aiController.generateSmartTasks);
+
+// 🚀 Bổ sung thêm API lấy Insight Deviation
+router.get('/deviation/:projectId', requirePermission('AI_INSIGHT', 'READ', 'SYSTEM'), aiController.getDeviationInsights);
+
 router.post('/insights', requirePermission('AI_INSIGHT', 'READ', 'SYSTEM'), aiController.generateInsights);
 router.post('/generate-subtasks', requirePermission('AI_BOARD', 'WRITE', 'SYSTEM'), aiController.generateSubtasks);
 router.get('/summarize-task/:taskId', requirePermission('AI_INSIGHT', 'READ', 'SYSTEM'), aiController.summarizeTaskActivity);

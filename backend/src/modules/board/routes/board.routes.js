@@ -17,4 +17,8 @@ router.post('/', requirePermission('PROJECT', 'UPDATE', 'PROJECT'), boardControl
 // Lấy chi tiết bảng
 router.get('/:id', boardController.getBoardDetail);
 
+// 🚀 BỔ SUNG 2 ROUTE SỬA VÀ XÓA BẢNG
+router.put('/:id', requirePermission('PROJECT', 'UPDATE', 'PROJECT'), boardController.updateBoard);
+router.delete('/:id', requirePermission('PROJECT', 'UPDATE', 'PROJECT'), boardController.deleteBoard);
+
 module.exports = router;

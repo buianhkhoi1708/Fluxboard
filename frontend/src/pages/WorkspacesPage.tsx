@@ -1,13 +1,26 @@
-import React, { useState, useRef, useCallback, useMemo } from 'react';
-import { Link } from 'react-router-dom';
-import { useUserStore } from '../features/user/store/useUserStore';
-import { useWorkspaces } from '../features/workspaces/hooks/useWorkspaceQueries';
-import CreateProjectModal from '../features/workspaces/components/CreateProjectModal';
-import CreateBoardModal from '../features/workspaces/components/CreateBoardModal';
+import React, { useState, useRef, useCallback, useMemo } from "react";
+import ReactDOM from "react-dom"; // 🆕 Import để dùng Portal
+import { Link } from "react-router-dom";
+import { useUserStore } from "../features/user/store/useUserStore";
+import { useWorkspaces } from "../features/workspaces/hooks/useWorkspaceQueries";
+import CreateProjectModal from "../features/workspaces/components/CreateProjectModal";
+import CreateBoardModal from "../features/workspaces/components/CreateBoardModal";
 import {
-  Briefcase, Plus, MoreVertical, KanbanSquare, Users,
-  Search, LayoutGrid, Loader2
-} from 'lucide-react';
+  Briefcase,
+  Plus,
+  MoreVertical,
+  KanbanSquare,
+  Users,
+  Search,
+  LayoutGrid,
+  Loader2,
+  Pencil,
+  Trash2,
+} from "lucide-react";
+import {
+  useUpdateBoard,
+  useDeleteBoard,
+} from "../features/board/hooks/useBoardQueries";
 
 // ------- Component Skeleton khi tải -------
 const WorkspaceSkeleton = () => (
@@ -33,65 +46,177 @@ const WorkspaceSkeleton = () => (
   </div>
 );
 
+// ---------- Modal sửa tên bảng ----------
+const EditBoardNameModal = ({ isOpen, onClose, onSave, initialName }) => {
+  const [name, setName] = useState(initialName || "");
+  if (!isOpen) return null;
+
+  return ReactDOM.createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4 transform transition-all scale-100 animate-in zoom-in-95"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="text-lg font-bold text-slate-800 mb-4">Sửa tên bảng</h3>
+        <input
+          autoFocus
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              onSave(name);
+              onClose();
+            }
+          }}
+          className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mb-5 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400"
+        />
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+          >
+            Hủy
+          </button>
+          <button
+            onClick={() => {
+              onSave(name);
+              onClose();
+            }}
+            className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors"
+          >
+            Lưu
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+};
+
+// ---------- Modal xác nhận xóa ----------
+const ConfirmDeleteBoardModal = ({ isOpen, onClose, onConfirm, boardName }) => {
+  if (!isOpen) return null;
+
+  return ReactDOM.createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4 transform transition-all scale-100 animate-in zoom-in-95"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="text-lg font-bold text-slate-800 mb-2">Xóa bảng</h3>
+        <p className="text-sm text-slate-600 mb-5">
+          Bạn có chắc chắn muốn xóa bảng{" "}
+          <span className="font-semibold text-slate-800">“{boardName}”</span>?
+          Hành động này không thể hoàn tác.
+        </p>
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+          >
+            Hủy
+          </button>
+          <button
+            onClick={onConfirm}
+            className="px-4 py-2 text-sm font-semibold text-white bg-rose-500 hover:bg-rose-600 rounded-lg transition-colors"
+          >
+            Xóa
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+};
+
 // ------- Component Chính -------
 const WorkspacesPage = () => {
   const getUser = useUserStore((state) => state.getUser);
+  const { mutate: updateBoard } = useUpdateBoard();
+  const { mutate: deleteBoard } = useDeleteBoard();
 
-  const {
-    data,
-    isLoading,
-    isFetchingNextPage,
-    fetchNextPage,
-    hasNextPage
-  } = useWorkspaces();
+  const { data, isLoading, isFetchingNextPage, fetchNextPage, hasNextPage } =
+    useWorkspaces();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [isBoardModalOpen, setIsBoardModalOpen] = useState(false);
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
+    null,
+  );
 
-  // 🚀 Làm phẳng & loại trùng lặp dữ liệu từ các trang (Đã fix khớp với JSON)
+  // 🆕 State cho modal sửa và xóa bảng
+  const [editingBoard, setEditingBoard] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [deletingBoard, setDeletingBoard] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+
+  // 🚀 Làm phẳng & loại trùng lặp dữ liệu từ các trang
   const allProjects = useMemo(() => {
     if (!data?.pages) return [];
-    
-    // Lấy dữ liệu mảng project từ các page
-    const flatData = data.pages.flatMap(page => page.data || page || []);
-    
+    const flatData = data.pages.flatMap((page) => page.data || page || []);
     const uniqueData = Array.from(
-      new Map(flatData.map(item => {
-        // Bản thân item chính là project
-        const projectId = item.id || item._id;
-        return [projectId, item];
-      })).values()
+      new Map(
+        flatData.map((item) => {
+          const projectId = item.id || item._id;
+          return [projectId, item];
+        }),
+      ).values(),
     );
     return uniqueData;
   }, [data]);
 
   const filteredProjects = useMemo(() => {
-    return allProjects.filter(item =>
-      item.name?.toLowerCase().includes(searchTerm.toLowerCase())
+    return allProjects.filter((item) =>
+      item.name?.toLowerCase().includes(searchTerm.toLowerCase()),
     );
   }, [allProjects, searchTerm]);
 
   // Intersection Observer cho infinite scroll
   const observer = useRef<IntersectionObserver | null>(null);
-  const triggerRef = useCallback((node: HTMLDivElement | null) => {
-    if (isLoading || isFetchingNextPage) return;
-    if (observer.current) observer.current.disconnect();
+  const triggerRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (isLoading || isFetchingNextPage) return;
+      if (observer.current) observer.current.disconnect();
 
-    observer.current = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting && hasNextPage) {
-        fetchNextPage();
-      }
-    });
+      observer.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && hasNextPage) {
+          fetchNextPage();
+        }
+      });
 
-    if (node) observer.current.observe(node);
-  }, [isLoading, isFetchingNextPage, hasNextPage, fetchNextPage]);
+      if (node) observer.current.observe(node);
+    },
+    [isLoading, isFetchingNextPage, hasNextPage, fetchNextPage],
+  );
+
+  // Hàm xử lý đổi tên bảng (gọi API)
+  const handleUpdateBoardName = (boardId: string, newName: string) => {
+    if (newName.trim() && boardId) {
+      updateBoard({ boardId, payload: { name: newName.trim() } });
+    }
+  };
+
+  // Hàm xử lý xóa bảng
+  const handleDeleteBoard = (boardId: string) => {
+    // projectId cần lấy từ context, ta có thể tìm từ workspace hiện tại.
+    // Nhưng deleteBoard API chỉ cần boardId và projectId, chúng ta sẽ truyền projectId từ workspace.
+    // Để đơn giản, ta lưu thêm projectId khi mở modal xóa (sẽ bổ sung state)
+  };
 
   return (
     <div className="flex-1 bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 h-full overflow-y-auto no-scrollbar p-4 md:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
-
         {/* HEADER */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div className="space-y-1">
@@ -108,7 +233,10 @@ const WorkspacesPage = () => {
 
           <div className="flex items-center gap-3">
             <div className="relative group hidden sm:block">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors duration-200 group-focus-within:text-indigo-500" />
+              <Search
+                size={16}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors duration-200 group-focus-within:text-indigo-500"
+              />
               <input
                 type="text"
                 placeholder="Tìm kiếm không gian làm việc..."
@@ -144,7 +272,9 @@ const WorkspacesPage = () => {
               <Briefcase size={56} className="text-indigo-400" />
             </div>
             <h3 className="text-xl font-bold text-slate-800 mb-2">
-              {searchTerm ? 'Không tìm thấy không gian phù hợp' : 'Chưa có không gian làm việc'}
+              {searchTerm
+                ? "Không tìm thấy không gian phù hợp"
+                : "Chưa có không gian làm việc"}
             </h3>
             <p className="text-slate-500 text-sm mb-6 max-w-md">
               {searchTerm
@@ -168,7 +298,6 @@ const WorkspacesPage = () => {
         {!isLoading && filteredProjects.length > 0 && (
           <div className="space-y-8">
             {filteredProjects.map((workspace, index) => {
-              // 🚀 Lấy thông tin trực tiếp từ workspace
               const workspaceId = workspace.id || workspace._id;
               const boardsData = workspace.boards || [];
               const membersData = workspace.members || [];
@@ -188,7 +317,7 @@ const WorkspacesPage = () => {
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-md shadow-indigo-200/50 shrink-0 transition-transform duration-200 group-hover:scale-105">
                         <span className="text-lg font-black text-white uppercase">
-                          {workspace.name?.charAt(0) || 'W'}
+                          {workspace.name?.charAt(0) || "W"}
                         </span>
                       </div>
                       <div>
@@ -211,42 +340,62 @@ const WorkspacesPage = () => {
                             title="Quản lý thành viên"
                             className="flex items-center gap-2 bg-slate-100/80 hover:bg-indigo-50 px-2.5 py-1 rounded-full cursor-pointer transition-all group"
                           >
-                            <Users size={12} className="text-slate-400 group-hover:text-indigo-500 transition-colors" />
+                            <Users
+                              size={12}
+                              className="text-slate-400 group-hover:text-indigo-500 transition-colors"
+                            />
 
                             {membersData.length > 0 ? (
                               <div className="flex items-center -space-x-1.5">
-                                {membersData.slice(0, 4).map((rawMember, idx) => {
-                                  // 🚀 Fix bóc tách đúng object user_id từ API
-                                  const userObj = rawMember.user_id || rawMember; 
-                                  const memberId = userObj._id || userObj.id;
-                                  
-                                  const displayName = userObj.full_name || userObj.name || 'Thành viên';
-                                  const avatarUrl = userObj.avatar_url || userObj.avatarUrl;
-                                  const initial = displayName.charAt(0).toUpperCase();
+                                {membersData
+                                  .slice(0, 4)
+                                  .map((rawMember, idx) => {
+                                    const userObj =
+                                      rawMember.user_id || rawMember;
+                                    const memberId = userObj._id || userObj.id;
+                                    const displayName =
+                                      userObj.full_name ||
+                                      userObj.name ||
+                                      "Thành viên";
+                                    const avatarUrl =
+                                      userObj.avatar_url || userObj.avatarUrl;
+                                    const initial = displayName
+                                      .charAt(0)
+                                      .toUpperCase();
 
-                                  return (
-                                    <div
-                                      key={`stack-${memberId || idx}`}
-                                      title={displayName}
-                                      className="w-5 h-5 rounded-full ring-2 ring-slate-100 bg-indigo-100 flex items-center justify-center overflow-hidden transition-transform hover:scale-125 hover:z-20"
-                                      style={{ zIndex: 10 - idx }}
-                                    >
-                                      {avatarUrl ? (
-                                        <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
-                                      ) : (
-                                        <span className="text-[9px] font-bold text-indigo-700">{initial}</span>
-                                      )}
-                                    </div>
-                                  );
-                                })}
+                                    return (
+                                      <div
+                                        key={`stack-${memberId || idx}`}
+                                        title={displayName}
+                                        className="w-5 h-5 rounded-full ring-2 ring-slate-100 bg-indigo-100 flex items-center justify-center overflow-hidden transition-transform hover:scale-125 hover:z-20"
+                                        style={{ zIndex: 10 - idx }}
+                                      >
+                                        {avatarUrl ? (
+                                          <img
+                                            src={avatarUrl}
+                                            alt={displayName}
+                                            className="w-full h-full object-cover"
+                                          />
+                                        ) : (
+                                          <span className="text-[9px] font-bold text-indigo-700">
+                                            {initial}
+                                          </span>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
                                 {membersData.length > 4 && (
                                   <div className="w-5 h-5 rounded-full ring-2 ring-slate-100 bg-slate-200 flex items-center justify-center z-0">
-                                    <span className="text-[8px] font-bold text-slate-600">+{membersData.length - 4}</span>
+                                    <span className="text-[8px] font-bold text-slate-600">
+                                      +{membersData.length - 4}
+                                    </span>
                                   </div>
                                 )}
                               </div>
                             ) : (
-                              <span className="text-slate-400 group-hover:text-indigo-600 font-medium transition-colors">0 thành viên</span>
+                              <span className="text-slate-400 group-hover:text-indigo-600 font-medium transition-colors">
+                                0 thành viên
+                              </span>
                             )}
                           </Link>
                         </div>
@@ -261,28 +410,63 @@ const WorkspacesPage = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     {boardsData.map((boardItem) => {
                       const b = boardItem.board || boardItem;
+                      const boardId = b.id || b._id;
+                      const boardName = b.name;
+
                       return (
-                        <Link
-                          to={`/board/${b.id || b._id}`}
-                          key={b.id || b._id}
-                          className="group relative bg-gradient-to-br from-white to-slate-50/80 border border-slate-200 rounded-xl p-5 hover:border-indigo-300 hover:shadow-md hover:shadow-indigo-100/30 transition-all duration-200 block overflow-hidden hover:-translate-y-0.5"
-                        >
-                          <div className="absolute -right-4 -top-4 w-16 h-16 bg-indigo-500/5 rounded-full blur-xl group-hover:bg-indigo-500/10 transition-colors" />
-                          <div className="relative z-10">
-                            <div className="flex items-center gap-3 mb-3">
-                              <div className="bg-white border border-indigo-100 text-indigo-600 w-9 h-9 rounded-lg flex items-center justify-center shadow-sm group-hover:bg-indigo-600 group-hover:text-white group-hover:border-indigo-600 transition-all duration-200">
-                                <KanbanSquare size={18} />
-                              </div>
-                              <h3 className="font-bold text-sm text-slate-800 group-hover:text-indigo-700 transition-colors line-clamp-1">
-                                {b.name}
-                              </h3>
-                            </div>
-                            <div className="flex items-center gap-2 text-[10px] text-slate-400 font-medium">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                              <span>Hoạt động</span>
-                            </div>
+                        <div key={boardId} className="group relative">
+                          {/* 🚀 Menu 3 chấm - giờ dùng modal thay vì prompt/confirm */}
+                          <div className="absolute top-2 right-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setEditingBoard({
+                                  id: boardId,
+                                  name: boardName,
+                                });
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                              title="Đổi tên bảng"
+                            >
+                              <Pencil size={14} />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setDeletingBoard({
+                                  id: boardId,
+                                  name: boardName,
+                                  projectId: workspaceId,
+                                });
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                              title="Xóa bảng"
+                            >
+                              <Trash2 size={14} />
+                            </button>
                           </div>
-                        </Link>
+
+                          <Link
+                            to={`/board/${boardId}`}
+                            className="bg-gradient-to-br from-white to-slate-50/80 border border-slate-200 rounded-xl p-5 hover:border-indigo-300 hover:shadow-md hover:shadow-indigo-100/30 transition-all duration-200 block overflow-hidden hover:-translate-y-0.5"
+                          >
+                            <div className="absolute -right-4 -top-4 w-16 h-16 bg-indigo-500/5 rounded-full blur-xl group-hover:bg-indigo-500/10 transition-colors" />
+                            <div className="relative z-10">
+                              <div className="flex items-center gap-3 mb-3">
+                                <div className="bg-white border border-indigo-100 text-indigo-600 w-9 h-9 rounded-lg flex items-center justify-center shadow-sm group-hover:bg-indigo-600 group-hover:text-white group-hover:border-indigo-600 transition-all duration-200">
+                                  <KanbanSquare size={18} />
+                                </div>
+                                <h3 className="font-bold text-sm text-slate-800 group-hover:text-indigo-700 transition-colors line-clamp-1 pr-6">
+                                  {boardName}
+                                </h3>
+                              </div>
+                              <div className="flex items-center gap-2 text-[10px] text-slate-400 font-medium">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                                <span>Hoạt động</span>
+                              </div>
+                            </div>
+                          </Link>
+                        </div>
                       );
                     })}
 
@@ -297,7 +481,9 @@ const WorkspacesPage = () => {
                       <div className="p-1.5 rounded-full bg-slate-100 group-hover:bg-indigo-100 transition-colors">
                         <Plus size={20} strokeWidth={2} />
                       </div>
-                      <span className="text-xs font-bold uppercase tracking-wider">Tạo bảng</span>
+                      <span className="text-xs font-bold uppercase tracking-wider">
+                        Tạo bảng
+                      </span>
                     </button>
                   </div>
                 </section>
@@ -317,12 +503,42 @@ const WorkspacesPage = () => {
         )}
 
         {/* Các Modal */}
-        <CreateProjectModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+        <CreateProjectModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+        />
         <CreateBoardModal
           isOpen={isBoardModalOpen}
           onClose={() => setIsBoardModalOpen(false)}
           projectId={selectedProjectId}
           onSuccess={() => setIsBoardModalOpen(false)}
+        />
+
+        {/* 🆕 Modal sửa tên bảng */}
+        <EditBoardNameModal
+          isOpen={!!editingBoard}
+          onClose={() => setEditingBoard(null)}
+          initialName={editingBoard?.name || ""}
+          onSave={(newName) => {
+            if (editingBoard) handleUpdateBoardName(editingBoard.id, newName);
+            setEditingBoard(null);
+          }}
+        />
+
+        {/* 🆕 Modal xác nhận xóa bảng */}
+        <ConfirmDeleteBoardModal
+          isOpen={!!deletingBoard}
+          onClose={() => setDeletingBoard(null)}
+          boardName={deletingBoard?.name || ""}
+          onConfirm={() => {
+            if (deletingBoard) {
+              deleteBoard({
+                boardId: deletingBoard.id,
+                projectId: deletingBoard.projectId,
+              });
+              setDeletingBoard(null);
+            }
+          }}
         />
       </div>
     </div>
