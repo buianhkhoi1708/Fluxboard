@@ -18,7 +18,7 @@ const TopNavbar = () => {
 
   const handleUserProfile = () => {
     // Điều hướng đến trang cài đặt/hồ sơ
-    window.location.href = '/settings';
+    window.location.href = '/settings'; // hoặc dùng useNavigate nếu có router context
   };
 
   return (
@@ -32,7 +32,7 @@ const TopNavbar = () => {
             alt="Fluxboard" 
             className="h-8 w-auto object-contain" 
           />
-          <span className="font-extrabold text-xl tracking-tight text-slate-990">Fluxboard</span>
+          <span className="font-extrabold text-xl tracking-tight text-slate-900">Fluxboard</span>
         </div>
         
         {/* Workspace Selector */}
