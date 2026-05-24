@@ -1,217 +1,154 @@
 import React, { useState, useEffect } from 'react';
-import { useQueryClient } from '@tanstack/react-query'; // 🚀 Import thêm useQueryClient
-import { useAuthUser, AUTH_KEYS } from '../../auth/hooks/useAuthQueries'; // 🚀 Nhúng hook Auth mới của sếp vào đây
-import { useUpdateProfile } from '../hooks/useSettingQueries';
+import { useProfileOverview, useUpdateProfile } from '../hooks/useSettingQueries';
 import { useSettingUiStore } from '../store/useSettingUIStore';
-import { useRolesDictionary } from '../../rbac/hooks/useRbacQueries';
-import { Loader2, AlertTriangle, CheckCircle2, Camera } from 'lucide-react';
+import { Loader2, Camera, CheckCircle2, AlertTriangle } from 'lucide-react';
+
+// Sử dụng chuỗi Base64 SVG làm ảnh đại diện mặc định để triệt tiêu lỗi mất kết nối mạng bên thứ ba
+const DEFAULT_AVATAR = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'><rect width='150' height='150' fill='%23cbd5e1'/><path d='M75 80c19.33 0 35-15.67 35-35S94.33 10 75 10 40 25.67 40 45s15.67 35 35 35zm0 15c-26.67 0-80 13.33-80 40v15h160v-15c0-26.67-53-40-80-40z' fill='%2394a3b8'/></svg>";
 
 export const ProfileTab: React.FC = () => {
-  const queryClient = useQueryClient(); // 🚀 Khởi tạo queryClient để điều khiển cache
-  
-  // 🚀 BƯỚC 1: Thay thế useAuthStore của Zustand bằng hookuseAuthUser của TanStack
-  const { data: user, isLoading: isLoadingUser } = useAuthUser(); 
-  
-  const { message, setMessage, clearMessage } = useSettingUiStore();
+  const { data: profile, isLoading } = useProfileOverview();
   const { mutate: updateProfile, isPending } = useUpdateProfile();
-  const { data: roles = [], isLoading: isLoadingRoles } = useRolesDictionary();
+  const { message, setMessage, clearMessage } = useSettingUiStore();
 
-  // Local State cho form input và preview ảnh
   const [name, setName] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState('');
 
-  // 🚀 BƯỚC 2: Đồng bộ dữ liệu từ Query Cache vào Form khi user tải xong
   useEffect(() => {
-    if (user) {
-      setName(user.full_name || '');
-      setPreview(user.avatar_url || '');
+    if (profile) {
+      setName(profile.full_name || '');
+      setPreview(profile.avatar_url || DEFAULT_AVATAR);
     }
-  }, [user]);
-
-  useEffect(() => {
-    clearMessage();
-  }, [clearMessage]);
+  }, [profile]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = e.target.files?.[0];
-    if (selected) {
-      setFile(selected);
-      setPreview(URL.createObjectURL(selected));
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) {
+      setFile(selectedFile);
+      setPreview(URL.createObjectURL(selectedFile));
     }
   };
 
   const handleSave = () => {
-    // Hỗ trợ linh hoạt cả id lẫn user_id từ cache
-    const userId = user?.id || user?.user_id;
-    if (!userId) return;
+    clearMessage();
+    if (!name.trim()) {
+      setMessage('error', 'Name cannot be empty.');
+      return;
+    }
 
     updateProfile(
-      { userId, name, file },
+      { name, file },
       {
-        onSuccess: (data: any) => {
-          setMessage('success', 'Cập nhật hồ sơ thành công!');
-          
-          // 🚀 BƯỚC 3: ĐẬP BẢO TÀNG CACHE CŨ - Ghi đè dữ liệu mới thẳng vào TanStack Cache
-          queryClient.setQueryData(AUTH_KEYS.me, (old: any) => {
-            if (!old) return old;
-            
-            const updatedUser = {
-              ...old,
-              full_name: data.name,
-              avatar_url: data.avatarUrl 
-                ? `${data.avatarUrl}?t=${Date.now()}` // Chống trình duyệt giữ cache ảnh cũ
-                : old.avatar_url
-            };
-
-            // Đồng bộ luôn xuống localStorage để lần sau F5 không bị mất
-            localStorage.setItem('user', JSON.stringify(updatedUser));
-            return updatedUser;
-          });
+        onSuccess: () => {
+          setMessage('success', 'Profile updated successfully.');
         },
-        onError: (err: any) =>
-          setMessage('error', err.response?.data?.message || 'Có lỗi xảy ra!'),
+        onError: (err: any) => {
+          setMessage('error', err?.response?.data?.message || 'Failed to update profile.');
+        }
       }
     );
   };
 
-  // Màn hình chờ nếu bốc dữ liệu User lúc đầu chưa kịp xong
-  if (isLoadingUser) {
+  if (isLoading) {
     return (
-      <div className="w-full h-48 flex items-center justify-center gap-2 text-slate-400">
-        <Loader2 size={24} className="animate-spin text-indigo-600" />
-        <span className="text-sm font-medium">Đang tải thông tin tài khoản...</span>
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="animate-spin text-indigo-600" size={32} />
       </div>
     );
   }
 
-  const matchedRole = roles.find(
-    (r: any) => r.id === user?.role_id || r.name === user?.system_role
-  );
-  const displayRoleName = isLoadingRoles
-    ? 'Đang tải...'
-    : matchedRole?.name || user?.system_role || 'Chưa xác định';
-
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
-      {/* Message báo lỗi / thành công */}
+    <div className="space-y-6 max-w-2xl animate-in fade-in duration-300">
+      <div>
+        <h3 className="text-lg font-bold text-slate-800">Thông tin cá nhân</h3>
+        <p className="text-xs text-slate-500">Cập nhật chi tiết hồ sơ cá nhân và sơ đồ vị trí nhân sự liên kết trong hệ thống.</p>
+      </div>
+
       {message.text && (
-        <div
-          className={`p-3 mb-6 rounded-xl text-sm font-medium border flex items-center gap-2 ${
-            message.type === 'error'
-              ? 'bg-rose-50 text-rose-700 border-rose-200'
-              : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-          }`}
-        >
-          {message.type === 'error' ? (
-            <AlertTriangle className="w-4 h-4 shrink-0" />
-          ) : (
-            <CheckCircle2 className="w-4 h-4 shrink-0" />
-          )}
-          {message.text}
+        <div className={`p-4 rounded-xl border flex items-center gap-3 text-sm ${
+          message.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800'
+        }`}>
+          {message.type === 'success' ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}
+          <span>{message.text}</span>
         </div>
       )}
 
-      {/* Avatar section */}
-      <div className="flex items-center gap-5 mb-10">
-        <div className="relative">
+      <div className="flex items-center gap-6">
+        <div className="relative group">
           <img
-            src={
-              preview ||
-              `https://ui-avatars.com/api/?name=${name}&background=6366f1&color=fff&bold=true`
-            }
-            className="w-20 h-20 rounded-full object-cover ring-2 ring-white shadow-sm border border-slate-200 bg-white"
-            alt="Avatar Preview"
+            src={preview || DEFAULT_AVATAR}
+            alt="Avatar"
+            className="w-24 h-24 rounded-2xl object-cover border-2 border-slate-200 shadow-inner"
           />
-          <label className="absolute -bottom-1 -right-1 p-1.5 bg-indigo-600 text-white rounded-full cursor-pointer shadow-sm hover:bg-indigo-700 transition-colors">
-            <Camera size={14} strokeWidth={2.5} />
-            <input
-              type="file"
-              className="hidden"
-              accept="image/*"
-              onChange={handleFileChange}
-            />
+          <label className="absolute inset-0 bg-black/40 rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+            <Camera className="text-white" size={20} />
+            <input type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
           </label>
         </div>
         <div>
-          <p className="font-semibold text-slate-800">{name}</p>
-          <p className="text-xs text-slate-500 mt-0.5">
-            {file ? file.name : 'PNG, JPG hoặc GIF (tối đa 2MB)'}
-          </p>
+          <h4 className="text-sm font-bold text-slate-700">{profile?.email}</h4>
+          <p className="text-xs text-slate-400">Định dạng cho phép: JPG, PNG. Dung lượng tối đa 10MB.</p>
         </div>
       </div>
 
-      {/* Form chỉnh sửa */}
-      <div className="space-y-5 max-w-lg">
-        <div>
-          <label className="block text-sm font-semibold text-slate-700 mb-1.5">
-            Họ và tên
-          </label>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-bold text-slate-700">Họ và tên</label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:outline-none text-slate-800 placeholder-slate-400 transition-all bg-white/80 backdrop-blur-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-            placeholder="Nhập họ tên"
+            className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-colors text-sm"
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1.5">
-              Email
-            </label>
-            <input
-              type="email"
-              value={user?.email || ''}
-              readOnly
-              className="w-full px-4 py-2.5 bg-slate-100/80 border border-slate-200/80 text-slate-500 font-medium rounded-xl cursor-not-allowed outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1.5">
-              Phòng ban
-            </label>
-            <input
-              type="text"
-              value={user?.department || 'Chưa xác định'}
-              readOnly
-              className="w-full px-4 py-2.5 bg-slate-100/80 border border-slate-200/80 text-slate-500 font-medium rounded-xl cursor-not-allowed outline-none"
-            />
-          </div>
-          <div className="md:col-span-2">
-            <label className="block text-sm font-semibold text-slate-700 mb-1.5">
-              Vai trò hệ thống
-            </label>
-            {isLoadingRoles ? (
-              <div className="flex items-center gap-2 w-full px-4 py-2.5 bg-slate-100/80 border border-slate-200/80 rounded-xl">
-                <Loader2 size={16} className="animate-spin text-slate-400" />
-                <span className="text-sm text-slate-400 font-medium">Đang tải vai trò...</span>
-              </div>
-            ) : (
-              <input
-                type="text"
-                value={displayRoleName}
-                readOnly
-                className="w-full px-4 py-2.5 bg-slate-100/80 border border-slate-200/80 text-slate-500 font-medium rounded-xl cursor-not-allowed outline-none"
-              />
-            )}
-          </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-bold text-slate-700">Phòng ban</label>
+          <input
+            type="text"
+            value={profile?.department?.name || 'Chưa phân bổ phòng ban'}
+            readOnly
+            className="px-4 py-2.5 bg-slate-50 border border-slate-200 text-slate-500 rounded-xl cursor-not-allowed outline-none text-sm font-medium"
+          />
         </div>
 
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-bold text-slate-700">Nhóm (Team)</label>
+          <input
+            type="text"
+            value={profile?.team?.name || 'Chưa phân bổ nhóm'}
+            readOnly
+            className="px-4 py-2.5 bg-slate-50 border border-slate-200 text-slate-500 rounded-xl cursor-not-allowed outline-none text-sm font-medium"
+          />
+        </div>
+      </div>
+
+      <div className="pt-4 border-t border-slate-100">
+        <h4 className="text-xs font-bold text-slate-700 mb-2">Dự án đang tham gia</h4>
+        {profile?.joined_projects && profile.joined_projects.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {profile.joined_projects.map((proj: any) => (
+              <span key={proj.project_id} className={`px-3 py-1 rounded-lg text-xs font-semibold border ${
+                proj.status === 'ACTIVE' ? 'bg-indigo-50 border-indigo-100 text-indigo-700' : 'bg-slate-100 border-slate-200 text-slate-600'
+              }`}>
+                {proj.name}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-slate-400 italic">Hiện tại chưa trực tiếp tham gia vào bảng dự án nào.</p>
+        )}
+      </div>
+
+      <div className="flex justify-end pt-4">
         <button
           onClick={handleSave}
           disabled={isPending}
-          className="mt-8 w-full sm:w-auto bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-8 py-2.5 rounded-xl font-bold hover:from-indigo-700 hover:to-indigo-800 active:scale-[0.98] disabled:opacity-70 disabled:pointer-events-none transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-200/50"
+          className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-2.5 rounded-xl shadow-sm transition-all text-sm disabled:opacity-50 flex items-center gap-2"
         >
-          {isPending ? (
-            <>
-              <Loader2 size={18} className="animate-spin" />
-              Đang lưu...
-            </>
-          ) : (
-            'Lưu thay đổi'
-          )}
+          {isPending && <Loader2 className="animate-spin" size={16} />}
+          <span>Lưu thay đổi</span>
         </button>
       </div>
     </div>

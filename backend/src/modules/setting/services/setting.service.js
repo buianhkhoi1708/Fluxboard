@@ -9,6 +9,7 @@ const AppError = require('../../../common/exceptions/AppError');
 const eventBus = require('../../../common/utils/eventBus');
 const bcrypt = require('bcrypt');
 const mongoose = require('mongoose');
+const crypto = require('crypto');
 
 // ====================================================
 // LUỒNG 1: XỬ LÝ HỒ SƠ & TRÍCH XUẤT TỔ CHỨC (ORG TREE MINI)
@@ -19,10 +20,29 @@ exports.getProfileOverview = async (userId) => {
     // Sử dụng duy nhất 1 câu lệnh tối ưu để gom toàn bộ dữ liệu tổ chức, nhóm, và dự án tham gia
     const profileData = await User.aggregate([
         { $match: { _id: userObjectId } },
+        // Ép kiểu an toàn từ String sang ObjectId trước khi liên kết bảng để chống lệch kiểu dữ liệu
+        {
+            $addFields: {
+                dept_obj_id: {
+                    $cond: {
+                        if: { $and: [{ $ifNull: ["$department_id", false] }, { $ne: ["$department_id", ""] }] },
+                        then: { $toObjectId: "$department_id" },
+                        else: null
+                    }
+                },
+                team_obj_id: {
+                    $cond: {
+                        if: { $and: [{ $ifNull: ["$team_id", false] }, { $ne: ["$team_id", ""] }] },
+                        then: { $toObjectId: "$team_id" },
+                        else: null
+                    }
+                }
+            }
+        },
         {
             $lookup: {
                 from: 'departments',
-                localField: 'department_id',
+                localField: 'dept_obj_id', // Thay thế trường department_id cũ bằng trường đã ép kiểu
                 foreignField: '_id',
                 as: 'department'
             }
@@ -31,7 +51,7 @@ exports.getProfileOverview = async (userId) => {
         {
             $lookup: {
                 from: 'teams',
-                localField: 'team_id',
+                localField: 'team_obj_id', // Thay thế trường team_id cũ bằng trường đã ép kiểu
                 foreignField: '_id',
                 as: 'team'
             }
@@ -181,29 +201,36 @@ exports.revokeSessionById = async (userId, sessionId) => {
 };
 
 // ====================================================
-// LUỒNG 3: CẤU HÌNH THÔNG BÁO (NOTIFICATION PREFERENCES)
+// LUỒNG 3: CẤU HÌNH THÔNG BÁO (ĐÃ ĐỒNG BỘ UI & MODEL GỐC)
 // ====================================================
 exports.getNotificationSettings = async (userId) => {
     let pref = await UserNotificationPref.findOne({ user_id: userId }).lean();
     if (!pref) {
-        // Tạo cấu hình mặc định nếu chưa tồn tại bản ghi
+        // Tạo cấu hình mặc định tương thích hoàn toàn với hệ thống notification cũ và giao diện mới
         pref = await UserNotificationPref.create({
             user_id: userId,
-            task_assigned: true,
-            deadline_reminder: true,
-            mention_alert: true,
-            system_announcement: true
+            email_notifications: true,
+            push_notifications: true,
+            task_deadline_reminders: true,
+            daily_digest: false
         });
     }
     return pref;
 };
 
 exports.updateNotificationSettings = async (userId, payload) => {
-    const allowedKeys = ['task_assigned', 'deadline_reminder', 'mention_alert', 'system_announcement'];
+    // Sửa lỗi: Cập nhật allowedKeys khớp chính xác với 4 trường dữ liệu trong DB Schema để tránh bị lọc mất dữ liệu từ FE gửi lên
+    const allowedKeys = ['email_notifications', 'push_notifications', 'task_deadline_reminders', 'daily_digest'];
     const updateData = {};
 
     for (const key of allowedKeys) {
-        if (payload[key] !== undefined) updateData[key] = !!payload[key];
+        if (payload[key] !== undefined) {
+            updateData[key] = !!payload[key];
+        }
+    }
+
+    if (Object.keys(updateData).length === 0) {
+        throw new AppError('No valid preferences parameters provided.', 400, 'BAD_REQUEST');
     }
 
     return await UserNotificationPref.findOneAndUpdate(
