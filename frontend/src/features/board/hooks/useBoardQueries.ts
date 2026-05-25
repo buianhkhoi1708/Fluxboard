@@ -182,13 +182,13 @@ export const useAddAttachmentToTask = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ taskId, boardId, payload }: { taskId: string, boardId: string, payload: any }) => {
-      // 🚀 Gọi qua boardApi
       const res: any = await boardApi.addAttachmentToTask(taskId, payload);
       return res.data || res;
     },
     onSuccess: (_, variables) => {
-      // Làm mới UI ngay lập tức
       queryClient.invalidateQueries({ queryKey: BOARD_QUERY_KEYS.boardDetail(variables.boardId) }); 
+      // 🚀 THÊM DÒNG NÀY ĐỂ REFETCH FILE NGAY LẬP TỨC
+      queryClient.invalidateQueries({ queryKey: ['task-attachments', variables.taskId] }); 
     }
   });
 };
@@ -230,5 +230,13 @@ export const useUploadFile = () => {
     onError: (error) => {
       console.error("Lỗi upload file:", error);
     }
+  });
+};
+
+export const useGetTaskAttachments = (taskId: string) => {
+  return useQuery({
+    queryKey: ['task-attachments', taskId],
+    queryFn: () => boardApi.getTaskAttachments(taskId),
+    enabled: !!taskId, // Chỉ fetch khi có taskId
   });
 };

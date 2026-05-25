@@ -95,6 +95,7 @@ app.use('/api/v1/notifications', require('./src/modules/notification/routes/noti
 app.use('/api/v1/deadlines', require('./src/modules/deadline/routes/deadline.routes'));
 app.use('/api/v1/settings', require('./src/modules/setting/routes/setting.routes'));
 
+
 // =========================================================
 // 7. XỬ LÝ LỖI (ERROR HANDLING)
 // =========================================================

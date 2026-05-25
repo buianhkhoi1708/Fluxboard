@@ -34,15 +34,6 @@ const TopNavbar = () => {
           />
           <span className="font-extrabold text-xl tracking-tight text-slate-990">Fluxboard</span>
         </div>
-        
-        {/* Workspace Selector */}
-        <div className="hidden md:flex items-center gap-2.5 border border-slate-200/80 px-3 py-2 rounded-xl cursor-pointer hover:bg-white hover:border-indigo-300 hover:shadow-sm transition-all group bg-white/60">
-          <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 text-white w-6 h-6 flex items-center justify-center rounded-md text-xs font-bold shadow-sm">
-            F
-          </div>
-          <span className="text-sm font-semibold text-slate-700 group-hover:text-slate-900 transition-colors">Không gian làm việc</span>
-          <ChevronDown size={14} className="text-slate-400 group-hover:text-slate-600 transition-colors" />
-        </div>
       </div>
 
       {/* MIDDLE SECTION: Search Bar */}

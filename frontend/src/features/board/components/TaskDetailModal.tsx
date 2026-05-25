@@ -5,11 +5,13 @@ import {
   Target, Sparkles, Plus, Square, Save, Trash2, User, ChevronDown,
   KanbanSquare, Check, Paperclip, File, Download, Loader2
 } from "lucide-react";
+import CreateProjectModal from '../../workspaces/components/CreateProjectModal';
 import axios from 'axios';
+
 
 // 🚀 BƯỚC 1: Bổ sung import useQueryClient
 import { useQueryClient } from '@tanstack/react-query';
-import { useUploadFile } from '../hooks/useBoardQueries';
+import { useUploadFile,useGetTaskAttachments, } from '../hooks/useBoardQueries';
 import { useBoardStore } from "../stores/useBoardStore";
 import { useUserStore } from "../../user/store/useUserStore"; 
 import { useGetBoardDetail, useUpdateTask, useDeleteTask, useCreateTask, useGetProjectMembers, getPresignedUrl, useAddAttachmentToTask, useMoveTask } from '../hooks/useBoardQueries';
@@ -60,7 +62,6 @@ const CustomDateInput = forwardRef<HTMLButtonElement, CustomDateInputProps>(
 CustomDateInput.displayName = 'CustomDateInput';
 
 const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task, listId }) => {
-  // 🚀 BƯỚC 2: Khởi tạo queryClient
   const queryClient = useQueryClient();
 
   const { activeBoardId } = useBoardStore();
@@ -83,7 +84,9 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
   const [editStartDate, setEditStartDate] = useState<Date | null>(null);
   const [editDueDate, setEditDueDate] = useState<Date | null>(null);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
+  
   const [localSubtasks, setLocalSubtasks] = useState<any[]>([]);
+  // 🚀 TẠO STATE CHO ATTACHMENTS ĐỂ UI RENDER TỨC THÌ
   const [localAttachments, setLocalAttachments] = useState<any[]>([]);
   
   const [isDone, setIsDone] = useState(false);
@@ -94,8 +97,15 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
+  
   const { mutateAsync: addAttachment } = useAddAttachmentToTask();
   const { mutateAsync: uploadFile } = useUploadFile();
+
+  // Lấy ID chuẩn của Task
+  const currentTaskId = String(task?.id || task?._id || '');
+
+  // 🚀 TỰ ĐỘNG FETCH DANH SÁCH FILE CỦA TASK NÀY
+  const { data: fetchedAttachments } = useGetTaskAttachments(currentTaskId);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -103,28 +113,42 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
 
     setIsUploading(true);
     try {
-      // 🚀 BƯỚC 1: Đẩy file thẳng lên Backend (qua multer)
+      // 1. Đẩy file thẳng lên Backend (qua multer)
       const uploadResult = await uploadFile(file);
       
-      // Lấy URL trả về từ backend (Backend của sếp trả về { data: { url: '...' } })
+      // Lấy URL trả về từ backend
       const finalUrl = uploadResult?.url || uploadResult?.data?.url;
 
       if (!finalUrl) {
           throw new Error("Không lấy được URL từ server!");
       }
 
-      // 🚀 BƯỚC 2: Lưu thông tin file vào Task
-      await addAttachment({
+      // 2. Lưu thông tin file vào Task (Dùng camelCase chuẩn bài)
+      const response = await addAttachment({
         taskId: String(task.id || task._id),
         boardId: activeBoardId,
         payload: {
-          fileName: file.name,     // 👈 Đổi thành camelCase cho khớp Backend
-          fileUrl: finalUrl,       // 👈 Đổi thành camelCase cho khớp Backend
-          mimeType: file.type      // 👈 Đổi thành mimeType cho khớp Backend
+          fileName: file.name,     
+          fileUrl: finalUrl,       
+          mimeType: file.type      
         }
       });
 
-      // Reset lại input file để có thể chọn lại file đó nếu cần
+      // 3. Ép giao diện hiển thị ngay lập tức (Lấy data trả về từ API hoặc tạo object giả lập)
+      const newFileObj = response?.data || {
+          fileName: file.name,
+          file_name: file.name, // Lưu dư một key dự phòng UI đọc
+          fileUrl: finalUrl,
+          file_url: finalUrl,
+          mimeType: file.type,
+          mime_type: file.type,
+          fileSize: file.size,
+          file_size: file.size
+      };
+      
+      setLocalAttachments(prev => [...prev, newFileObj]);
+
+      // Reset lại input file
       if (fileInputRef.current) fileInputRef.current.value = ''; 
     } catch (error) {
       console.error("Lỗi upload:", error);
@@ -139,7 +163,8 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
       setEditTitle(task.title || "");
       setEditDesc(task.description || "");
       setLocalSubtasks(task.subtasks || []);
-      setLocalAttachments(task.attachments || []);
+      
+      // 🚀 Bơm data file đính kèm từ backend vào local state
       
       const rawPriority = task.priority ? String(task.priority).toUpperCase() : "MEDIUM";
       setEditPriority(rawPriority);
@@ -167,6 +192,14 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
       setIsAssigneePopupOpen(false); 
     }
   }, [isOpen, task, listId]);
+
+  useEffect(() => {
+    if (fetchedAttachments) {
+      // API của sếp trả về data dạng mảng hoặc object chứa data
+      const arr = Array.isArray(fetchedAttachments) ? fetchedAttachments : (fetchedAttachments.data || []);
+      setLocalAttachments(arr);
+    }
+  }, [fetchedAttachments]);
 
   const projectMembers = useMemo(() => {
     if (!apiMembers) return [];
@@ -223,11 +256,9 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
       });
 
       // =====================================
-      // 🚀 2. BÍ KÍP CHUYỂN CỘT CHÍNH THỨC
-      // Nếu cột mới khác cột cũ -> Gọi API Move y hệt như kéo thả!
+      // 2. CHUYỂN CỘT NẾU ĐỔI GIAI ĐOẠN
       // =====================================
       if (String(editColumnId) !== String(listId)) {
-        // Tìm cột đích để nhét task vào cuối danh sách
         const destCol = board?.columns?.find((c: any) => String(c.id || c._id) === String(editColumnId));
         const newOrder = destCol && destCol.tasks ? destCol.tasks.length : 0; 
 
@@ -239,9 +270,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
         });
       }
 
-      // Xóa cache và tải lại bảng ngay lập tức
       await queryClient.invalidateQueries({ queryKey: ['board', activeBoardId] });
-      
       onClose(); 
     } catch (error) {
       console.error("Lỗi khi cập nhật Task:", error);
@@ -256,7 +285,6 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
     if (window.confirm(`Bạn có chắc muốn xóa task "${task.title}"?`)) {
       try {
         await deleteApiTask({ taskId: String(task.id || task._id), boardId: activeBoardId });
-        // Sẵn tiện xóa xong cũng báo bảng load lại cho mượt
         queryClient.invalidateQueries({ queryKey: ['board', activeBoardId] });
         onClose();
       } catch (error) {
@@ -336,8 +364,9 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
                   <div className="flex items-center gap-2.5 text-slate-800 font-bold text-lg">
                     <div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><Paperclip size={18} /></div>
                     <h3>Tài liệu đính kèm</h3>
+                    {/* 🚀 Render số lượng từ mảng localAttachments */}
                     <span className="ml-1.5 text-xs font-black bg-slate-200 text-slate-600 px-2.5 py-1 rounded-full">
-                      {(task.attachments || []).length}
+                      {localAttachments.length}
                     </span>
                   </div>
                   
@@ -355,12 +384,13 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {(task.attachments || []).length === 0 ? (
+                  {/* 🚀 Render danh sách file từ mảng localAttachments */}
+                  {localAttachments.length === 0 ? (
                     <div className="col-span-full p-6 border-2 border-dashed border-slate-200 rounded-[1.5rem] text-center text-sm font-medium text-slate-400 bg-slate-50/30">
                       Chưa có file nào. Hãy nhấn "Thêm file" để nộp tài liệu!
                     </div>
                   ) : (
-                    (task.attachments || []).map((file: any, idx: number) => (
+                    localAttachments.map((file: any, idx: number) => (
                       <div key={idx} className="flex items-center gap-3 p-3.5 bg-white border border-slate-200 rounded-2xl hover:border-indigo-400 hover:shadow-md transition-all group cursor-pointer" onClick={() => window.open(file.file_url || file.fileUrl, '_blank')}>
                         <div className="w-11 h-11 shrink-0 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-500 shadow-sm">
                           <File size={22} />
@@ -370,7 +400,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
                             {file.file_name || file.fileName}
                           </p>
                           <p className="text-[11px] font-medium text-slate-400 mt-0.5 uppercase tracking-tighter">
-                            {file.content_type?.split('/')[1] || 'FILE'} • {((file.file_size || file.fileSize || 0) / 1024 / 1024).toFixed(2)} MB
+                            {(file.mime_type || file.mimeType || file.content_type || '').split('/')[1] || 'FILE'} • {((file.file_size || file.fileSize || file.size || 0) / 1024 / 1024).toFixed(2)} MB
                           </p>
                         </div>
                         <div className="w-8 h-8 shrink-0 flex items-center justify-center rounded-lg bg-slate-50 text-slate-400 group-hover:text-indigo-600 group-hover:bg-indigo-50 transition-all">
@@ -419,7 +449,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
                     ))}
                   </div>
 
-                  {/* 🚀 Ô INPUT ĐỂ THÊM SUBTASK */}
+                  {/* Ô INPUT ĐỂ THÊM SUBTASK */}
                   <div className="mt-2 p-1.5 pt-3 border-t border-slate-100 flex items-center gap-3">
                     <div className="p-1.5 bg-slate-100 rounded-lg text-slate-400"><Plus size={16} /></div>
                     <input
@@ -447,7 +477,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
                   <span className="w-2 h-2 rounded-full bg-indigo-500"></span> Thông số
                 </h4>
 
-                {/* 🚀 FIX MENU CỘT */}
+                {/* MENU CỘT */}
                 <div className="flex flex-col gap-2">
                   <label className="text-[13px] font-bold text-slate-600 flex items-center gap-2">
                     <KanbanSquare size={15} className="text-slate-400" /> Cột / Giai đoạn
@@ -471,7 +501,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
                   </div>
                 </div>
 
-                {/* 🚀 FIX USER */}
+                {/* USER */}
                 <div className="flex flex-col gap-3 mt-2">
                   <label className="text-[13px] font-bold text-slate-600 flex items-center gap-2"><User size={15} className="text-slate-400" /> Người thực hiện</label>
                   <div className="flex flex-wrap gap-2 relative">
@@ -664,6 +694,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ isOpen, onClose, task
     </div>
   );
 
+  
   return createPortal(modalContent, document.body);
 };
 

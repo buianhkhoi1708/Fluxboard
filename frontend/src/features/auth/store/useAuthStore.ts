@@ -43,42 +43,31 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isLoading: false,
 
   // ===============================
-  // 🚀 LOGIN (FIX CHÍNH Ở ĐÂY)
+  // 🚀 LOGIN
   // ===============================
   login: async (email, password) => {
     set({ isLoading: true });
     try {
-      // 1. axiosClient interceptor đã trả về response.data (Cục ApiResponse của Java)
       const res: any = await axiosClient.post('/auth/login', { email, password });
-
-      console.log("📦 DỮ LIỆU TỪ BACKEND GỬI VỀ:", res);
-
-      // 2. Lấy đúng lõi payload (Chứa token và user)
       const payload = res.data || res;
 
-      // 3. 🚀 CHÌA KHÓA: Hứng cả chuẩn Java (camelCase) lẫn JS (snake_case)
       const finalAccessToken = payload.accessToken || payload.access_token;
+      // 🚀 Lấy thêm Refresh Token
+      const finalRefreshToken = payload.refreshToken || payload.refresh_token; 
       const finalUser = payload.user || payload;
 
-      // 🚨 Báo động đỏ nếu không tìm thấy token
-      if (!finalAccessToken) {
-        console.error("🔴 CẢNH BÁO: Không tìm thấy Access Token! Code Java đang trả về cái gì thế này?");
-      } else {
-        // Típ nhỏ: In 10 ký tự đầu của Token ra để đối chiếu xem có đúng Access Token không
-        console.log("🔑 Đang lưu Access Token:", finalAccessToken.substring(0, 10) + "...");
+      if (finalRefreshToken) {
+        localStorage.setItem('refreshToken', finalRefreshToken);
       }
 
-      // 4. Chuẩn hóa User
       const normalizedUser: UserProfile = {
         ...finalUser,
         id: finalUser.id || finalUser.user_id
       };
 
-      // 5. Ghi vào LocalStorage (Đảm bảo là ghi biến finalAccessToken chuẩn)
       localStorage.setItem('token', finalAccessToken);
       localStorage.setItem('user', JSON.stringify(normalizedUser));
 
-      // 6. Cập nhật State
       set({
         token: finalAccessToken,
         user: normalizedUser,
@@ -86,7 +75,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
 
       return { success: true };
-
     } catch (error: any) {
       set({ isLoading: false });
       return {
@@ -162,10 +150,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   // ===============================
   logout: () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken'); // Xóa luôn refresh token
     localStorage.removeItem('user');
 
     set({ token: null, user: null });
-
     window.location.href = '/login';
   },
 
@@ -174,12 +162,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   // ===============================
   checkAuth: () => {
     const token = get().token;
+    const refreshToken = localStorage.getItem('refreshToken'); // Kiểm tra xem có refresh token không
+
     if (!token) return false;
 
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
 
       if (payload.exp * 1000 < Date.now()) {
+        // Nếu Access Token hết hạn NHƯNG vẫn còn Refresh Token -> Cho qua để axios interceptor làm việc
+        if (refreshToken) {
+            return true; 
+        }
+        
         get().logout();
         return false;
       }

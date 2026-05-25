@@ -115,6 +115,11 @@ getProjectMembers: (projectId: string) => {
     return response.data || response;
   },
 
+  getTaskAttachments: async (taskId: string): Promise<any> => {
+    const response: any = await axiosClient.get(`/tasks/${taskId}/attachments`);
+    return response.data || response;
+  },
+
   uploadFile: async (file: File): Promise<any> => {
     const formData = new FormData();
     formData.append('file', file); 

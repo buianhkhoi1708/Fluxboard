@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import axiosClient from '../../../lib/axiosClient';
 import { useCreateWorkspace } from '../hooks/useWorkspaceQueries';
 
+
 const EMPTY_ARRAY: any[] = [];
 
 interface CreateProjectModalProps {

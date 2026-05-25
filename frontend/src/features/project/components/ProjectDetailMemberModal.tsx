@@ -10,20 +10,15 @@ const ProjectDetailMemberModal = ({ isOpen, onClose, projectId, editMember }: an
     const { mutateAsync: updateMember, isPending: isUpdating } = useUpdateProjectMember(projectId);
     
     const [selectedUserId, setSelectedUserId] = useState('');
-    const [selectedRole, setSelectedRole] = useState(''); // Lưu ID của Role thật
+    const [selectedRole, setSelectedRole] = useState(''); 
     const [isActive, setIsActive] = useState(true);
 
-    // Lọc quyền safe-list: Chỉ hiện các vai trò phổ biến cho modal này
     const ALLOWED_PROJECT_ROLES = ['PM', 'LEAD', 'MEMBER', 'VIEWER'];
 
-    // ==========================================
-    // 1. FETCH USERS VỚI THIẾT KẾ BỌC THÉP
-    // ==========================================
     const { data: systemUsers = [], isLoading: isUsersLoading } = useQuery({
         queryKey: ['all-system-users'],
         queryFn: async () => {
             const response: any = await axiosClient.get('/users', { params: { size: 100 } });
-            
             if (Array.isArray(response)) return response; 
             if (Array.isArray(response.data)) return response.data; 
             if (Array.isArray(response.data?.data?.content)) return response.data.data.content;
@@ -33,39 +28,40 @@ const ProjectDetailMemberModal = ({ isOpen, onClose, projectId, editMember }: an
         enabled: isOpen, 
     });
 
-    // ==========================================
-    // 2. FETCH ROLES ĐỘNG & LỌC QUYỀN
-    // ==========================================
     const { data: systemRoles = [], isLoading: isRolesLoading } = useQuery({
         queryKey: ['filtered-project-roles'],
         queryFn: async () => {
             const response: any = await axiosClient.get('/rbac/roles', { params: { size: 100 } });
-            
             let rawRoles: any[] = [];
             if (Array.isArray(response)) rawRoles = response; 
             else if (Array.isArray(response.data)) rawRoles = response.data; 
             else if (Array.isArray(response.data?.data?.content)) rawRoles = response.data.data.content;
             else if (Array.isArray(response.data?.data)) rawRoles = response.data.data;
-            else rawRoles = [];
-
             return rawRoles.filter((role: any) => ALLOWED_PROJECT_ROLES.includes(role.name?.toUpperCase()));
         },
         enabled: isOpen, 
     });
 
     // ==========================================
-    // 3. LOGIC ĐỒNG BỘ CASCADING
+    // 🚀 LOGIC ĐỒNG BỘ DATA BỌC THÉP
     // ==========================================
     useEffect(() => {
         if (isOpen) {
             if (editMember) {
-                const userData = editMember.user_id || editMember.user || {};
-                const safeUserId = userData._id || userData.id || editMember.userId || editMember._id || '';
+                // 1. Trích xuất ID User (chống trượt)
+                let safeUserId = '';
+                if (typeof editMember.user_id === 'string') safeUserId = editMember.user_id;
+                else if (typeof editMember.userId === 'string') safeUserId = editMember.userId;
+                else if (editMember.user_id?._id || editMember.user_id?.id) safeUserId = editMember.user_id._id || editMember.user_id.id;
+                else if (editMember.user?._id || editMember.user?.id) safeUserId = editMember.user._id || editMember.user.id;
+                else safeUserId = editMember._id || editMember.id || '';
 
+                // 2. Trích xuất Role ID
                 const roles = editMember.roleIds || editMember.role_ids || [];
                 const firstRole = roles[0];
                 const safeRoleId = firstRole ? (typeof firstRole === 'string' ? firstRole : (firstRole._id || firstRole.id)) : '';
 
+                // 3. Status
                 const safeIsActive = editMember.is_active !== undefined ? editMember.is_active : (editMember.active !== false);
 
                 setSelectedUserId(safeUserId);
@@ -79,7 +75,6 @@ const ProjectDetailMemberModal = ({ isOpen, onClose, projectId, editMember }: an
         }
     }, [isOpen, editMember]);
 
-    // Tự động chọn Role mặc định (MEMBER)
     useEffect(() => {
         if (isOpen && !editMember && systemRoles.length > 0 && !selectedRole) {
             const defaultRole = systemRoles.find((r: any) => r.name?.toUpperCase().includes('MEMBER')) || systemRoles[0];
@@ -138,27 +133,44 @@ const ProjectDetailMemberModal = ({ isOpen, onClose, projectId, editMember }: an
                     {/* KHỐI 1: CHỌN NGƯỜI DÙNG */}
                     <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
                         <label className="block text-xs font-bold text-slate-500 uppercase mb-3 tracking-widest flex items-center gap-2">
-                           <Fingerprint size={14} className="text-slate-400" /> Bước 1: Chọn Người dùng *
+                           <Fingerprint size={14} className="text-slate-400" /> Bước 1: Người dùng *
                         </label>
-                        <select 
-                            value={selectedUserId}
-                            onChange={(e) => setSelectedUserId(e.target.value)}
-                            disabled={!!editMember || isUsersLoading}
-                            className="w-full px-5 py-3 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-400 outline-none text-sm font-semibold transition-all disabled:bg-slate-50 disabled:text-slate-500 appearance-none bg-slate-50 hover:bg-slate-100 cursor-pointer"
-                        >
-                            <option value="" disabled>
-                                {isUsersLoading ? 'Đang tải danh sách nhân sự...' : ' -- Click để chọn một người dùng từ hệ thống --'}
-                            </option>
-                            {/* 🚀 BỌC THÉP KEY VÀ VALUE CHO USER */}
-                            {systemUsers?.map((u: any, index: number) => {
-                                const safeId = u.id || u._id || `user-${index}`;
-                                return (
-                                    <option key={safeId} value={safeId}>
-                                        {u.full_name || u.name || u.username} ({u.email})
-                                    </option>
-                                );
-                            })}
-                        </select>
+                        
+                        {/* 🚀 BỌC THÉP UI: CARD READ-ONLY KHI EDIT */}
+                        {editMember ? (
+                            <div className="w-full px-5 py-4 border border-slate-200 rounded-2xl bg-slate-50 flex items-center gap-4 opacity-90 cursor-not-allowed">
+                                <div className="w-11 h-11 rounded-xl bg-indigo-100 text-indigo-700 font-black flex items-center justify-center shadow-sm text-lg border border-indigo-200">
+                                    {((editMember.user_id?.full_name || editMember.user?.full_name || editMember.name || editMember.email || 'U').charAt(0)).toUpperCase()}
+                                </div>
+                                <div>
+                                    <div className="text-sm font-bold text-slate-800">
+                                        {editMember.user_id?.full_name || editMember.user?.full_name || editMember.name || 'Thành viên'}
+                                    </div>
+                                    <div className="text-xs font-medium text-slate-500 mt-1 flex items-center gap-1.5">
+                                        {editMember.user_id?.email || editMember.user?.email || editMember.email || 'Chưa có email'}
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <select 
+                                value={selectedUserId}
+                                onChange={(e) => setSelectedUserId(e.target.value)}
+                                disabled={isUsersLoading}
+                                className="w-full px-5 py-3 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-400 outline-none text-sm font-semibold transition-all disabled:bg-slate-50 disabled:text-slate-500 appearance-none bg-slate-50 hover:bg-slate-100 cursor-pointer"
+                            >
+                                <option value="" disabled>
+                                    {isUsersLoading ? 'Đang tải danh sách nhân sự...' : ' -- Click để chọn một người dùng từ hệ thống --'}
+                                </option>
+                                {systemUsers?.map((u: any, index: number) => {
+                                    const safeId = u.id || u._id || `user-${index}`;
+                                    return (
+                                        <option key={safeId} value={safeId}>
+                                            {u.full_name || u.name || u.username} ({u.email})
+                                        </option>
+                                    );
+                                })}
+                            </select>
+                        )}
                     </div>
 
                     {/* KHỐI 2: CHỌN VAI TRÒ */}
