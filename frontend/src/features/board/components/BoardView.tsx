@@ -217,17 +217,27 @@ const BoardView = () => {
 
     // 🚀 BÍ QUYẾT 3: GỌI API CHẠY NGẦM DƯỚI NỀN
     try {
-      await moveTaskApi({
-        taskId: activeId, 
-        columnId: overColId,
-        order: newOrder,
-        boardId: currentBoardId
-      });
-    } catch (error) {
-      console.error("Lỗi khi di chuyển task:", error);
-      // Lỗi mạng thì roll-back lại giao diện như cũ
-      queryClient.setQueryData(boardKey, previousBoard);
-    }
+  // Trích xuất ID một cách tường minh nhất
+  const pId = board?.project_id || board?.projectId || board?.project?._id;
+
+  if (!pId) {
+    console.error("🚨 Không tìm thấy Project ID! Board data:", board);
+    throw new Error("Missing Project ID");
+  }
+
+  await moveTaskApi({
+    taskId: activeId, 
+    columnId: overColId,
+    order: newOrder,
+    boardId: currentBoardId,
+    // Truyền trực tiếp ID đã được xác nhận là string
+    projectId: String(pId)
+  });
+} catch (error) {
+  console.error("Lỗi khi di chuyển task:", error);
+  // Roll-back lại dữ liệu cũ khi lỗi
+  queryClient.setQueryData(boardKey, previousBoard);
+}
   };
   return (
     <>

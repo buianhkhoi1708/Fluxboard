@@ -75,14 +75,21 @@ createTask: async (taskData: any) => {
     return response.data || response;
   },
 
-  moveTask: async (taskId: string, columnId: string, order: number, boardId: string) => {
+  moveTask: async ({ taskId, columnId, order, boardId, project_id }: { 
+    taskId: string; 
+    columnId: string; 
+    order: number; 
+    boardId: string; 
+    project_id: string; // 🚀 ĐÓN PROJECT ID TỪ COMPONENT
+  }) => {
     // 🚀 ĐÃ FIX: 
     // 1. Sửa thành axiosClient.put để khớp với router.put ở Backend
     // 2. Đổi tên key thành destColumnId và newOrder để khớp với Controller
     const response: any = await axiosClient.put(`/tasks/${taskId}/move`, {
       destColumnId: columnId, 
       newOrder: order,
-      board_id: boardId 
+      board_id: boardId,
+      project_id: project_id // 🚀 GỬI KÈM XUỐNG BACKEND ĐỂ QUA CỬA RBAC
     });
     return response.data || response;
   },

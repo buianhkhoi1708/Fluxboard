@@ -31,47 +31,51 @@ const requirePermission = (resource, action, scope = "SYSTEM") => {
         userRoles = systemRoles;
       } else if (scope === "PROJECT") {
         const projectId =
-          req.params.id ||
-          req.params.projectId ||
+          req.body.project_id ||
           req.body.projectId ||
-          req.body.project_id;
+          req.query.project_id ||
+          req.params.projectId ||
+          (req.originalUrl.includes('/projects') ? req.params.id : null); // Chỉ lấy :id nếu URL thuộc về projects
 
         if (!projectId) {
           throw new AppError(
             "Project ID is required for project-level permission check",
-            400,
+            400
           );
         }
 
-        const member = await ProjectMember.findOne({
+       const member = await ProjectMember.findOne({
           project_id: projectId,
           user_id: userId,
         })
           .populate({
-            path: "role_id",
+            path: "role_ids", // 🚀 ĐỔI LẠI THÀNH CHỮ 's' VÌ DB ĐANG LƯU MẢNG
             populate: { path: "permission_ids" },
           })
           .lean();
 
-        if (!member || !member.role_id) {
+        // 🚀 Cập nhật biến này
+        if (!member || !member.role_ids || member.role_ids.length === 0) {
           throw new AppError(
-            "You are not a member of this project",
+            "You are not a member of this project or missing role",
             403,
-            "FORBIDDEN",
+            "FORBIDDEN"
           );
         }
 
-        userRoles = [member.role_id];
+        userRoles = member.role_ids;
       }
 
       // 3. KIỂM TRA QUYỀN ĐỘNG
       const userPermissions = userRoles.flatMap(
-        (role) => role.permission_ids || [],
+        (role) => (role && role.permission_ids) ? role.permission_ids : []
       );
+      
       const hasPermission = userPermissions.some(
         (p) =>
-          p.resource === resource && p.action === action && p.scope === scope,
+          p && p.resource === resource && p.action === action && p.scope === scope
       );
+
 
       if (!hasPermission) {
         throw new AppError(

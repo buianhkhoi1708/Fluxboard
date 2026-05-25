@@ -20,11 +20,10 @@ exports.Scopes = Object.freeze({
 
 // Bổ sung thêm Resource (Tài nguyên)
 exports.Resources = Object.freeze({
-    USER: 'USER',
-    PROJECT: 'PROJECT',
-    TASK: 'TASK',
-    ROLE: 'ROLE',
-    PERMISSION: 'PERMISSION'
+    USER: 'USER', PROJECT: 'PROJECT', TASK: 'TASK', ROLE: 'ROLE', PERMISSION: 'PERMISSION',
+    RBAC: 'RBAC', DEPARTMENT: 'DEPARTMENT', TEAM: 'TEAM', 
+    BOARD: 'BOARD', COLUMN: 'COLUMN', COMMENT: 'COMMENT', 
+    ATTACHMENT: 'ATTACHMENT', LABEL: 'LABEL' // 👈 Phải có mấy cái này
 });
 
 // Bổ sung thêm Action (Hành động)
