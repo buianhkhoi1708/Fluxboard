@@ -3,9 +3,11 @@ const Task = require('../../task/models/task.model');
 const Column = require('../../column/models/column.model');
 const Board = require('../../board/models/board.model');
 const Project = require('../../project/models/project.model');
+const Notification = require('../models/notification.model');
 const notificationService = require('./notification.service');
 const UserNotificationPref = require('../../user/models/userNotificationPref.model');
 const socketConfig = require('../../../common/config/socket');
+const eventBus = require('../../../common/utils/eventBus');
 
 const getFrontendUrl = () => process.env.FRONTEND_URL || 'http://localhost:5173';
 
@@ -18,6 +20,12 @@ const IMMEDIATE_EMAIL_TYPES = new Set([
     'EXTENSION_REJECTED_BY_YOU',
     'TASK_COMPLETED',
     'TASK_COMPLETED_BY_YOU'
+]);
+
+const DEADLINE_REMINDER_TYPES = new Set([
+    'TASK_OVERDUE',
+    'TASK_DEADLINE_REMINDER',
+    'DEADLINE_REMINDER'
 ]);
 
 const formatDate = (value) => {
@@ -113,14 +121,16 @@ const getNotificationPrefs = async (recipientId) => {
         inAppEnabled:
             prefs?.in_app_notifications_enabled ??
             prefs?.push_notifications ??
+            true,
+
+        deadlineReminderEnabled:
+            prefs?.task_deadline_reminders ??
             true
     };
 };
 
-const emitSocketNotification = (recipientId, notification) => {
-    const io = socketConfig.getIo();
-
-    if (!io || !recipientId || !notification) return;
+const emitRealtimeNotification = (recipientId, notification) => {
+    if (!recipientId || !notification) return;
 
     const notifToClient =
         typeof notification.toObject === 'function'
@@ -129,7 +139,13 @@ const emitSocketNotification = (recipientId, notification) => {
 
     delete notifToClient.email_html;
 
-    io.to(recipientId.toString()).emit('newNotification', notifToClient);
+    eventBus.emit(`new_notification_for_${notifToClient.recipient_id.toString()}`, notifToClient);
+
+    const io = socketConfig.getIo();
+
+    if (io) {
+        io.to(recipientId.toString()).emit('newNotification', notifToClient);
+    }
 };
 
 const getProjectOwnerIdFromTask = async (task) => {
@@ -207,11 +223,12 @@ const resolveTaskManagerId = async (task, payload = {}) => {
 };
 
 /**
- * Hàm dispatch trung tâm.
+ * Dispatch trung tâm.
  *
- * referenceType: TASK / PROJECT / BOARD / DEADLINE...
- * actionUrl: URL FE để bấm vào notification thì đi thẳng tới nơi cần xem.
- * metadata: dữ liệu phụ để FE dựng popup, ví dụ popup xin dời deadline.
+ * Rule cấu hình:
+ * - email_notifications=false: vẫn lưu notification DB nhưng không queue/gửi email.
+ * - push_notifications=false: vẫn lưu notification DB nhưng không emit realtime/long polling/socket.
+ * - task_deadline_reminders=false: bỏ qua nhóm notification nhắc deadline.
  */
 const dispatch = async (
     recipientId,
@@ -231,7 +248,15 @@ const dispatch = async (
     const recipient = await User.findById(recipientId).lean();
     if (!recipient) return null;
 
-    const { emailEnabled, inAppEnabled } = await getNotificationPrefs(recipientId);
+    const {
+        emailEnabled,
+        inAppEnabled,
+        deadlineReminderEnabled
+    } = await getNotificationPrefs(recipientId);
+
+    if (DEADLINE_REMINDER_TYPES.has(type) && !deadlineReminderEnabled) {
+        return null;
+    }
 
     const emailDelayMinutes =
         options.emailDelayMinutes !== undefined
@@ -249,8 +274,7 @@ const dispatch = async (
         reference_id: referenceId || null,
         reference_type: referenceType,
         action_url: actionUrl,
-        metadata: metadata || {},
-        email_delay_minutes: emailDelayMinutes
+        metadata: metadata || {}
     };
 
     let savedNotif = null;
@@ -259,27 +283,34 @@ const dispatch = async (
         savedNotif = await notificationService.queueNotification({
             ...notifData,
             email_html: emailHtml,
-            status: 'PENDING'
+            status: 'PENDING',
+            email_delay_minutes: emailDelayMinutes,
+            emit_realtime: inAppEnabled
         });
     } else {
-        const Notification = require('../models/notification.model');
-
-        const { email_delay_minutes, ...dataToSave } = notifData;
-
         savedNotif = await Notification.create({
-            ...dataToSave,
+            ...notifData,
             status: 'SENT'
         });
 
-        const notifToClient = savedNotif.toObject();
-        delete notifToClient.email_html;
-
-        const eventBus = require('../../../common/utils/eventBus');
-        eventBus.emit(`new_notification_for_${notifToClient.recipient_id.toString()}`, notifToClient);
+        if (inAppEnabled) {
+            emitRealtimeNotification(recipientId, savedNotif);
+        }
     }
 
-    if (inAppEnabled) {
-        emitSocketNotification(recipientId, savedNotif);
+    if (inAppEnabled && savedNotif && emailEnabled && recipient.email) {
+        const io = socketConfig.getIo();
+
+        if (io) {
+            const notifToClient =
+                typeof savedNotif.toObject === 'function'
+                    ? savedNotif.toObject()
+                    : { ...savedNotif };
+
+            delete notifToClient.email_html;
+
+            io.to(recipientId.toString()).emit('newNotification', notifToClient);
+        }
     }
 
     return savedNotif;
@@ -759,6 +790,7 @@ exports.dispatchTaskCompleted = async (payload) => {
         task.assignees_user_id.forEach((id) => addRecipient(recipients, id));
     }
 
+    addRecipient(recipients, task.assignee_id);
     addRecipient(recipients, task.author_user_id);
 
     const projectOwnerId = await getProjectOwnerIdFromTask(task);

@@ -4,13 +4,54 @@ const notificationDispatcher = require('../services/notificationDispatcher.servi
 // Bộ nhớ tạm lưu trữ danh sách ID các Task mới tạo đang trong vòng 10 phút chờ hoãn
 const pendingCreations = new Set();
 
+// Chống gửi trùng notification hoàn thành task khi FE/socket/API bắn liên tiếp
 const recentlyCompletedTasks = new Set();
+
+// Debounce update/move
+const DEBOUNCE_TIME_MS = 60000;
+const taskTimers = new Map();
+
+const getTaskIdFromPayload = (payload = {}) => {
+    return payload.task_id || payload.taskId;
+};
+
+const clearTaskTimer = (timerKey) => {
+    if (!taskTimers.has(timerKey)) return;
+
+    clearTimeout(taskTimers.get(timerKey));
+    taskTimers.delete(timerKey);
+};
+
+const clearTaskDebounceTimers = (taskId) => {
+    if (!taskId) return;
+
+    clearTaskTimer(`UPDATE_${taskId}`);
+    clearTaskTimer(`MOVE_${taskId}`);
+};
+
+const handleDebouncedEvent = (timerKey, payload, dispatchFunction) => {
+    if (taskTimers.has(timerKey)) {
+        clearTimeout(taskTimers.get(timerKey));
+    }
+
+    const timer = setTimeout(async () => {
+        taskTimers.delete(timerKey);
+
+        try {
+            await dispatchFunction(payload);
+        } catch (error) {
+            console.error(`Error dispatching debounced notification ${timerKey}:`, error);
+        }
+    }, DEBOUNCE_TIME_MS);
+
+    taskTimers.set(timerKey, timer);
+};
 
 // ==========================================
 // 1. SỰ KIỆN TẠO TASK MỚI
 // ==========================================
 eventBus.on('task_created', async (payload) => {
-    const taskId = payload.task_id || payload.taskId;
+    const taskId = getTaskIdFromPayload(payload);
     if (!taskId) return;
 
     const taskKey = taskId.toString();
@@ -59,7 +100,7 @@ eventBus.on('extension_rejected', async (payload) => {
 // 3. SỰ KIỆN HOÀN THÀNH TASK
 // ==========================================
 const dispatchTaskCompletedOnce = async (payload) => {
-    const taskId = payload.task_id || payload.taskId;
+    const taskId = getTaskIdFromPayload(payload);
     if (!taskId) return;
 
     const taskKey = taskId.toString();
@@ -69,6 +110,10 @@ const dispatchTaskCompletedOnce = async (payload) => {
     }
 
     recentlyCompletedTasks.add(taskKey);
+
+    // Nếu trước đó task đang có update/move debounce chờ gửi thì xóa đi,
+    // tránh vừa báo hoàn thành xong lại bị báo update/move cũ.
+    clearTaskDebounceTimers(taskKey);
 
     try {
         await notificationDispatcher.dispatchTaskCompleted(payload);
@@ -90,57 +135,47 @@ eventBus.on('system_task_completed', async (payload) => {
 });
 
 // ==========================================
-// 4. LOGIC DEBOUNCE CHO CẬP NHẬT / KÉO THẢ TASK
-// ==========================================
-const DEBOUNCE_TIME_MS = 60000;
-const taskTimers = new Map();
-
-const handleDebouncedEvent = (timerKey, payload, dispatchFunction) => {
-    if (taskTimers.has(timerKey)) {
-        clearTimeout(taskTimers.get(timerKey));
-    }
-
-    const timer = setTimeout(async () => {
-        taskTimers.delete(timerKey);
-
-        try {
-            await dispatchFunction(payload);
-        } catch (error) {
-            console.error(`Error dispatching debounced notification ${timerKey}:`, error);
-        }
-    }, DEBOUNCE_TIME_MS);
-
-    taskTimers.set(timerKey, timer);
-};
-
-// ==========================================
-// 5. SỰ KIỆN CẬP NHẬT TASK
+// 4. SỰ KIỆN CẬP NHẬT TASK
 // ==========================================
 eventBus.on('system_task_updated', (payload) => {
-    const taskId = payload.taskId || payload.task_id;
+    const taskId = getTaskIdFromPayload(payload);
     if (!taskId) return;
 
+    const taskKey = taskId.toString();
+
     // Nếu task này đang nằm trong danh sách chờ 10 phút của tạo mới -> bỏ qua thông báo update
-    if (pendingCreations.has(taskId.toString())) {
+    if (pendingCreations.has(taskKey)) {
         return;
     }
 
-    const timerKey = `UPDATE_${taskId}`;
+    // Nếu vừa hoàn thành trong 30s thì không gửi update thường nữa
+    if (recentlyCompletedTasks.has(taskKey)) {
+        return;
+    }
+
+    const timerKey = `UPDATE_${taskKey}`;
     handleDebouncedEvent(timerKey, payload, notificationDispatcher.dispatchTaskUpdated);
 });
 
 // ==========================================
-// 6. SỰ KIỆN KÉO THẢ / MOVE TASK
+// 5. SỰ KIỆN KÉO THẢ / MOVE TASK
 // ==========================================
 eventBus.on('system_task_moved', (payload) => {
-    const taskId = payload.taskId || payload.task_id;
+    const taskId = getTaskIdFromPayload(payload);
     if (!taskId) return;
 
+    const taskKey = taskId.toString();
+
     // Nếu task này đang nằm trong danh sách chờ 10 phút của tạo mới -> bỏ qua thông báo move
-    if (pendingCreations.has(taskId.toString())) {
+    if (pendingCreations.has(taskKey)) {
         return;
     }
 
-    const timerKey = `MOVE_${taskId}`;
+    // Nếu vừa hoàn thành trong 30s thì không gửi move thường nữa
+    if (recentlyCompletedTasks.has(taskKey)) {
+        return;
+    }
+
+    const timerKey = `MOVE_${taskKey}`;
     handleDebouncedEvent(timerKey, payload, notificationDispatcher.dispatchTaskMoved);
 });

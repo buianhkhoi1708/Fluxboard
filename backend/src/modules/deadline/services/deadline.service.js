@@ -19,12 +19,6 @@ const isInvalidDate = (value) => {
 
 const toDate = (value) => new Date(value);
 
-const toIdString = (value) => {
-    if (!value) return null;
-    if (typeof value === 'object' && value._id) return value._id.toString();
-    return value.toString();
-};
-
 const findActiveDeadline = async (taskId) => {
     return await TaskDeadline.findOne({
         task_id: taskId,
@@ -37,6 +31,28 @@ const findActiveTask = async (taskId) => {
         _id: taskId,
         is_deleted: { $ne: true }
     }).lean();
+};
+
+const getNotificationPrefs = async (userId) => {
+    const prefs = await UserNotificationPref.findOne({
+        user_id: userId.toString()
+    }).lean();
+
+    return {
+        emailEnabled:
+            prefs?.email_notifications_enabled ??
+            prefs?.email_notifications ??
+            true,
+
+        pushEnabled:
+            prefs?.in_app_notifications_enabled ??
+            prefs?.push_notifications ??
+            true,
+
+        deadlineReminderEnabled:
+            prefs?.task_deadline_reminders ??
+            true
+    };
 };
 
 const emitExtensionRequested = ({ taskId, userId, originalDueDate, newDueDate, reason }) => {
@@ -119,21 +135,9 @@ const emitExtensionRejected = ({
 };
 
 // ==========================================
-// 1. CÁC HÀM XỬ LÝ GIA HẠN (EXTENSION LOGIC)
+// 1. CÁC HÀM XỬ LÝ GIA HẠN
 // ==========================================
 
-/**
- * Nhân viên xin dời deadline.
- *
- * Flow:
- * - Validate task/deadline tồn tại.
- * - Validate deadline mới phải sau deadline hiện tại.
- * - Validate phải có lý do.
- * - Lưu trạng thái PENDING vào TaskDeadline.
- * - Emit extension_requested để notificationDispatcher gửi:
- *   + thông báo cho sếp/admin
- *   + thông báo xác nhận đã gửi đơn cho nhân viên
- */
 exports.requestExtension = async (taskId, userId, newDueDate, reason) => {
     const task = await findActiveTask(taskId);
 
@@ -179,7 +183,6 @@ exports.requestExtension = async (taskId, userId, newDueDate, reason) => {
     deadline.extension_requested_at = new Date();
     deadline.extension_reason = cleanReason;
 
-    // Reset dữ liệu review cũ nếu trước đó từng bị reject/approve
     deadline.extension_reviewed_by = null;
     deadline.extension_reviewed_at = null;
     deadline.extension_reject_reason = '';
@@ -197,16 +200,6 @@ exports.requestExtension = async (taskId, userId, newDueDate, reason) => {
     return deadline;
 };
 
-/**
- * Sếp/admin chấp nhận yêu cầu dời deadline.
- *
- * Flow:
- * - Chỉ duyệt khi đang PENDING.
- * - due_date = pending_due_date.
- * - Đồng bộ lại Task.due_date để FE fallback vẫn đúng.
- * - Tăng extension_count.
- * - Emit extension_approved để gửi notification cho cả nhân viên và sếp/admin.
- */
 exports.approveExtension = async (taskId, managerId) => {
     const task = await findActiveTask(taskId);
 
@@ -238,18 +231,11 @@ exports.approveExtension = async (taskId, managerId) => {
     deadline.extension_reviewed_at = new Date();
     deadline.extension_reject_reason = '';
 
-    // Reset lại cờ deadline để cron job kiểm tra theo hạn mới
     deadline.is_overdue = false;
     deadline.reminder_sent = false;
 
-    // Nếu deadline mới sau hiện tại thì task chưa overdue
-    if (new Date(approvedDueDate) > new Date()) {
-        deadline.is_overdue = false;
-    }
-
     await deadline.save();
 
-    // Đồng bộ sang Task để FE nào đọc task.due_date trực tiếp vẫn đúng.
     await Task.findByIdAndUpdate(
         taskId,
         {
@@ -275,15 +261,6 @@ exports.approveExtension = async (taskId, managerId) => {
     return deadline;
 };
 
-/**
- * Sếp/admin từ chối yêu cầu dời deadline.
- *
- * Flow:
- * - Chỉ từ chối khi đang PENDING.
- * - Không đổi due_date hiện tại.
- * - Xóa pending_due_date.
- * - Emit extension_rejected để gửi notification cho cả nhân viên và sếp/admin.
- */
 exports.rejectExtension = async (taskId, managerId, rejectReason) => {
     const task = await findActiveTask(taskId);
 
@@ -326,7 +303,7 @@ exports.rejectExtension = async (taskId, managerId, rejectReason) => {
 };
 
 // ==========================================
-// 2. GỬI MAIL DEADLINE REMINDER CŨ
+// 2. GỬI MAIL / PUSH DEADLINE REMINDER CŨ
 // ==========================================
 
 exports.sendDelayedNotification = (user, task, deadlineRecord, delayMinutes = 10) => {
@@ -336,22 +313,22 @@ exports.sendDelayedNotification = (user, task, deadlineRecord, delayMinutes = 10
 };
 
 exports.dispatchTaskDeadlineNotification = async (user, task, deadlineRecord) => {
+    const userId = user?._id || user?.id;
+
+    if (!userId || !task || !deadlineRecord) return;
+
+    const {
+        emailEnabled,
+        pushEnabled,
+        deadlineReminderEnabled
+    } = await getNotificationPrefs(userId);
+
+    if (!deadlineReminderEnabled) {
+        return;
+    }
+
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     const formattedDate = new Date(deadlineRecord.due_date).toLocaleString('vi-VN');
-
-    const prefs = await UserNotificationPref.findOne({
-        user_id: user._id
-    }).lean();
-
-    const emailEnabled =
-        prefs?.email_notifications_enabled ??
-        prefs?.email_notifications ??
-        true;
-
-    const pushEnabled =
-        prefs?.in_app_notifications_enabled ??
-        prefs?.push_notifications ??
-        true;
 
     if (emailEnabled && user.email) {
         const subject = `[Urgent] Task Deadline Approaching: ${task.title}`;
@@ -385,7 +362,7 @@ exports.dispatchTaskDeadlineNotification = async (user, task, deadlineRecord) =>
         const io = socketConfig.getIo();
 
         if (io) {
-            io.to(user._id.toString()).emit('deadlineAlert', {
+            io.to(userId.toString()).emit('deadlineAlert', {
                 task_id: task._id,
                 board_id: task.board_id,
                 title: task.title,

@@ -1,30 +1,42 @@
 import { create } from 'zustand';
-import axiosClient from '../../../lib/axiosClient'; 
+import axiosClient from '../../../lib/axiosClient';
 
-// ===============================
-// 1. USER INTERFACE
-// ===============================
 export interface UserProfile {
   id: string | number;
+  _id?: string | number;
+  user_id?: string | number;
+
   email: string;
+
   full_name: string;
+  fullName?: string;
+
   avatar_url?: string | null;
+  avatarUrl?: string | null;
+
   department?: string | null;
+  department_id?: string | null;
+  departmentId?: string | null;
+
   system_role?: string;
   role_id?: string;
+  status?: string;
 }
 
-// ===============================
-// 2. STATE & ACTION
-// ===============================
+interface LogoutOptions {
+  redirect?: boolean;
+  redirectTo?: string;
+}
+
 interface AuthState {
   token: string | null;
   user: UserProfile | null;
   isLoading: boolean;
 
   login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
-  logout: () => void;
+  logout: (options?: LogoutOptions) => void;
   checkAuth: () => boolean;
+  syncFromStorage: () => void;
 
   forgotPassword: (email: string) => Promise<any>;
   verifyResetToken: (token: string) => Promise<any>;
@@ -33,148 +45,271 @@ interface AuthState {
   updateUserProfile: (updatedData: Partial<UserProfile>) => void;
 }
 
-// ===============================
-// 3. STORE
-// ===============================
+const normalizeUser = (rawUser: any): UserProfile => {
+  const userId = rawUser?.id || rawUser?._id || rawUser?.user_id;
+
+  return {
+    ...rawUser,
+
+    id: userId,
+    _id: rawUser?._id || userId,
+    user_id: rawUser?.user_id || userId,
+
+    email: rawUser?.email || '',
+
+    full_name:
+      rawUser?.full_name ||
+      rawUser?.fullName ||
+      rawUser?.name ||
+      'Người dùng',
+
+    fullName:
+      rawUser?.fullName ||
+      rawUser?.full_name ||
+      rawUser?.name ||
+      'Người dùng',
+
+    avatar_url:
+      rawUser?.avatar_url ||
+      rawUser?.avatarUrl ||
+      null,
+
+    avatarUrl:
+      rawUser?.avatarUrl ||
+      rawUser?.avatar_url ||
+      null,
+
+    department_id:
+      rawUser?.department_id ||
+      rawUser?.departmentId ||
+      null,
+
+    departmentId:
+      rawUser?.departmentId ||
+      rawUser?.department_id ||
+      null,
+  };
+};
+
+const parseStoredUser = (): UserProfile | null => {
+  try {
+    const raw = localStorage.getItem('user');
+    return raw ? normalizeUser(JSON.parse(raw)) : null;
+  } catch {
+    return null;
+  }
+};
+
+const clearAuthStorage = () => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('user');
+  localStorage.removeItem('lastActivityAt');
+};
+
+const unwrapResponse = (res: any) => {
+  return res?.data?.data ?? res?.data ?? res;
+};
+
+const saveSession = (payload: any) => {
+  const finalAccessToken =
+    payload?.accessToken ||
+    payload?.access_token ||
+    payload?.token;
+
+  const finalRefreshToken =
+    payload?.refreshToken ||
+    payload?.refresh_token;
+
+  const finalUser = normalizeUser(payload?.user || payload);
+
+  if (!finalAccessToken) {
+    throw new Error('Không nhận được access token từ máy chủ.');
+  }
+
+  localStorage.setItem('token', finalAccessToken);
+  localStorage.setItem('user', JSON.stringify(finalUser));
+  localStorage.setItem('lastActivityAt', String(Date.now()));
+
+  if (finalRefreshToken) {
+    localStorage.setItem('refreshToken', finalRefreshToken);
+  }
+
+  return {
+    token: finalAccessToken,
+    user: finalUser,
+  };
+};
+
 export const useAuthStore = create<AuthState>((set, get) => ({
-  
   token: localStorage.getItem('token') || null,
-  user: JSON.parse(localStorage.getItem('user') || 'null'),
+  user: parseStoredUser(),
   isLoading: false,
 
-  // ===============================
-  // 🚀 LOGIN
-  // ===============================
   login: async (email, password) => {
     set({ isLoading: true });
+
     try {
-      const res: any = await axiosClient.post('/auth/login', { email, password });
-      const payload = res.data || res;
+      const res: any = await axiosClient.post('/auth/login', {
+        email,
+        password,
+      });
 
-      const finalAccessToken = payload.accessToken || payload.access_token;
-      // 🚀 Lấy thêm Refresh Token
-      const finalRefreshToken = payload.refreshToken || payload.refresh_token; 
-      const finalUser = payload.user || payload;
-
-      if (finalRefreshToken) {
-        localStorage.setItem('refreshToken', finalRefreshToken);
-      }
-
-      const normalizedUser: UserProfile = {
-        ...finalUser,
-        id: finalUser.id || finalUser.user_id
-      };
-
-      localStorage.setItem('token', finalAccessToken);
-      localStorage.setItem('user', JSON.stringify(normalizedUser));
+      const payload = unwrapResponse(res);
+      const session = saveSession(payload);
 
       set({
-        token: finalAccessToken,
-        user: normalizedUser,
-        isLoading: false
+        token: session.token,
+        user: session.user,
+        isLoading: false,
       });
 
       return { success: true };
     } catch (error: any) {
       set({ isLoading: false });
+
       return {
         success: false,
-        message: error.response?.data?.message || 'Đăng nhập thất bại!'
+        message:
+          error.response?.data?.message ||
+          error.response?.data?.error?.message ||
+          error.message ||
+          'Đăng nhập thất bại!',
       };
     }
   },
 
-  // ===============================
-  // FORGOT PASSWORD
-  // ===============================
   forgotPassword: async (email: string) => {
     set({ isLoading: true });
+
     try {
-      const res: any = await axiosClient.post('/auth/forgot-password', { email });
+      const res: any = await axiosClient.post('/auth/forgot-password', {
+        email,
+      });
+
+      const payload = unwrapResponse(res);
+
       set({ isLoading: false });
-      return { success: true, message: res.message || 'Đã gửi yêu cầu.' };
+
+      return {
+        success: true,
+        message: payload?.message || 'Đã gửi yêu cầu.',
+      };
     } catch (error: any) {
       set({ isLoading: false });
+
       return {
         success: false,
-        message: error.response?.data?.message || 'Lỗi hệ thống.'
+        message:
+          error.response?.data?.message ||
+          error.response?.data?.error?.message ||
+          'Lỗi hệ thống.',
       };
     }
   },
 
   verifyResetToken: async (token: string) => {
     try {
-      await axiosClient.get(`/auth/verify-reset-token?token=${token}`);
+      await axiosClient.get(`/auth/verify-reset-token?token=${encodeURIComponent(token)}`);
+
       return { success: true };
     } catch (error: any) {
       return {
         success: false,
-        message: error.response?.data?.message || 'Token không hợp lệ.'
+        message:
+          error.response?.data?.message ||
+          error.response?.data?.error?.message ||
+          'Token không hợp lệ.',
       };
     }
   },
 
   resetPassword: async (token: string, newPassword: string) => {
     set({ isLoading: true });
+
     try {
       const res: any = await axiosClient.post('/auth/reset-password', {
         token,
-        new_password: newPassword
+        new_password: newPassword,
       });
+
+      const payload = unwrapResponse(res);
+
       set({ isLoading: false });
-      return { success: true, message: res.message || 'Đổi mật khẩu thành công!' };
+
+      return {
+        success: true,
+        message: payload?.message || 'Đổi mật khẩu thành công!',
+      };
     } catch (error: any) {
       set({ isLoading: false });
+
       return {
         success: false,
-        message: error.response?.data?.message || 'Có lỗi xảy ra.'
+        message:
+          error.response?.data?.message ||
+          error.response?.data?.error?.message ||
+          'Có lỗi xảy ra.',
       };
     }
   },
 
-  // ===============================
-  // UPDATE PROFILE
-  // ===============================
   updateUserProfile: (updatedData) => {
     const currentUser = get().user;
-    if (currentUser) {
-      const newUser = { ...currentUser, ...updatedData };
 
-      localStorage.setItem('user', JSON.stringify(newUser));
-      set({ user: newUser });
+    if (!currentUser) return;
+
+    const newUser = normalizeUser({
+      ...currentUser,
+      ...updatedData,
+    });
+
+    localStorage.setItem('user', JSON.stringify(newUser));
+
+    set({
+      user: newUser,
+    });
+  },
+
+  logout: (options: LogoutOptions = {}) => {
+    const {
+      redirect = true,
+      redirectTo = '/login',
+    } = options;
+
+    clearAuthStorage();
+
+    set({
+      token: null,
+      user: null,
+    });
+
+    window.dispatchEvent(new Event('auth:logout'));
+
+    if (redirect) {
+      window.location.href = redirectTo;
     }
   },
 
-  // ===============================
-  // LOGOUT
-  // ===============================
-  logout: () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken'); // Xóa luôn refresh token
-    localStorage.removeItem('user');
-
-    set({ token: null, user: null });
-    window.location.href = '/login';
-  },
-
-  // ===============================
-  // CHECK AUTH (JWT)
-  // ===============================
   checkAuth: () => {
-    const token = get().token;
-    const refreshToken = localStorage.getItem('refreshToken'); // Kiểm tra xem có refresh token không
+    const token = get().token || localStorage.getItem('token');
+    const user = get().user || parseStoredUser();
+    const refreshToken = localStorage.getItem('refreshToken');
 
-    if (!token) return false;
+    if (!token || !user) {
+      return false;
+    }
 
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
 
       if (payload.exp * 1000 < Date.now()) {
-        // Nếu Access Token hết hạn NHƯNG vẫn còn Refresh Token -> Cho qua để axios interceptor làm việc
+        // Access token hết hạn nhưng còn refresh token thì vẫn cho vào app.
+        // Request API kế tiếp sẽ tự gọi silent refresh qua axios interceptor.
         if (refreshToken) {
-            return true; 
+          return true;
         }
-        
+
         get().logout();
         return false;
       }
@@ -184,5 +319,29 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       get().logout();
       return false;
     }
-  }
+  },
+
+  syncFromStorage: () => {
+    set({
+      token: localStorage.getItem('token') || null,
+      user: parseStoredUser(),
+    });
+  },
 }));
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('auth:session-refreshed', (event: Event) => {
+    const customEvent = event as CustomEvent<{
+      accessToken?: string;
+      user?: any;
+    }>;
+
+    const accessToken = customEvent.detail?.accessToken || localStorage.getItem('token');
+    const refreshedUser = customEvent.detail?.user || parseStoredUser();
+
+    useAuthStore.setState({
+      token: accessToken || null,
+      user: refreshedUser ? normalizeUser(refreshedUser) : null,
+    });
+  });
+}

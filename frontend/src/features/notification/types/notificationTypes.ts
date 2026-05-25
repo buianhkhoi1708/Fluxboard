@@ -57,6 +57,11 @@ export interface NotificationStore {
   unreadCount: number;
 
   /**
+   * Notification mới nhất để FE hiện toast nhỏ ở góc màn hình.
+   */
+  latestToastNotification: AppNotification | null;
+
+  /**
    * Giữ lại field này để không làm vỡ code cũ,
    * dù hiện tại pipeline chính đang dùng Long Polling.
    */
@@ -70,4 +75,5 @@ export interface NotificationStore {
   addNotification: (message: string, extra?: Partial<AppNotification>) => void;
   markAsRead: (id: string) => Promise<void> | void;
   markAllAsRead: () => Promise<void> | void;
+  clearToastNotification: (id?: string) => void;
 }
