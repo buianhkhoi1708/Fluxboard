@@ -1,4 +1,5 @@
 const Notification = require('../models/notification.model');
+const User = require('../../user/models/user.model'); // Thêm: Đăng ký schema tránh crash luồng Cron Job
 const emailService = require('../../email/services/email.service');
 const eventBus = require('../../../common/utils/eventBus');
 
@@ -20,10 +21,12 @@ exports.queueNotification = async (data) => {
         if (existingNotif) {
             existingNotif.send_at = sendTime; 
             existingNotif.sender_id = data.sender_id;
+            existingNotif.title = data.title;     // Sửa: Cập nhật tiêu đề mới
+            existingNotif.message = data.message; // Sửa: Cập nhật nội dung mới
             existingNotif.email_html = data.email_html; 
             await existingNotif.save();
             
-            // 💡 CẮT BỎ HTML TRƯỚC KHI TRẢ VỀ FRONTEND/POSTMAN
+            // Khấu trừ HTML trước khi chuyển dữ liệu về client
             const notifToClient = existingNotif.toObject();
             delete notifToClient.email_html;
             
@@ -36,7 +39,6 @@ exports.queueNotification = async (data) => {
                 send_at: sendTime
             });
             
-            // 💡 CẮT BỎ HTML TRƯỚC KHI TRẢ VỀ FRONTEND/POSTMAN
             const notifToClient = newNotif.toObject();
             delete notifToClient.email_html;
 
@@ -82,7 +84,6 @@ exports.executePendingNotification = async (notificationId) => {
 // ==========================================
 exports.getUserNotifications = async (userId, page = 1, limit = 20) => {
     const skip = (page - 1) * limit;
-    // 💡 Lấy API cũng nhớ Select trừ cái email_html ra cho nhẹ API
     return await Notification.find({ recipient_id: userId })
         .select('-email_html')
         .populate('sender_id', 'full_name avatar_url') 
@@ -100,5 +101,5 @@ exports.markAsRead = async (notificationId, userId) => {
         { _id: notificationId, recipient_id: userId },
         { is_read: true },
         { returnDocument: 'after' } 
-    ).select('-email_html'); // 💡 Cắt bỏ HTML
+    ).select('-email_html');
 };

@@ -7,22 +7,23 @@ const pendingCreations = new Set();
 // ==========================================
 // 1. SỰ KIỆN TẠO TASK MỚI (Trì hoãn 10 phút)
 // ==========================================
-eventBus.on('task_created', (payload) => {
+eventBus.on('task_created', async (payload) => {
     const taskId = payload.task_id || payload.taskId;
     if (!taskId) return;
 
     const taskKey = taskId.toString();
     pendingCreations.add(taskKey);
 
-    // Thiết lập thời gian hoãn đúng 10 phút (10 * 60 * 1000 ms)
-    setTimeout(async () => {
-        // Xóa khỏi danh sách chờ sau khi hết 10 phút
+    // Gửi in-app notification ngay lập tức
+    try {
+        await notificationDispatcher.dispatchTaskCreated(payload);
+    } catch (error) {
+        console.error('Error dispatching task created notification:', error);
+    }
+
+    // Vẫn giữ task này trong pendingCreations 10 phút để chặn spam update/move
+    setTimeout(() => {
         pendingCreations.delete(taskKey);
-        try {
-            await notificationDispatcher.dispatchTaskCreated(payload);
-        } catch (error) {
-            console.error('Error dispatching task created notification:', error);
-        }
     }, 600000);
 });
 

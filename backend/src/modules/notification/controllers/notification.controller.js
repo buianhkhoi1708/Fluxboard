@@ -5,7 +5,8 @@ exports.getMyNotifications = async (req, res, next) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
-        const notifications = await notificationService.getUserNotifications(req.user.id, page, limit);
+        const userId = req.user.id || req.user._id; // Đảm bảo lấy đúng định danh không phụ thuộc cấu hình middleware
+        const notifications = await notificationService.getUserNotifications(userId, page, limit);
         
         res.status(200).json({ success: true, data: notifications });
     } catch (error) { next(error); }
@@ -13,7 +14,8 @@ exports.getMyNotifications = async (req, res, next) => {
 
 exports.markAsRead = async (req, res, next) => {
     try {
-        const notification = await notificationService.markAsRead(req.params.id, req.user.id);
+        const userId = req.user.id || req.user._id;
+        const notification = await notificationService.markAsRead(req.params.id, userId);
         res.status(200).json({ success: true, data: notification, message: 'Notification marked as read' });
     } catch (error) { next(error); }
 };
@@ -22,28 +24,40 @@ exports.markAsRead = async (req, res, next) => {
 // API LONG POLLING (Chờ 30s)
 // ==========================================
 exports.longPollingNotifications = (req, res, next) => {
-    const userId = req.user.id;
-    const timeout_ms = 30000; // Treo request tối đa 30 giây
-
-    // Tạo kênh phát sóng dành riêng cho user này
+    const userId = req.user.id || req.user._id; // Đảm bảo đồng bộ định danh kênh sự kiện
+    const timeout_ms = 30000; 
     const userEventName = `new_notification_for_${userId}`;
+    
+    let collectedNotifications = [];
 
-    // 1. Timeout: Xử lý khi hết 30s mà không có thông báo
     const timeoutId = setTimeout(() => {
         eventBus.removeListener(userEventName, onNewNotification);
-        return res.status(200).json({ success: true, data: [], message: 'Timeout: No new notifications' });
+        return res.status(200).json({ 
+            success: true, 
+            data: collectedNotifications, 
+            message: 'Polling cycle completed' 
+        });
     }, timeout_ms);
 
-    // 2. Thành công: Xử lý khi có thông báo mới
     const onNewNotification = (notification) => {
-        clearTimeout(timeoutId); 
-        return res.status(200).json({ success: true, data: [notification], message: 'New notification arrived!' });
+        collectedNotifications.push(notification);
+        
+        setImmediate(() => {
+            clearTimeout(timeoutId);
+            eventBus.removeListener(userEventName, onNewNotification);
+            
+            if (!res.headersSent) {
+                return res.status(200).json({ 
+                    success: true, 
+                    data: collectedNotifications, 
+                    message: 'New notifications retrieved successfully' 
+                });
+            }
+        });
     };
 
-    // Đăng ký nghe trên kênh của user (Dùng once để nghe 1 lần rồi tự hủy)
-    eventBus.once(userEventName, onNewNotification);
+    eventBus.on(userEventName, onNewNotification);
 
-    // 3. Đứt kết nối: Xử lý khi user tắt web giữa chừng (Hủy listener rác)
     req.on('close', () => {
         clearTimeout(timeoutId);
         eventBus.removeListener(userEventName, onNewNotification);
