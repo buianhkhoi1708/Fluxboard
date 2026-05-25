@@ -1,15 +1,35 @@
 const User = require('../../user/models/user.model');
 const Task = require('../../task/models/task.model');
 const Column = require('../../column/models/column.model');
+const Board = require('../../board/models/board.model');
+const Project = require('../../project/models/project.model');
 const notificationService = require('./notification.service');
 const UserNotificationPref = require('../../user/models/userNotificationPref.model');
 const socketConfig = require('../../../common/config/socket');
 
 const getFrontendUrl = () => process.env.FRONTEND_URL || 'http://localhost:5173';
 
+const IMMEDIATE_EMAIL_TYPES = new Set([
+    'EXTENSION_REQUEST',
+    'EXTENSION_SUBMITTED',
+    'EXTENSION_APPROVED',
+    'EXTENSION_APPROVED_BY_YOU',
+    'EXTENSION_REJECTED',
+    'EXTENSION_REJECTED_BY_YOU',
+    'TASK_COMPLETED',
+    'TASK_COMPLETED_BY_YOU'
+]);
+
 const formatDate = (value) => {
     if (!value) return 'Không rõ';
-    return new Date(value).toLocaleString('vi-VN', {
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return 'Không rõ';
+    }
+
+    return date.toLocaleString('vi-VN', {
         hour: '2-digit',
         minute: '2-digit',
         day: '2-digit',
@@ -20,6 +40,7 @@ const formatDate = (value) => {
 
 const escapeHtml = (value) => {
     if (value === null || value === undefined) return '';
+
     return String(value)
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
@@ -34,8 +55,26 @@ const toIdString = (value) => {
     return value.toString();
 };
 
+const idsEqual = (a, b) => {
+    const aId = toIdString(a);
+    const bId = toIdString(b);
+
+    if (!aId || !bId) return false;
+
+    return aId === bId;
+};
+
+const addRecipient = (set, value) => {
+    const id = toIdString(value);
+
+    if (id) {
+        set.add(id);
+    }
+};
+
 const getTaskActionUrl = (task) => {
     if (!task || !task.board_id || !task._id) return null;
+
     return `/board/${task.board_id}?taskId=${task._id}`;
 };
 
@@ -80,6 +119,7 @@ const getNotificationPrefs = async (recipientId) => {
 
 const emitSocketNotification = (recipientId, notification) => {
     const io = socketConfig.getIo();
+
     if (!io || !recipientId || !notification) return;
 
     const notifToClient =
@@ -90,6 +130,80 @@ const emitSocketNotification = (recipientId, notification) => {
     delete notifToClient.email_html;
 
     io.to(recipientId.toString()).emit('newNotification', notifToClient);
+};
+
+const getProjectOwnerIdFromTask = async (task) => {
+    if (!task) return null;
+
+    try {
+        let projectId = task.project_id || null;
+
+        if (!projectId && task.board_id) {
+            const board = await Board.findById(task.board_id)
+                .select('project_id')
+                .lean();
+
+            projectId = board?.project_id || null;
+        }
+
+        if (!projectId) return null;
+
+        const project = await Project.findById(projectId)
+            .select('owner_id')
+            .lean();
+
+        return project?.owner_id || null;
+    } catch (error) {
+        console.error('[Notification] Cannot resolve project owner:', error);
+        return null;
+    }
+};
+
+const findFallbackAdminId = async () => {
+    try {
+        const admin = await User.findOne({
+            $or: [
+                { role: 'ADMIN' },
+                { role: 'admin' },
+                { role_name: 'ADMIN' },
+                { role_name: 'admin' },
+                { system_role: 'ADMIN' },
+                { system_role: 'admin' }
+            ],
+            is_deleted: { $ne: true }
+        })
+            .select('_id')
+            .lean();
+
+        return admin?._id || null;
+    } catch (error) {
+        return null;
+    }
+};
+
+const resolveTaskManagerId = async (task, payload = {}) => {
+    const requesterId = payload.userId || payload.requesterId || null;
+
+    const candidates = [];
+
+    if (payload.managerId) candidates.push(payload.managerId);
+    if (payload.receiverId) candidates.push(payload.receiverId);
+    if (payload.recipientId) candidates.push(payload.recipientId);
+    if (task?.author_user_id) candidates.push(task.author_user_id);
+
+    const projectOwnerId = await getProjectOwnerIdFromTask(task);
+    if (projectOwnerId) candidates.push(projectOwnerId);
+
+    const fallbackAdminId = await findFallbackAdminId();
+    if (fallbackAdminId) candidates.push(fallbackAdminId);
+
+    const validCandidates = candidates
+        .map(toIdString)
+        .filter(Boolean);
+
+    const notRequester = validCandidates.find((id) => !idsEqual(id, requesterId));
+
+    return notRequester || validCandidates[0] || null;
 };
 
 /**
@@ -109,7 +223,8 @@ const dispatch = async (
     referenceId,
     referenceType = 'TASK',
     actionUrl = null,
-    metadata = {}
+    metadata = {},
+    options = {}
 ) => {
     if (!recipientId) return null;
 
@@ -117,6 +232,13 @@ const dispatch = async (
     if (!recipient) return null;
 
     const { emailEnabled, inAppEnabled } = await getNotificationPrefs(recipientId);
+
+    const emailDelayMinutes =
+        options.emailDelayMinutes !== undefined
+            ? options.emailDelayMinutes
+            : IMMEDIATE_EMAIL_TYPES.has(type)
+                ? 0
+                : 10;
 
     const notifData = {
         recipient_id: recipientId,
@@ -127,7 +249,8 @@ const dispatch = async (
         reference_id: referenceId || null,
         reference_type: referenceType,
         action_url: actionUrl,
-        metadata: metadata || {}
+        metadata: metadata || {},
+        email_delay_minutes: emailDelayMinutes
     };
 
     let savedNotif = null;
@@ -141,8 +264,10 @@ const dispatch = async (
     } else {
         const Notification = require('../models/notification.model');
 
+        const { email_delay_minutes, ...dataToSave } = notifData;
+
         savedNotif = await Notification.create({
-            ...notifData,
+            ...dataToSave,
             status: 'SENT'
         });
 
@@ -188,7 +313,7 @@ exports.dispatchTaskCreated = async (payload) => {
         await dispatch(
             assigneeId,
             actorId,
-            'Bạn vừa được phân công task',
+            'Được giao công việc mới',
             `Bạn vừa được phân công vào task: ${task.title}`,
             html,
             'TASK_CREATE',
@@ -255,7 +380,7 @@ exports.dispatchTaskOverdue = async (recipientId, task, deadline) => {
 // 3. THÔNG BÁO CẬP NHẬT TASK
 // ==========================================
 exports.dispatchTaskUpdated = async (payload) => {
-    const task = await Task.findById(payload.taskId).lean();
+    const task = await Task.findById(payload.taskId || payload.task_id).lean();
     if (!task || !task.assignees_user_id || !task.assignees_user_id.length) return;
 
     const actorId = payload.userId || payload.senderId || null;
@@ -304,16 +429,16 @@ exports.dispatchTaskUpdated = async (payload) => {
 // 4. THÔNG BÁO DI CHUYỂN TRẠNG THÁI TASK
 // ==========================================
 exports.dispatchTaskMoved = async (payload) => {
-    const task = await Task.findById(payload.taskId).lean();
+    const task = await Task.findById(payload.taskId || payload.task_id).lean();
     if (!task || !task.assignees_user_id || !task.assignees_user_id.length) return;
 
-    const column = await Column.findById(payload.destColumnId).lean();
-    const colName = column?.name || column?.title || 'another stage';
+    const column = await Column.findById(payload.destColumnId || payload.dest_column_id).lean();
+    const colName = column?.name || column?.list_name || column?.title || 'another stage';
     const actorId = payload.userId || payload.senderId || null;
     const actionUrl = getTaskActionUrl(task);
 
     const metadata = buildTaskMetadata(task, {
-        destination_column_id: payload.destColumnId || null,
+        destination_column_id: payload.destColumnId || payload.dest_column_id || null,
         destination_column_name: colName
     });
 
@@ -360,30 +485,29 @@ exports.dispatchTaskMoved = async (payload) => {
 // 5. YÊU CẦU GIA HẠN DEADLINE
 // ==========================================
 exports.dispatchExtensionRequest = async (payload) => {
-    const task = await Task.findById(payload.taskId).lean();
+    const task = await Task.findById(payload.taskId || payload.task_id).lean();
     if (!task) return;
 
-    const requester = await User.findById(payload.userId).lean();
+    const requester = await User.findById(payload.userId || payload.requesterId).lean();
 
-    const requesterId = payload.userId;
+    const requesterId = payload.userId || payload.requesterId;
     const requesterName =
         requester?.full_name ||
         requester?.email ||
         'Nhân viên';
 
-    const managerId =
-        payload.managerId ||
-        payload.receiverId ||
-        task.author_user_id ||
-        null;
+    const managerId = await resolveTaskManagerId(task, {
+        ...payload,
+        userId: requesterId
+    });
 
     const actionUrl = getTaskActionUrl(task);
 
     const metadata = buildTaskMetadata(task, {
         requester_id: requesterId ? requesterId.toString() : null,
         requester_name: requesterName,
-        current_due_date: payload.originalDueDate || null,
-        requested_due_date: payload.newDueDate || null,
+        current_due_date: payload.originalDueDate || payload.currentDueDate || null,
+        requested_due_date: payload.newDueDate || payload.requestedDueDate || null,
         reason: payload.reason || ''
     });
 
@@ -391,8 +515,8 @@ exports.dispatchExtensionRequest = async (payload) => {
         <p><strong>${escapeHtml(requesterName)}</strong> vừa gửi yêu cầu xin dời hạn task.</p>
         <div style="background:#EEF2FF;padding:16px;border-left:4px solid #6366F1;border-radius:8px;margin:20px 0;">
             <p><strong>Task:</strong> ${escapeHtml(task.title)}</p>
-            <p><strong>Deadline hiện tại:</strong> ${escapeHtml(formatDate(payload.originalDueDate))}</p>
-            <p><strong>Deadline mới:</strong> ${escapeHtml(formatDate(payload.newDueDate))}</p>
+            <p><strong>Deadline hiện tại:</strong> ${escapeHtml(formatDate(metadata.current_due_date))}</p>
+            <p><strong>Deadline mới:</strong> ${escapeHtml(formatDate(metadata.requested_due_date))}</p>
             <p><strong>Lý do:</strong> ${escapeHtml(payload.reason || 'Không có')}</p>
         </div>
         ${actionUrl ? `<p><a href="${getFrontendUrl()}${actionUrl}">Xem chi tiết task</a></p>` : ''}
@@ -412,15 +536,15 @@ exports.dispatchExtensionRequest = async (payload) => {
             metadata
         );
     } else {
-        console.warn('[Notification] Không tìm thấy manager/author_user_id để gửi yêu cầu dời deadline:', task._id);
+        console.warn('[Notification] Không tìm thấy manager/project owner/admin để gửi yêu cầu dời deadline:', task._id);
     }
 
     const htmlForRequester = getBaseTemplate('#10B981', 'Đã gửi đơn xin dời hạn', `
         <p>Yêu cầu xin dời deadline của bạn đã được gửi tới quản lý.</p>
         <div style="background:#ECFDF5;padding:16px;border-left:4px solid #10B981;border-radius:8px;margin:20px 0;">
             <p><strong>Task:</strong> ${escapeHtml(task.title)}</p>
-            <p><strong>Deadline hiện tại:</strong> ${escapeHtml(formatDate(payload.originalDueDate))}</p>
-            <p><strong>Deadline mới:</strong> ${escapeHtml(formatDate(payload.newDueDate))}</p>
+            <p><strong>Deadline hiện tại:</strong> ${escapeHtml(formatDate(metadata.current_due_date))}</p>
+            <p><strong>Deadline mới:</strong> ${escapeHtml(formatDate(metadata.requested_due_date))}</p>
             <p><strong>Lý do:</strong> ${escapeHtml(payload.reason || 'Không có')}</p>
         </div>
         ${actionUrl ? `<p><a href="${getFrontendUrl()}${actionUrl}">Xem task</a></p>` : ''}
@@ -446,11 +570,17 @@ exports.dispatchExtensionRequest = async (payload) => {
 // 6. PHÊ DUYỆT GIA HẠN
 // ==========================================
 exports.dispatchExtensionApproved = async (payload) => {
-    const task = await Task.findById(payload.taskId).lean();
+    const task = await Task.findById(payload.taskId || payload.task_id).lean();
     if (!task) return;
 
-    const managerId = payload.managerId || payload.userId || payload.senderId || task.author_user_id || null;
-    const requesterId = payload.requesterId || null;
+    const managerId =
+        payload.managerId ||
+        payload.userId ||
+        payload.senderId ||
+        task.author_user_id ||
+        await getProjectOwnerIdFromTask(task);
+
+    const requesterId = payload.requesterId || payload.userIdRequest || null;
     const actionUrl = getTaskActionUrl(task);
 
     const metadata = buildTaskMetadata(task, {
@@ -473,9 +603,9 @@ exports.dispatchExtensionApproved = async (payload) => {
     const recipients = new Set();
 
     if (requesterId) {
-        recipients.add(requesterId.toString());
+        addRecipient(recipients, requesterId);
     } else if (Array.isArray(task.assignees_user_id)) {
-        task.assignees_user_id.forEach(id => recipients.add(id.toString()));
+        task.assignees_user_id.forEach((id) => addRecipient(recipients, id));
     }
 
     for (const recipientId of recipients) {
@@ -513,17 +643,23 @@ exports.dispatchExtensionApproved = async (payload) => {
 // 7. TỪ CHỐI GIA HẠN
 // ==========================================
 exports.dispatchExtensionRejected = async (payload) => {
-    const task = await Task.findById(payload.taskId).lean();
+    const task = await Task.findById(payload.taskId || payload.task_id).lean();
     if (!task) return;
 
-    const managerId = payload.managerId || payload.userId || payload.senderId || task.author_user_id || null;
-    const requesterId = payload.requesterId || null;
+    const managerId =
+        payload.managerId ||
+        payload.userId ||
+        payload.senderId ||
+        task.author_user_id ||
+        await getProjectOwnerIdFromTask(task);
+
+    const requesterId = payload.requesterId || payload.userIdRequest || null;
     const actionUrl = getTaskActionUrl(task);
 
     const metadata = buildTaskMetadata(task, {
         requester_id: requesterId ? requesterId.toString() : null,
         current_due_date: payload.originalDueDate || null,
-        requested_due_date: payload.requestedDueDate || null,
+        requested_due_date: payload.requestedDueDate || payload.newDueDate || null,
         reason: payload.reason || '',
         reject_reason: payload.rejectReason || ''
     });
@@ -540,9 +676,9 @@ exports.dispatchExtensionRejected = async (payload) => {
     const recipients = new Set();
 
     if (requesterId) {
-        recipients.add(requesterId.toString());
+        addRecipient(recipients, requesterId);
     } else if (Array.isArray(task.assignees_user_id)) {
-        task.assignees_user_id.forEach(id => recipients.add(id.toString()));
+        task.assignees_user_id.forEach((id) => addRecipient(recipients, id));
     }
 
     for (const recipientId of recipients) {
@@ -568,6 +704,82 @@ exports.dispatchExtensionRejected = async (payload) => {
             `Bạn đã từ chối yêu cầu dời deadline task: ${task.title}`,
             html,
             'EXTENSION_REJECTED_BY_YOU',
+            task._id,
+            'TASK',
+            actionUrl,
+            metadata
+        );
+    }
+};
+
+// ==========================================
+// 8. THÔNG BÁO HOÀN THÀNH TASK
+// ==========================================
+exports.dispatchTaskCompleted = async (payload) => {
+    const task = await Task.findById(payload.taskId || payload.task_id).lean();
+    if (!task) return;
+
+    const actorId =
+        payload.userId ||
+        payload.senderId ||
+        payload.completedBy ||
+        payload.completed_by ||
+        null;
+
+    const actor = actorId ? await User.findById(actorId).lean() : null;
+
+    const actorName =
+        actor?.full_name ||
+        actor?.email ||
+        'Một thành viên';
+
+    const completedAt = payload.completedAt || payload.completed_at || new Date();
+
+    const actionUrl = getTaskActionUrl(task);
+
+    const metadata = buildTaskMetadata(task, {
+        completed_by_id: actorId ? actorId.toString() : null,
+        completed_by_name: actorName,
+        completed_at: completedAt
+    });
+
+    const html = getBaseTemplate('#10B981', 'Task đã hoàn thành ✅', `
+        <p>Task đã được đánh dấu hoàn thành.</p>
+        <div style="background:#ECFDF5;padding:16px;border-left:4px solid #10B981;border-radius:8px;margin:20px 0;">
+            <p><strong>Task:</strong> ${escapeHtml(task.title)}</p>
+            <p><strong>Người hoàn thành:</strong> ${escapeHtml(actorName)}</p>
+            <p><strong>Thời gian:</strong> ${escapeHtml(formatDate(completedAt))}</p>
+        </div>
+        ${actionUrl ? `<p><a href="${getFrontendUrl()}${actionUrl}">Xem task</a></p>` : ''}
+    `);
+
+    const recipients = new Set();
+
+    if (Array.isArray(task.assignees_user_id)) {
+        task.assignees_user_id.forEach((id) => addRecipient(recipients, id));
+    }
+
+    addRecipient(recipients, task.author_user_id);
+
+    const projectOwnerId = await getProjectOwnerIdFromTask(task);
+    addRecipient(recipients, projectOwnerId);
+
+    if (!recipients.size && actorId) {
+        addRecipient(recipients, actorId);
+    }
+
+    for (const recipientId of recipients) {
+        const isActor = idsEqual(recipientId, actorId);
+
+        await dispatch(
+            recipientId,
+            actorId,
+            isActor ? 'Bạn đã hoàn thành task' : 'Task đã hoàn thành',
+            isActor
+                ? `Bạn đã đánh dấu hoàn thành task: ${task.title}`
+                : `${actorName} đã đánh dấu hoàn thành task: ${task.title}`,
+            html,
+            isActor ? 'TASK_COMPLETED_BY_YOU' : 'TASK_COMPLETED',
             task._id,
             'TASK',
             actionUrl,

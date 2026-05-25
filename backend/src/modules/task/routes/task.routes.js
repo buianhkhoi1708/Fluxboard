@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const taskController = require('../controllers/task.controller'); 
+
+const taskController = require('../controllers/task.controller');
 const requireAuth = require('../../auth/middlewares/requireAuth');
 
 router.use(requireAuth);
@@ -18,7 +19,7 @@ router.put('/:id/move', taskController.moveTask);
 // 2. QUẢN LÝ CHECKLIST (SUBTASKS)
 // ==========================================
 router.post('/:id/subtasks', taskController.addSubtask);
-router.post('/:id/subtasks/bulk', taskController.addMultipleSubtasks); // Định tuyến nhận danh sách subtasks hàng loạt
+router.post('/:id/subtasks/bulk', taskController.addMultipleSubtasks);
 router.put('/:id/subtasks/:subtaskId', taskController.updateSubtask);
 router.delete('/:id/subtasks/:subtaskId', taskController.deleteSubtask);
 

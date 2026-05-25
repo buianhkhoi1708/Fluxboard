@@ -22,6 +22,8 @@ import {
   Loader2,
   Send,
   MessageSquareText,
+  AlertTriangle,
+  ShieldCheck,
 } from "lucide-react";
 
 import { useQueryClient } from "@tanstack/react-query";
@@ -52,6 +54,17 @@ interface CustomDateInputProps {
   value?: string;
   onClick?: () => void;
   placeholder?: string;
+}
+
+type ConfirmActionType = "request-extension" | "delete-task" | null;
+
+interface ConfirmActionModalProps {
+  open: boolean;
+  type: ConfirmActionType;
+  taskTitle: string;
+  isSubmitting?: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
 }
 
 const CustomDateInput = forwardRef<HTMLButtonElement, CustomDateInputProps>(
@@ -103,6 +116,98 @@ const formatDateTime = (value?: Date | string | null) => {
   });
 };
 
+const ConfirmActionModal: React.FC<ConfirmActionModalProps> = ({
+  open,
+  type,
+  taskTitle,
+  isSubmitting = false,
+  onClose,
+  onConfirm,
+}) => {
+  if (!open || !type) return null;
+
+  const isRequestExtension = type === "request-extension";
+
+  return (
+    <div className="fixed inset-0 z-[250] flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
+        onClick={isSubmitting ? undefined : onClose}
+      />
+
+      <div className="relative w-full max-w-md overflow-hidden rounded-[2rem] bg-white shadow-2xl border border-white/70 animate-in zoom-in-95 fade-in duration-200">
+        <div
+          className={`px-6 py-5 text-white ${
+            isRequestExtension
+              ? "bg-gradient-to-br from-amber-500 to-orange-500"
+              : "bg-gradient-to-br from-rose-500 to-red-600"
+          }`}
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center">
+              {isRequestExtension ? <Send size={25} /> : <AlertTriangle size={25} />}
+            </div>
+
+            <div>
+              <p className="text-xs font-black uppercase tracking-widest text-white/75">
+                Xác nhận thao tác
+              </p>
+              <h3 className="text-xl font-black mt-1">
+                {isRequestExtension ? "Gửi yêu cầu dời hạn?" : "Xóa công việc?"}
+              </h3>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-5">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-sm font-semibold text-slate-600 leading-relaxed">
+              {isRequestExtension
+                ? "Bạn chắc chắn muốn gửi đơn xin dời hạn task này tới quản lý? Sau khi gửi, bạn cần chờ quản lý chấp nhận hoặc từ chối."
+                : "Bạn chắc chắn muốn xóa task này? Thao tác này có thể ảnh hưởng đến bảng công việc và các tài liệu liên quan."}
+            </p>
+
+            <p className="mt-3 text-sm font-black text-slate-800">
+              Task: {taskTitle || "Không rõ"}
+            </p>
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              type="button"
+              disabled={isSubmitting}
+              onClick={onClose}
+              className="flex-1 rounded-2xl bg-slate-100 px-4 py-3 text-sm font-black text-slate-600 hover:bg-slate-200 transition disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              Hủy
+            </button>
+
+            <button
+              type="button"
+              disabled={isSubmitting}
+              onClick={onConfirm}
+              className={`flex-1 rounded-2xl px-4 py-3 text-sm font-black text-white transition shadow-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
+                isRequestExtension
+                  ? "bg-amber-500 hover:bg-amber-600 shadow-amber-200"
+                  : "bg-rose-600 hover:bg-rose-700 shadow-rose-200"
+              }`}
+            >
+              {isSubmitting ? (
+                <Loader2 size={17} className="animate-spin" />
+              ) : isRequestExtension ? (
+                <ShieldCheck size={17} />
+              ) : (
+                <Trash2 size={17} />
+              )}
+              {isRequestExtension ? "Xác nhận gửi" : "Xác nhận xóa"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   isOpen,
   onClose,
@@ -148,11 +253,15 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const { mutateAsync: addAttachment } = useAddAttachmentToTask();
   const { mutateAsync: uploadFile } = useUploadFile();
 
-  // Extension request states
   const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false);
   const [extensionDate, setExtensionDate] = useState<Date | null>(null);
   const [extensionReason, setExtensionReason] = useState("");
   const [isRequestingExtension, setIsRequestingExtension] = useState(false);
+  const [extensionError, setExtensionError] = useState("");
+  const [extensionSuccess, setExtensionSuccess] = useState("");
+
+  const [confirmAction, setConfirmAction] = useState<ConfirmActionType>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const currentTaskId = String(task?.id || task?._id || "");
   const { data: fetchedAttachments } = useGetTaskAttachments(currentTaskId);
@@ -180,6 +289,8 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
   useEffect(() => {
     if (isOpen && task) {
+      const taskAny = task as any;
+
       setEditTitle(task.title || "");
       setEditDesc(task.description || "");
       setLocalSubtasks(task.subtasks || []);
@@ -188,21 +299,19 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       setEditPriority(rawPriority);
 
       setEditColumnId(task.column_id || listId);
-      setEditStoryPoints(task.story_points || task.story_point || 0);
+      setEditStoryPoints(taskAny.story_points || taskAny.story_point || 0);
 
-      setEditStartDate(task.start_date ? new Date(task.start_date) : null);
-      setEditDueDate(task.due_date ? new Date(task.due_date) : null);
+      setEditStartDate(taskAny.start_date ? new Date(taskAny.start_date) : null);
+      setEditDueDate(taskAny.due_date ? new Date(taskAny.due_date) : null);
 
       setIsDone(task.status === "DONE" || task.is_done === true);
 
-      const taskAny = task as any;
-
-    const rawAssignees =
-      taskAny.assignees_user_id ||
-      taskAny.assigneesUserId ||
-      taskAny.assignees ||
-      taskAny.assignee_id ||
-      taskAny.assignee_ids;
+      const rawAssignees =
+        taskAny.assignees_user_id ||
+        taskAny.assigneesUserId ||
+        taskAny.assignees ||
+        taskAny.assignee_id ||
+        taskAny.assignee_ids;
 
       const assigneesList = Array.isArray(rawAssignees)
         ? rawAssignees
@@ -233,6 +342,11 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       setExtensionDate(null);
       setExtensionReason("");
       setIsRequestingExtension(false);
+      setExtensionError("");
+      setExtensionSuccess("");
+
+      setConfirmAction(null);
+      setIsDeleting(false);
     }
   }, [isOpen, task, listId]);
 
@@ -247,6 +361,8 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   }, [fetchedAttachments]);
 
   if (!isOpen || !task) return null;
+
+  const taskAny = task as any;
 
   const toggleAssignee = (userId: string) => {
     if (!userId || userId.startsWith("temp-") || userId === "undefined") return;
@@ -324,18 +440,15 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
           title: editTitle.trim() || "Task không tên",
           description: editDesc,
           priority: finalPriority,
-        status: isDone ? "DONE" : task.status === "DONE" ? "TODO" : task.status || "TODO",
-        is_done: isDone,
-        story_point: Number(editStoryPoints) || 0,
-        start_date: editStartDate ? editStartDate.toISOString() : null,
-        due_date: editDueDate ? editDueDate.toISOString() : null,
-
-      // Backend đang dùng các field này, nhưng type FE chưa khai báo đủ nên cast any.
-        assignees_user_id: cleanAssignees,
-        assignee_id: cleanAssignees.length > 0 ? cleanAssignees[0] : null,
-
-        parent_task_id: (task as any).parent_task_id,
-        subtasks: localSubtasks,
+          status: isDone ? "DONE" : task.status === "DONE" ? "TODO" : task.status || "TODO",
+          is_done: isDone,
+          story_point: Number(editStoryPoints) || 0,
+          start_date: editStartDate ? editStartDate.toISOString() : null,
+          due_date: editDueDate ? editDueDate.toISOString() : null,
+          assignees_user_id: cleanAssignees,
+          assignee_id: cleanAssignees.length > 0 ? cleanAssignees[0] : null,
+          parent_task_id: taskAny.parent_task_id,
+          subtasks: localSubtasks,
         } as any,
       });
 
@@ -364,44 +477,65 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
+    if (!activeBoardId) return;
+    setConfirmAction("delete-task");
+  };
+
+  const executeDeleteTask = async () => {
     if (!activeBoardId) return;
 
-    if (window.confirm(`Bạn có chắc muốn xóa task "${task.title}"?`)) {
-      try {
-        await deleteApiTask({
-          taskId: String(task.id || task._id),
-          boardId: activeBoardId,
-        });
+    setIsDeleting(true);
 
-        queryClient.invalidateQueries({ queryKey: ["board", activeBoardId] });
-        onClose();
-      } catch (error) {
-        console.error("Lỗi khi xóa Task:", error);
-      }
+    try {
+      await deleteApiTask({
+        taskId: String(task.id || task._id),
+        boardId: activeBoardId,
+      });
+
+      await queryClient.invalidateQueries({ queryKey: ["board", activeBoardId] });
+      setConfirmAction(null);
+      onClose();
+    } catch (error) {
+      console.error("Lỗi khi xóa Task:", error);
+      alert("Xóa task thất bại. Vui lòng thử lại.");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
-  const handleRequestExtension = async () => {
+  const handleRequestExtension = () => {
+    setExtensionError("");
+    setExtensionSuccess("");
+
     if (!extensionDate) {
-      alert("Vui lòng chọn deadline mới.");
+      setExtensionError("Vui lòng chọn deadline mới.");
       return;
     }
 
     if (!extensionReason.trim()) {
-      alert("Vui lòng nhập lý do xin dời hạn.");
+      setExtensionError("Vui lòng nhập lý do xin dời hạn.");
       return;
     }
 
     if (editDueDate && extensionDate <= editDueDate) {
-      alert("Deadline mới phải sau deadline hiện tại.");
+      setExtensionError("Deadline mới phải sau deadline hiện tại.");
       return;
     }
 
-    const ok = window.confirm("Bạn chắc chắn muốn gửi yêu cầu xin dời hạn task này?");
-    if (!ok) return;
+    setConfirmAction("request-extension");
+  };
+
+  const executeRequestExtension = async () => {
+    if (!extensionDate) {
+      setExtensionError("Vui lòng chọn deadline mới.");
+      setConfirmAction(null);
+      return;
+    }
 
     setIsRequestingExtension(true);
+    setExtensionError("");
+    setExtensionSuccess("");
 
     try {
       await notificationApi.requestDeadlineExtension(String(task.id || task._id), {
@@ -409,15 +543,32 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
         reason: extensionReason.trim(),
       });
 
-      alert("Đã gửi yêu cầu xin dời hạn tới quản lý.");
-      setIsExtensionModalOpen(false);
-      setExtensionDate(null);
-      setExtensionReason("");
+      setExtensionSuccess("Đã gửi yêu cầu xin dời hạn tới quản lý.");
+      setConfirmAction(null);
+
+      setTimeout(() => {
+        setIsExtensionModalOpen(false);
+        setExtensionDate(null);
+        setExtensionReason("");
+        setExtensionSuccess("");
+      }, 700);
     } catch (error: any) {
       console.error("Request extension error:", error);
-      alert(error?.response?.data?.message || "Gửi yêu cầu thất bại.");
+      setExtensionError(error?.response?.data?.message || "Gửi yêu cầu thất bại.");
+      setConfirmAction(null);
     } finally {
       setIsRequestingExtension(false);
+    }
+  };
+
+  const handleConfirmAction = () => {
+    if (confirmAction === "request-extension") {
+      executeRequestExtension();
+      return;
+    }
+
+    if (confirmAction === "delete-task") {
+      executeDeleteTask();
     }
   };
 
@@ -430,6 +581,8 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     (currentColumn as any)?.list_name ||
     (currentColumn as any)?.title ||
     "Không rõ";
+
+  const isConfirmSubmitting = isRequestingExtension || isDeleting;
 
   const modalContent = (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 md:p-12">
@@ -460,6 +613,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
           <div className="flex items-center gap-3 shrink-0 mt-1">
             <button
+              type="button"
               onClick={() => setIsDone(!isDone)}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all border ${
                 isDone
@@ -475,6 +629,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             </button>
 
             <button
+              type="button"
               onClick={onClose}
               className="p-2.5 bg-slate-100 text-slate-500 hover:bg-rose-100 hover:text-rose-600 rounded-full transition-all"
             >
@@ -529,6 +684,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     />
 
                     <button
+                      type="button"
                       onClick={() => fileInputRef.current?.click()}
                       disabled={isUploading}
                       className="flex items-center gap-2 px-3 py-2 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 rounded-xl text-sm font-bold transition-all shadow-sm disabled:opacity-50"
@@ -702,7 +858,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
                         return (
                           <option key={`col-${colId || idx}`} value={String(colId)}>
-                            {col.name || col.list_name}
+                            {col.name || col.list_name || col.title || "Không rõ"}
                           </option>
                         );
                       })}
@@ -752,6 +908,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                             </span>
 
                             <button
+                              type="button"
                               onClick={() => toggleAssignee(userId)}
                               className="opacity-0 group-hover/name:opacity-100 p-0.5 hover:bg-indigo-200 rounded-full transition-all text-indigo-400 hover:text-indigo-600"
                             >
@@ -767,6 +924,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     )}
 
                     <button
+                      type="button"
                       onClick={() => setIsAssigneePopupOpen(!isAssigneePopupOpen)}
                       className="flex items-center gap-2 px-3 py-1.5 rounded-xl border-2 border-dashed border-slate-200 text-slate-400 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all font-bold text-[12px]"
                     >
@@ -955,7 +1113,11 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
                 <button
                   type="button"
-                  onClick={() => setIsExtensionModalOpen(true)}
+                  onClick={() => {
+                    setExtensionError("");
+                    setExtensionSuccess("");
+                    setIsExtensionModalOpen(true);
+                  }}
                   className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 font-extrabold hover:bg-amber-100 transition-all shadow-sm"
                 >
                   <Calendar size={16} />
@@ -971,12 +1133,15 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
           <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
             <div
               className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm"
-              onClick={() => setIsExtensionModalOpen(false)}
+              onClick={() => {
+                if (!isRequestingExtension) setIsExtensionModalOpen(false);
+              }}
             />
 
             <div className="relative w-full max-w-lg rounded-[2rem] bg-white shadow-2xl border border-white/70 overflow-hidden animate-in zoom-in-95 fade-in duration-200">
               <div className="relative bg-gradient-to-br from-amber-500 to-orange-500 px-7 py-6 text-white">
                 <button
+                  type="button"
                   onClick={() => setIsExtensionModalOpen(false)}
                   disabled={isRequestingExtension}
                   className="absolute right-4 top-4 rounded-full bg-white/15 p-2 hover:bg-white/25 transition disabled:opacity-50"
@@ -999,6 +1164,18 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
               </div>
 
               <div className="p-7 space-y-5">
+                {extensionError && (
+                  <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+                    {extensionError}
+                  </div>
+                )}
+
+                {extensionSuccess && (
+                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
+                    {extensionSuccess}
+                  </div>
+                )}
+
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                   <p className="text-xs font-black uppercase text-slate-400 mb-1">
                     Task
@@ -1046,6 +1223,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
                 <div className="flex gap-3 pt-2">
                   <button
+                    type="button"
                     onClick={() => setIsExtensionModalOpen(false)}
                     disabled={isRequestingExtension}
                     className="flex-1 px-4 py-3 rounded-2xl bg-slate-100 text-slate-600 font-extrabold hover:bg-slate-200 transition disabled:opacity-60"
@@ -1054,6 +1232,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                   </button>
 
                   <button
+                    type="button"
                     onClick={handleRequestExtension}
                     disabled={isRequestingExtension}
                     className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-amber-500 text-white font-extrabold hover:bg-amber-600 transition shadow-lg shadow-amber-200 disabled:opacity-60"
@@ -1074,14 +1253,17 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
         {/* Footer */}
         <div className="bg-white/80 backdrop-blur-sm px-6 py-4 border-t border-slate-200/60 flex flex-col-reverse sm:flex-row justify-between items-center gap-4 z-10">
           <button
+            type="button"
             onClick={handleDelete}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-3 sm:py-2.5 text-rose-600 hover:bg-rose-50 rounded-xl text-sm font-bold transition-all border border-transparent hover:border-rose-100"
+            disabled={isDeleting}
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-3 sm:py-2.5 text-rose-600 hover:bg-rose-50 rounded-xl text-sm font-bold transition-all border border-transparent hover:border-rose-100 disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <Trash2 size={18} /> Xóa công việc
           </button>
 
           <div className="flex gap-3 w-full sm:w-auto">
             <button
+              type="button"
               onClick={onClose}
               className="flex-1 sm:flex-none px-6 py-3 sm:py-2.5 text-slate-600 hover:text-slate-800 hover:bg-slate-100 bg-slate-50 border border-slate-200/80 rounded-xl text-[15px] font-bold transition-all"
             >
@@ -1089,6 +1271,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             </button>
 
             <button
+              type="button"
               onClick={handleSave}
               disabled={isSaving}
               className="flex-1 sm:flex-none flex justify-center items-center gap-2 px-8 py-3 sm:py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[15px] font-bold shadow-lg shadow-indigo-200 transition-all active:scale-95 border border-indigo-500 disabled:opacity-70 disabled:cursor-not-allowed"
@@ -1098,6 +1281,17 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
           </div>
         </div>
       </div>
+
+      <ConfirmActionModal
+        open={!!confirmAction}
+        type={confirmAction}
+        taskTitle={editTitle}
+        isSubmitting={isConfirmSubmitting}
+        onClose={() => {
+          if (!isConfirmSubmitting) setConfirmAction(null);
+        }}
+        onConfirm={handleConfirmAction}
+      />
     </div>
   );
 

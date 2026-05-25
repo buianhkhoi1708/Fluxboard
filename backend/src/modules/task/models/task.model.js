@@ -6,6 +6,7 @@ const subtaskSchema = new mongoose.Schema({
         required: true,
         trim: true
     },
+
     is_done: {
         type: Boolean,
         default: false
@@ -52,13 +53,28 @@ const taskSchema = new mongoose.Schema({
     /**
      * Người tạo task.
      * Rất quan trọng cho flow xin dời hạn:
-     * nhân viên xin dời -> gửi request về author_user_id / sếp tạo task.
+     * nhân viên xin dời -> gửi request về author_user_id / project owner / admin.
      */
     author_user_id: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
         default: null,
         index: true
+    },
+
+    /**
+     * Người đánh dấu hoàn thành task gần nhất.
+     */
+    completed_by_user_id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        default: null,
+        index: true
+    },
+
+    completed_at: {
+        type: Date,
+        default: null
     },
 
     /**
@@ -102,7 +118,8 @@ const taskSchema = new mongoose.Schema({
 
     is_done: {
         type: Boolean,
-        default: false
+        default: false,
+        index: true
     },
 
     /**
@@ -181,5 +198,6 @@ taskSchema.index({ board_id: 1, column_id: 1 });
 taskSchema.index({ board_id: 1, is_deleted: 1 });
 taskSchema.index({ assignees_user_id: 1, is_deleted: 1 });
 taskSchema.index({ author_user_id: 1, is_deleted: 1 });
+taskSchema.index({ completed_by_user_id: 1, is_deleted: 1 });
 
 module.exports = mongoose.model('Task', taskSchema);

@@ -20,6 +20,10 @@ export interface NotificationMetadata {
   due_date?: string | Date | null;
   is_overdue?: boolean;
 
+  completed_by_id?: string;
+  completed_by_name?: string;
+  completed_at?: string | Date | null;
+
   [key: string]: any;
 }
 
@@ -37,7 +41,7 @@ export interface AppNotification {
    * URL nội bộ frontend.
    * Ví dụ: /board/:boardId?taskId=:taskId
    */
-  actionUrl?: string | null;
+  actionUrl?: string;
 
   /**
    * Dữ liệu phụ để dựng popup hoặc điều hướng.

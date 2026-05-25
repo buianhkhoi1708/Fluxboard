@@ -4,8 +4,10 @@ const notificationDispatcher = require('../services/notificationDispatcher.servi
 // Bộ nhớ tạm lưu trữ danh sách ID các Task mới tạo đang trong vòng 10 phút chờ hoãn
 const pendingCreations = new Set();
 
+const recentlyCompletedTasks = new Set();
+
 // ==========================================
-// 1. SỰ KIỆN TẠO TASK MỚI (Trì hoãn 10 phút)
+// 1. SỰ KIỆN TẠO TASK MỚI
 // ==========================================
 eventBus.on('task_created', async (payload) => {
     const taskId = payload.task_id || payload.taskId;
@@ -14,7 +16,6 @@ eventBus.on('task_created', async (payload) => {
     const taskKey = taskId.toString();
     pendingCreations.add(taskKey);
 
-    // Gửi in-app notification ngay lập tức
     try {
         await notificationDispatcher.dispatchTaskCreated(payload);
     } catch (error) {
@@ -28,25 +29,71 @@ eventBus.on('task_created', async (payload) => {
 });
 
 // ==========================================
-// 2. SỰ KIỆN GIA HẠN (Gửi ngay lập tức)
+// 2. SỰ KIỆN GIA HẠN DEADLINE
 // ==========================================
 eventBus.on('extension_requested', async (payload) => {
-    await notificationDispatcher.dispatchExtensionRequest(payload);
+    try {
+        await notificationDispatcher.dispatchExtensionRequest(payload);
+    } catch (error) {
+        console.error('Error dispatching extension requested notification:', error);
+    }
 });
 
 eventBus.on('extension_approved', async (payload) => {
-    await notificationDispatcher.dispatchExtensionApproved(payload);
+    try {
+        await notificationDispatcher.dispatchExtensionApproved(payload);
+    } catch (error) {
+        console.error('Error dispatching extension approved notification:', error);
+    }
 });
 
 eventBus.on('extension_rejected', async (payload) => {
-    await notificationDispatcher.dispatchExtensionRejected(payload);
+    try {
+        await notificationDispatcher.dispatchExtensionRejected(payload);
+    } catch (error) {
+        console.error('Error dispatching extension rejected notification:', error);
+    }
 });
 
 // ==========================================
-// 3. LOGIC DEBOUNCE (TRÌ HOÃN 1 PHÚT CHO CẬP NHẬT)
+// 3. SỰ KIỆN HOÀN THÀNH TASK
 // ==========================================
-const DEBOUNCE_TIME_MS = 60000; 
-const taskTimers = new Map(); 
+const dispatchTaskCompletedOnce = async (payload) => {
+    const taskId = payload.task_id || payload.taskId;
+    if (!taskId) return;
+
+    const taskKey = taskId.toString();
+
+    if (recentlyCompletedTasks.has(taskKey)) {
+        return;
+    }
+
+    recentlyCompletedTasks.add(taskKey);
+
+    try {
+        await notificationDispatcher.dispatchTaskCompleted(payload);
+    } catch (error) {
+        console.error('Error dispatching task completed notification:', error);
+    }
+
+    setTimeout(() => {
+        recentlyCompletedTasks.delete(taskKey);
+    }, 30000);
+};
+
+eventBus.on('task_completed', async (payload) => {
+    await dispatchTaskCompletedOnce(payload);
+});
+
+eventBus.on('system_task_completed', async (payload) => {
+    await dispatchTaskCompletedOnce(payload);
+});
+
+// ==========================================
+// 4. LOGIC DEBOUNCE CHO CẬP NHẬT / KÉO THẢ TASK
+// ==========================================
+const DEBOUNCE_TIME_MS = 60000;
+const taskTimers = new Map();
 
 const handleDebouncedEvent = (timerKey, payload, dispatchFunction) => {
     if (taskTimers.has(timerKey)) {
@@ -55,19 +102,25 @@ const handleDebouncedEvent = (timerKey, payload, dispatchFunction) => {
 
     const timer = setTimeout(async () => {
         taskTimers.delete(timerKey);
-        await dispatchFunction(payload);
+
+        try {
+            await dispatchFunction(payload);
+        } catch (error) {
+            console.error(`Error dispatching debounced notification ${timerKey}:`, error);
+        }
     }, DEBOUNCE_TIME_MS);
 
     taskTimers.set(timerKey, timer);
 };
 
 // ==========================================
-// 4. SỰ KIỆN KÉO THẢ & CẬP NHẬT (Chặn nếu đang trong 10 phút tạo mới)
+// 5. SỰ KIỆN CẬP NHẬT TASK
 // ==========================================
 eventBus.on('system_task_updated', (payload) => {
-    const taskId = payload.taskId;
-    
-    // Nếu task này đang nằm trong danh sách chờ 10 phút của tạo mới -> Bỏ qua hoàn toàn thông báo cập nhật dữ liệu
+    const taskId = payload.taskId || payload.task_id;
+    if (!taskId) return;
+
+    // Nếu task này đang nằm trong danh sách chờ 10 phút của tạo mới -> bỏ qua thông báo update
     if (pendingCreations.has(taskId.toString())) {
         return;
     }
@@ -76,10 +129,14 @@ eventBus.on('system_task_updated', (payload) => {
     handleDebouncedEvent(timerKey, payload, notificationDispatcher.dispatchTaskUpdated);
 });
 
+// ==========================================
+// 6. SỰ KIỆN KÉO THẢ / MOVE TASK
+// ==========================================
 eventBus.on('system_task_moved', (payload) => {
-    const taskId = payload.taskId;
+    const taskId = payload.taskId || payload.task_id;
+    if (!taskId) return;
 
-    // Nếu task này đang nằm trong danh sách chờ 10 phút của tạo mới -> Bỏ qua hoàn toàn thông báo chuyển stage trạng thái
+    // Nếu task này đang nằm trong danh sách chờ 10 phút của tạo mới -> bỏ qua thông báo move
     if (pendingCreations.has(taskId.toString())) {
         return;
     }
