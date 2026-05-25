@@ -2,6 +2,7 @@ const emailService = require('../../email/services/email.service');
 const socketConfig = require('../../../common/config/socket');
 const UserNotificationPref = require('../../user/models/userNotificationPref.model');
 const TaskDeadline = require('../models/taskDeadline.model');
+const Task = require('../../task/models/task.model');
 const AppError = require('../../../common/exceptions/AppError');
 const eventBus = require('../../../common/utils/eventBus');
 
@@ -10,11 +11,112 @@ const eventBus = require('../../../common/utils/eventBus');
 // ==========================================
 const isInvalidDate = (value) => {
     if (!value) return true;
+
     const date = new Date(value);
+
     return Number.isNaN(date.getTime());
 };
 
 const toDate = (value) => new Date(value);
+
+const toIdString = (value) => {
+    if (!value) return null;
+    if (typeof value === 'object' && value._id) return value._id.toString();
+    return value.toString();
+};
+
+const findActiveDeadline = async (taskId) => {
+    return await TaskDeadline.findOne({
+        task_id: taskId,
+        is_deleted: { $ne: true }
+    });
+};
+
+const findActiveTask = async (taskId) => {
+    return await Task.findOne({
+        _id: taskId,
+        is_deleted: { $ne: true }
+    }).lean();
+};
+
+const emitExtensionRequested = ({ taskId, userId, originalDueDate, newDueDate, reason }) => {
+    eventBus.emit('extension_requested', {
+        taskId,
+        task_id: taskId,
+
+        userId,
+        requesterId: userId,
+
+        originalDueDate,
+        currentDueDate: originalDueDate,
+
+        newDueDate,
+        requestedDueDate: newDueDate,
+
+        reason
+    });
+};
+
+const emitExtensionApproved = ({
+    taskId,
+    managerId,
+    requesterId,
+    originalDueDate,
+    approvedDueDate,
+    reason
+}) => {
+    eventBus.emit('extension_approved', {
+        taskId,
+        task_id: taskId,
+
+        managerId,
+        userId: managerId,
+        senderId: managerId,
+
+        requesterId,
+        userIdRequest: requesterId,
+
+        originalDueDate,
+        currentDueDate: originalDueDate,
+
+        newDueDate: approvedDueDate,
+        approvedDueDate,
+        requestedDueDate: approvedDueDate,
+
+        reason
+    });
+};
+
+const emitExtensionRejected = ({
+    taskId,
+    managerId,
+    requesterId,
+    originalDueDate,
+    requestedDueDate,
+    reason,
+    rejectReason
+}) => {
+    eventBus.emit('extension_rejected', {
+        taskId,
+        task_id: taskId,
+
+        managerId,
+        userId: managerId,
+        senderId: managerId,
+
+        requesterId,
+        userIdRequest: requesterId,
+
+        originalDueDate,
+        currentDueDate: originalDueDate,
+
+        requestedDueDate,
+        newDueDate: requestedDueDate,
+
+        reason,
+        rejectReason
+    });
+};
 
 // ==========================================
 // 1. CÁC HÀM XỬ LÝ GIA HẠN (EXTENSION LOGIC)
@@ -24,6 +126,7 @@ const toDate = (value) => new Date(value);
  * Nhân viên xin dời deadline.
  *
  * Flow:
+ * - Validate task/deadline tồn tại.
  * - Validate deadline mới phải sau deadline hiện tại.
  * - Validate phải có lý do.
  * - Lưu trạng thái PENDING vào TaskDeadline.
@@ -32,10 +135,13 @@ const toDate = (value) => new Date(value);
  *   + thông báo xác nhận đã gửi đơn cho nhân viên
  */
 exports.requestExtension = async (taskId, userId, newDueDate, reason) => {
-    const deadline = await TaskDeadline.findOne({
-        task_id: taskId,
-        is_deleted: { $ne: true }
-    });
+    const task = await findActiveTask(taskId);
+
+    if (!task) {
+        throw new AppError('Task not found', 404);
+    }
+
+    const deadline = await findActiveDeadline(taskId);
 
     if (!deadline) {
         throw new AppError('Deadline not found', 404);
@@ -65,12 +171,13 @@ exports.requestExtension = async (taskId, userId, newDueDate, reason) => {
     }
 
     const originalDueDate = deadline.due_date;
+    const cleanReason = String(reason).trim();
 
     deadline.extension_status = 'PENDING';
     deadline.pending_due_date = parsedNewDueDate;
     deadline.extension_requested_by = userId;
     deadline.extension_requested_at = new Date();
-    deadline.extension_reason = String(reason).trim();
+    deadline.extension_reason = cleanReason;
 
     // Reset dữ liệu review cũ nếu trước đó từng bị reject/approve
     deadline.extension_reviewed_by = null;
@@ -79,12 +186,12 @@ exports.requestExtension = async (taskId, userId, newDueDate, reason) => {
 
     await deadline.save();
 
-    eventBus.emit('extension_requested', {
+    emitExtensionRequested({
         taskId,
         userId,
+        originalDueDate,
         newDueDate: parsedNewDueDate,
-        reason: String(reason).trim(),
-        originalDueDate
+        reason: cleanReason
     });
 
     return deadline;
@@ -96,14 +203,18 @@ exports.requestExtension = async (taskId, userId, newDueDate, reason) => {
  * Flow:
  * - Chỉ duyệt khi đang PENDING.
  * - due_date = pending_due_date.
+ * - Đồng bộ lại Task.due_date để FE fallback vẫn đúng.
  * - Tăng extension_count.
  * - Emit extension_approved để gửi notification cho cả nhân viên và sếp/admin.
  */
 exports.approveExtension = async (taskId, managerId) => {
-    const deadline = await TaskDeadline.findOne({
-        task_id: taskId,
-        is_deleted: { $ne: true }
-    });
+    const task = await findActiveTask(taskId);
+
+    if (!task) {
+        throw new AppError('Task not found', 404);
+    }
+
+    const deadline = await findActiveDeadline(taskId);
 
     if (!deadline || deadline.extension_status !== 'PENDING') {
         throw new AppError('No pending extension requests found.', 400);
@@ -131,14 +242,33 @@ exports.approveExtension = async (taskId, managerId) => {
     deadline.is_overdue = false;
     deadline.reminder_sent = false;
 
+    // Nếu deadline mới sau hiện tại thì task chưa overdue
+    if (new Date(approvedDueDate) > new Date()) {
+        deadline.is_overdue = false;
+    }
+
     await deadline.save();
 
-    eventBus.emit('extension_approved', {
+    // Đồng bộ sang Task để FE nào đọc task.due_date trực tiếp vẫn đúng.
+    await Task.findByIdAndUpdate(
+        taskId,
+        {
+            $set: {
+                due_date: approvedDueDate,
+                start_date: deadline.start_date || task.start_date || null
+            }
+        },
+        {
+            new: false
+        }
+    );
+
+    emitExtensionApproved({
         taskId,
         managerId,
         requesterId,
         originalDueDate,
-        newDueDate: approvedDueDate,
+        approvedDueDate,
         reason: requestReason
     });
 
@@ -155,10 +285,13 @@ exports.approveExtension = async (taskId, managerId) => {
  * - Emit extension_rejected để gửi notification cho cả nhân viên và sếp/admin.
  */
 exports.rejectExtension = async (taskId, managerId, rejectReason) => {
-    const deadline = await TaskDeadline.findOne({
-        task_id: taskId,
-        is_deleted: { $ne: true }
-    });
+    const task = await findActiveTask(taskId);
+
+    if (!task) {
+        throw new AppError('Task not found', 404);
+    }
+
+    const deadline = await findActiveDeadline(taskId);
 
     if (!deadline || deadline.extension_status !== 'PENDING') {
         throw new AppError('No pending extension requests found.', 400);
@@ -168,24 +301,25 @@ exports.rejectExtension = async (taskId, managerId, rejectReason) => {
     const originalDueDate = deadline.due_date;
     const requestedDueDate = deadline.pending_due_date;
     const requestReason = deadline.extension_reason;
+    const cleanRejectReason = rejectReason ? String(rejectReason).trim() : '';
 
     deadline.extension_status = 'REJECTED';
     deadline.pending_due_date = null;
 
     deadline.extension_reviewed_by = managerId;
     deadline.extension_reviewed_at = new Date();
-    deadline.extension_reject_reason = rejectReason ? String(rejectReason).trim() : '';
+    deadline.extension_reject_reason = cleanRejectReason;
 
     await deadline.save();
 
-    eventBus.emit('extension_rejected', {
+    emitExtensionRejected({
         taskId,
         managerId,
         requesterId,
         originalDueDate,
         requestedDueDate,
         reason: requestReason,
-        rejectReason: deadline.extension_reject_reason
+        rejectReason: cleanRejectReason
     });
 
     return deadline;
