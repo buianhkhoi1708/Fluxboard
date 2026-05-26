@@ -18,8 +18,18 @@ export interface UserProfile {
   department_id?: string | null;
   departmentId?: string | null;
 
+  role_id?: string | number | {
+    _id?: string | number;
+    id?: string | number;
+    name?: string;
+  };
+
+  role?: string;
+  role_name?: string;
+  roleName?: string;
   system_role?: string;
-  role_id?: string;
+  systemRole?: string;
+
   status?: string;
 }
 
@@ -33,7 +43,11 @@ interface AuthState {
   user: UserProfile | null;
   isLoading: boolean;
 
-  login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
+  login: (email: string, password: string) => Promise<{
+    success: boolean;
+    message?: string;
+  }>;
+
   logout: (options?: LogoutOptions) => void;
   checkAuth: () => boolean;
   syncFromStorage: () => void;
@@ -45,8 +59,32 @@ interface AuthState {
   updateUserProfile: (updatedData: Partial<UserProfile>) => void;
 }
 
+const getRoleNameFromRawUser = (rawUser: any) => {
+  return (
+    rawUser?.system_role ||
+    rawUser?.systemRole ||
+    rawUser?.role_name ||
+    rawUser?.roleName ||
+    rawUser?.role ||
+    rawUser?.role_id?.name ||
+    null
+  );
+};
+
+const getRoleIdFromRawUser = (rawUser: any) => {
+  const rawRoleId = rawUser?.role_id || rawUser?.roleId;
+
+  if (rawRoleId && typeof rawRoleId === 'object') {
+    return rawRoleId._id || rawRoleId.id || rawRoleId;
+  }
+
+  return rawRoleId || null;
+};
+
 const normalizeUser = (rawUser: any): UserProfile => {
   const userId = rawUser?.id || rawUser?._id || rawUser?.user_id;
+  const roleName = getRoleNameFromRawUser(rawUser);
+  const roleId = getRoleIdFromRawUser(rawUser);
 
   return {
     ...rawUser,
@@ -88,6 +126,32 @@ const normalizeUser = (rawUser: any): UserProfile => {
       rawUser?.departmentId ||
       rawUser?.department_id ||
       null,
+
+    role_id: roleId || rawUser?.role_id || null,
+
+    role_name:
+      rawUser?.role_name ||
+      rawUser?.roleName ||
+      roleName ||
+      undefined,
+
+    roleName:
+      rawUser?.roleName ||
+      rawUser?.role_name ||
+      roleName ||
+      undefined,
+
+    system_role:
+      rawUser?.system_role ||
+      rawUser?.systemRole ||
+      roleName ||
+      undefined,
+
+    systemRole:
+      rawUser?.systemRole ||
+      rawUser?.system_role ||
+      roleName ||
+      undefined,
   };
 };
 
@@ -105,10 +169,21 @@ const clearAuthStorage = () => {
   localStorage.removeItem('refreshToken');
   localStorage.removeItem('user');
   localStorage.removeItem('lastActivityAt');
+
+  // Dọn thêm key cũ nếu trước đây app từng lưu accessToken.
+  localStorage.removeItem('accessToken');
 };
 
 const unwrapResponse = (res: any) => {
   return res?.data?.data ?? res?.data ?? res;
+};
+
+const decodeJwtPayload = (token: string) => {
+  try {
+    return JSON.parse(atob(token.split('.')[1]));
+  } catch {
+    return null;
+  }
 };
 
 const saveSession = (payload: any) => {
@@ -121,7 +196,14 @@ const saveSession = (payload: any) => {
     payload?.refreshToken ||
     payload?.refresh_token;
 
-  const finalUser = normalizeUser(payload?.user || payload);
+  const tokenPayload = finalAccessToken
+    ? decodeJwtPayload(finalAccessToken)
+    : null;
+
+  const finalUser = normalizeUser({
+    ...(tokenPayload || {}),
+    ...(payload?.user || payload),
+  });
 
   if (!finalAccessToken) {
     throw new Error('Không nhận được access token từ máy chủ.');
@@ -210,7 +292,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   verifyResetToken: async (token: string) => {
     try {
-      await axiosClient.get(`/auth/verify-reset-token?token=${encodeURIComponent(token)}`);
+      await axiosClient.get(
+        `/auth/verify-reset-token?token=${encodeURIComponent(token)}`,
+      );
 
       return { success: true };
     } catch (error: any) {
@@ -300,25 +384,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return false;
     }
 
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
+    const payload = decodeJwtPayload(token);
 
-      if (payload.exp * 1000 < Date.now()) {
-        // Access token hết hạn nhưng còn refresh token thì vẫn cho vào app.
-        // Request API kế tiếp sẽ tự gọi silent refresh qua axios interceptor.
-        if (refreshToken) {
-          return true;
-        }
-
-        get().logout();
-        return false;
-      }
-
-      return true;
-    } catch {
+    if (!payload) {
       get().logout();
       return false;
     }
+
+    if (payload.exp * 1000 < Date.now()) {
+      // Access token hết hạn nhưng còn refresh token thì vẫn cho vào app.
+      // Request API kế tiếp sẽ tự gọi silent refresh qua axios interceptor.
+      if (refreshToken) {
+        return true;
+      }
+
+      get().logout();
+      return false;
+    }
+
+    return true;
   },
 
   syncFromStorage: () => {
@@ -336,8 +420,13 @@ if (typeof window !== 'undefined') {
       user?: any;
     }>;
 
-    const accessToken = customEvent.detail?.accessToken || localStorage.getItem('token');
-    const refreshedUser = customEvent.detail?.user || parseStoredUser();
+    const accessToken =
+      customEvent.detail?.accessToken ||
+      localStorage.getItem('token');
+
+    const refreshedUser =
+      customEvent.detail?.user ||
+      parseStoredUser();
 
     useAuthStore.setState({
       token: accessToken || null,

@@ -1,21 +1,38 @@
-// src/features/activity/api/useInfiniteAdminLogs.ts
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { activityApi, ActivityFilters } from './activityApi';
+import {
+  activityApi,
+  ActivityFilters,
+  ActivityListResponse,
+} from './activityApi';
+
+const unwrapActivityResponse = (res: any): ActivityListResponse => {
+  if (res?.success !== undefined && (Array.isArray(res?.data) || res?.meta)) {
+    return res;
+  }
+
+  if (res?.data?.success !== undefined) {
+    return res.data;
+  }
+
+  return res;
+};
 
 export function useInfiniteAdminLogs(filters: ActivityFilters) {
   return useInfiniteQuery({
-    queryKey: ['adminLogs', 'infinite', filters], 
+    queryKey: ['adminLogs', 'infinite', filters],
+
     queryFn: async ({ pageParam = 0 }) => {
-      // 🚀 Thêm async/await để bóc lớp data của AxiosClient nếu cần
       const res: any = await activityApi.getAdminLogs(pageParam, 20, filters);
-      return res.data || res; // Dự phòng trường hợp axiosClient trả về luôn object
+      return unwrapActivityResponse(res);
     },
+
     initialPageParam: 0,
-    getNextPageParam: (lastPage, allPages) => {
-      // 🚀 lastPage chính là ActivityListResponse
+
+    getNextPageParam: (lastPage) => {
       if (lastPage?.meta?.has_next) {
-        return lastPage.meta.page + 1; // Sửa lại thành lấy trang tiếp theo
+        return Number(lastPage.meta.page || 0) + 1;
       }
+
       return undefined;
     },
   });

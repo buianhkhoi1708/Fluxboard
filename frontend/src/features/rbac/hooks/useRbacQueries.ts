@@ -6,18 +6,34 @@ export const RBAC_KEYS = {
 };
 
 export interface Role {
-  id: string;
+  id?: string;
+  _id?: string;
   name: string;
   description?: string;
+  scope?: string;
 }
+
+const extractRoles = (res: any): Role[] => {
+  const payload =
+    res?.data?.data?.content ??
+    res?.data?.content ??
+    res?.data?.data ??
+    res?.data ??
+    res?.content ??
+    res;
+
+  return Array.isArray(payload) ? payload : [];
+};
 
 export const useRolesDictionary = () => {
   return useQuery({
     queryKey: RBAC_KEYS.roles,
+
     queryFn: async (): Promise<Role[]> => {
-      const { data } = await axiosClient.get('/rbac/roles');
-      return data?.data?.content || data?.data || data || [];
+      const res: any = await axiosClient.get('/rbac/roles');
+      return extractRoles(res);
     },
-    staleTime: 1000 * 60 * 60, // Cache cứng 1 tiếng
+
+    staleTime: 1000 * 60 * 60,
   });
 };

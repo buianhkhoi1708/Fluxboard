@@ -1,10 +1,9 @@
 import React from 'react';
 import { useQueryState, parseAsString } from 'nuqs';
-import { User, Shield, Bell, Laptop, Trash2, Key, Settings } from 'lucide-react';
+import { User, Shield, Bell, Settings } from 'lucide-react';
 import ChangePasswordForm from '../features/settings/components/ChangePassWordForm';
 import { ProfileTab } from '../features/settings/components/ProfileTab';
 import { NotificationTab } from '../features/settings/components/NotificationTab';
-import { useActiveSessions, useRevokeSession, useSignOutAllSessions, useSecurityLogs } from '../features/settings/hooks/useSettingQueries';
 
 const TABS = [
   { key: 'profile', label: 'Hồ sơ', icon: User },
@@ -13,18 +12,15 @@ const TABS = [
 ];
 
 const SettingsPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useQueryState('tab', parseAsString.withDefault('profile'));
-
-  const { data: sessions = [] } = useActiveSessions();
-  const { data: logs = [] } = useSecurityLogs();
-  const { mutate: revokeSession } = useRevokeSession();
-  const { mutate: signOutAll } = useSignOutAllSessions();
+  const [activeTab, setActiveTab] = useQueryState(
+    'tab',
+    parseAsString.withDefault('profile'),
+  );
 
   return (
     <div className="flex-1 bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 h-full overflow-y-auto no-scrollbar p-4 md:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
-
-        {/* HEADER – đồng nhất phong cách WorkspacesPage */}
+        {/* HEADER */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div className="space-y-1">
             <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight flex items-center gap-3 text-slate-800">
@@ -33,20 +29,23 @@ const SettingsPage: React.FC = () => {
               </div>
               Cài đặt
             </h1>
+
             <p className="text-sm font-medium text-slate-500 pl-12">
-              Quản lý các thông tin xác thực bảo mật, quản trị thiết bị kết nối và cấu hình hệ thống dữ liệu.
+              Quản lý hồ sơ cá nhân, thông tin bảo mật và cấu hình thông báo của tài khoản.
             </p>
           </div>
         </div>
 
-        {/* TAB BAR – giữ nguyên cấu trúc, tăng hiệu ứng nhấn */}
+        {/* TAB BAR */}
         <div className="flex gap-1 bg-white/80 backdrop-blur-sm p-1 rounded-2xl border border-slate-200/80 shadow-lg shadow-slate-200/20 mb-8 w-fit">
           {TABS.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.key;
+
             return (
               <button
                 key={tab.key}
+                type="button"
                 onClick={() => setActiveTab(tab.key)}
                 className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 active:scale-95 ${
                   isActive
@@ -61,93 +60,11 @@ const SettingsPage: React.FC = () => {
           })}
         </div>
 
-        {/* CONTENT CARD – nâng tầm shadow, border đồng bộ */}
+        {/* CONTENT CARD */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/80 shadow-lg shadow-slate-200/20 p-6 md:p-8 transition-all duration-300">
           {activeTab === 'profile' && <ProfileTab />}
 
-          {activeTab === 'security' && (
-            <div className="space-y-8 divide-y divide-slate-100">
-              <ChangePasswordForm />
-
-              {/* Quản lý phiên hoạt động */}
-              <div className="pt-8">
-                <div className="flex justify-between items-center mb-4">
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-800">Quản lý phiên hoạt động</h4>
-                    <p className="text-xs text-slate-500">
-                      Danh sách các thiết bị đầu cuối đang có kết nối hoạt động hợp lệ vào hệ thống.
-                    </p>
-                  </div>
-                  {sessions.length > 1 && (
-                    <button
-                      onClick={() => signOutAll()}
-                      className="text-xs text-rose-600 hover:text-rose-700 font-bold flex items-center gap-1 px-3 py-1.5 rounded-xl hover:bg-rose-50 transition-colors"
-                    >
-                      <Trash2 size={14} />
-                      Đăng xuất tất cả thiết bị khác
-                    </button>
-                  )}
-                </div>
-
-                <div className="space-y-3">
-                  {sessions.map((sess: any) => (
-                    <div
-                      key={sess._id}
-                      className="flex items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-xl hover:shadow-md hover:border-indigo-200 transition-all"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-lg bg-white border border-indigo-100 flex items-center justify-center shadow-sm">
-                          <Laptop className="text-indigo-500" size={18} />
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold text-slate-700">
-                            {sess.device_type}{' '}
-                            <span className="text-xs font-normal text-slate-400">({sess.ip_address})</span>
-                          </p>
-                          <p className="text-[10px] text-slate-400">
-                            Hoạt động gần nhất: {new Date(sess.last_activity).toLocaleString('en-US')}
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => revokeSession(sess._id)}
-                        className="text-slate-400 hover:text-rose-600 p-2 rounded-xl hover:bg-rose-50 transition-colors"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Nhật ký bảo mật */}
-              <div className="pt-8">
-                <h4 className="text-sm font-bold text-slate-800 mb-3">Nhật ký bảo mật hệ thống</h4>
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-                  {logs.length > 0 ? (
-                    logs.map((log: any) => (
-                      <div
-                        key={log._id}
-                        className="flex justify-between text-xs text-slate-600 border-b border-slate-200/50 pb-2 last:border-none last:pb-0"
-                      >
-                        <span className="font-medium flex items-center gap-1.5">
-                          <Key size={12} className="text-slate-400" />
-                          {log.message}
-                        </span>
-                        <span className="text-slate-400">
-                          {new Date(log.created_at).toLocaleDateString('en-US')}
-                        </span>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-xs text-slate-400 italic">
-                      Chưa ghi nhận lịch sử thay đổi thông số bảo mật nào.
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
+          {activeTab === 'security' && <ChangePasswordForm />}
 
           {activeTab === 'notifications' && <NotificationTab />}
         </div>
