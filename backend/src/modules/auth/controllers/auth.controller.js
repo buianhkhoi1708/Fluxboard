@@ -3,12 +3,16 @@ const passwordService = require('../services/password.service');
 
 exports.login = async (req, res, next) => {
     try {
-        const data = await authService.login(req.body.email, req.body.password);
+        const data = await authService.login(
+            req.body.email,
+            req.body.password,
+            req,
+        );
 
         res.status(200).json({
             success: true,
             ...data,
-            data
+            data,
         });
     } catch (error) {
         next(error);
@@ -21,7 +25,7 @@ exports.forgotPassword = async (req, res, next) => {
 
         res.status(200).json({
             success: true,
-            message: 'Password reset link sent to email'
+            message: 'Password reset link sent to email',
         });
     } catch (error) {
         next(error);
@@ -36,7 +40,7 @@ exports.resetPassword = async (req, res, next) => {
 
         res.status(200).json({
             success: true,
-            message: 'Password has been reset successfully'
+            message: 'Password has been reset successfully',
         });
     } catch (error) {
         next(error);
@@ -53,17 +57,17 @@ exports.refreshToken = async (req, res, next) => {
             return res.status(400).json({
                 success: false,
                 error: {
-                    message: 'Refresh token is required'
-                }
+                    message: 'Refresh token is required',
+                },
             });
         }
 
-        const data = await authService.refreshToken(refreshToken);
+        const data = await authService.refreshToken(refreshToken, req);
 
         res.status(200).json({
             success: true,
             ...data,
-            data
+            data,
         });
     } catch (error) {
         next(error);

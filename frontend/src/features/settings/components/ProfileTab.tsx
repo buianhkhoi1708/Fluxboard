@@ -4,7 +4,8 @@ import { useSettingUiStore } from '../store/useSettingUIStore';
 import { Loader2, Camera, CheckCircle2, AlertTriangle } from 'lucide-react';
 
 // Sử dụng chuỗi Base64 SVG làm ảnh đại diện mặc định để triệt tiêu lỗi mất kết nối mạng bên thứ ba
-const DEFAULT_AVATAR = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'><rect width='150' height='150' fill='%23cbd5e1'/><path d='M75 80c19.33 0 35-15.67 35-35S94.33 10 75 10 40 25.67 40 45s15.67 35 35 35zm0 15c-26.67 0-80 13.33-80 40v15h160v-15c0-26.67-53-40-80-40z' fill='%2394a3b8'/></svg>";
+const DEFAULT_AVATAR =
+  "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'><rect width='150' height='150' fill='%23cbd5e1'/><path d='M75 80c19.33 0 35-15.67 35-35S94.33 10 75 10 40 25.67 40 45s15.67 35 35 35zm0 15c-26.67 0-80 13.33-80 40v15h160v-15c0-26.67-53-40-80-40z' fill='%2394a3b8'/></svg>";
 
 export const ProfileTab: React.FC = () => {
   const { data: profile, isLoading } = useProfileOverview();
@@ -24,6 +25,7 @@ export const ProfileTab: React.FC = () => {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
+
     if (selectedFile) {
       setFile(selectedFile);
       setPreview(URL.createObjectURL(selectedFile));
@@ -32,8 +34,9 @@ export const ProfileTab: React.FC = () => {
 
   const handleSave = () => {
     clearMessage();
+
     if (!name.trim()) {
-      setMessage('error', 'Name cannot be empty.');
+      setMessage('error', 'Tên không được để trống.');
       return;
     }
 
@@ -41,12 +44,15 @@ export const ProfileTab: React.FC = () => {
       { name, file },
       {
         onSuccess: () => {
-          setMessage('success', 'Profile updated successfully.');
+          setMessage('success', 'Cập nhật hồ sơ thành công.');
         },
         onError: (err: any) => {
-          setMessage('error', err?.response?.data?.message || 'Failed to update profile.');
-        }
-      }
+          setMessage(
+            'error',
+            err?.response?.data?.message || 'Cập nhật hồ sơ thất bại.',
+          );
+        },
+      },
     );
   };
 
@@ -61,15 +67,28 @@ export const ProfileTab: React.FC = () => {
   return (
     <div className="space-y-6 max-w-2xl animate-in fade-in duration-300">
       <div>
-        <h3 className="text-lg font-bold text-slate-800">Thông tin cá nhân</h3>
-        <p className="text-xs text-slate-500">Cập nhật chi tiết hồ sơ cá nhân và sơ đồ vị trí nhân sự liên kết trong hệ thống.</p>
+        <h3 className="text-lg font-bold text-slate-800">
+          Thông tin cá nhân
+        </h3>
+
+        <p className="text-xs text-slate-500">
+          Cập nhật chi tiết hồ sơ cá nhân và thông tin nhân sự liên kết trong hệ thống.
+        </p>
       </div>
 
       {message.text && (
-        <div className={`p-4 rounded-xl border flex items-center gap-3 text-sm ${
-          message.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800'
-        }`}>
-          {message.type === 'success' ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}
+        <div
+          className={`p-4 rounded-xl border flex items-center gap-3 text-sm ${
+            message.type === 'success'
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+              : 'bg-rose-50 border-rose-200 text-rose-800'
+          }`}
+        >
+          {message.type === 'success' ? (
+            <CheckCircle2 size={18} />
+          ) : (
+            <AlertTriangle size={18} />
+          )}
           <span>{message.text}</span>
         </div>
       )}
@@ -81,20 +100,35 @@ export const ProfileTab: React.FC = () => {
             alt="Avatar"
             className="w-24 h-24 rounded-2xl object-cover border-2 border-slate-200 shadow-inner"
           />
+
           <label className="absolute inset-0 bg-black/40 rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
             <Camera className="text-white" size={20} />
-            <input type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileChange}
+            />
           </label>
         </div>
+
         <div>
-          <h4 className="text-sm font-bold text-slate-700">{profile?.email}</h4>
-          <p className="text-xs text-slate-400">Định dạng cho phép: JPG, PNG. Dung lượng tối đa 10MB.</p>
+          <h4 className="text-sm font-bold text-slate-700">
+            {profile?.email}
+          </h4>
+
+          <p className="text-xs text-slate-400">
+            Định dạng cho phép: JPG, PNG. Dung lượng tối đa 10MB.
+          </p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-bold text-slate-700">Họ và tên</label>
+          <label className="text-xs font-bold text-slate-700">
+            Họ và tên
+          </label>
+
           <input
             type="text"
             value={name}
@@ -104,7 +138,10 @@ export const ProfileTab: React.FC = () => {
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-bold text-slate-700">Phòng ban</label>
+          <label className="text-xs font-bold text-slate-700">
+            Phòng ban
+          </label>
+
           <input
             type="text"
             value={profile?.department?.name || 'Chưa phân bổ phòng ban'}
@@ -114,7 +151,10 @@ export const ProfileTab: React.FC = () => {
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-bold text-slate-700">Nhóm (Team)</label>
+          <label className="text-xs font-bold text-slate-700">
+            Nhóm (Team)
+          </label>
+
           <input
             type="text"
             value={profile?.team?.name || 'Chưa phân bổ nhóm'}
@@ -124,25 +164,9 @@ export const ProfileTab: React.FC = () => {
         </div>
       </div>
 
-      <div className="pt-4 border-t border-slate-100">
-        <h4 className="text-xs font-bold text-slate-700 mb-2">Dự án đang tham gia</h4>
-        {profile?.joined_projects && profile.joined_projects.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
-            {profile.joined_projects.map((proj: any) => (
-              <span key={proj.project_id} className={`px-3 py-1 rounded-lg text-xs font-semibold border ${
-                proj.status === 'ACTIVE' ? 'bg-indigo-50 border-indigo-100 text-indigo-700' : 'bg-slate-100 border-slate-200 text-slate-600'
-              }`}>
-                {proj.name}
-              </span>
-            ))}
-          </div>
-        ) : (
-          <p className="text-xs text-slate-400 italic">Hiện tại chưa trực tiếp tham gia vào bảng dự án nào.</p>
-        )}
-      </div>
-
-      <div className="flex justify-end pt-4">
+      <div className="flex justify-end pt-4 border-t border-slate-100">
         <button
+          type="button"
           onClick={handleSave}
           disabled={isPending}
           className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-2.5 rounded-xl shadow-sm transition-all text-sm disabled:opacity-50 flex items-center gap-2"

@@ -1,76 +1,100 @@
 import axiosClient from '../../../lib/axiosClient';
 
-export const userApi = {
-  // Lấy danh sách user (Cố định size lớn)
-  getUsers: () => axiosClient.get('/users?size=100'),
+export interface UserQueryParams {
+  page?: number;
+  size?: number;
+  search?: string;
+  include_role?: boolean;
+  include_session?: boolean;
+}
 
-  // Lấy danh sách user (Có phân trang & tìm kiếm)
-  getAllUsers: (params?: { page?: number; size?: number; search?: string }) => {
-    const finalParams = { page: 0, size: 50, ...params };
-    return axiosClient.get('/users', { params: finalParams });
+const buildUserQueryParams = (params?: UserQueryParams) => {
+  return {
+    page: 0,
+    size: 100,
+    include_role: true,
+    include_session: true,
+    ...params,
+  };
+};
+
+export const userApi = {
+  // Lấy danh sách user dùng cho cache hệ thống.
+  // Backend nên trả thêm role_id/role_name/is_online/last_activity nếu có.
+  getUsers: () => {
+    return axiosClient.get('/users', {
+      params: buildUserQueryParams({
+        size: 100,
+      }),
+    });
   },
 
-  // 🚀 TẠO USER MỚI
+  // Lấy danh sách user có phân trang & tìm kiếm.
+  getAllUsers: (params?: UserQueryParams) => {
+    return axiosClient.get('/users', {
+      params: buildUserQueryParams(params),
+    });
+  },
+
+  // Tạo user mới.
   createUser: (data: any) => {
     return axiosClient.post('/users', data);
   },
 
-  // Gọi API lấy danh sách Role từ RbacController
-  getRoles: () => axiosClient.get('/rbac/roles?size=100'),
+  // Lấy danh sách role từ RBAC.
+  getRoles: () => {
+    return axiosClient.get('/rbac/roles?size=100');
+  },
 
-  // Update user
+  // Update user.
   updateUser: (userId: string | number, data: any) => {
     return axiosClient.put(`/users/${userId}`, data);
   },
 
-  // Delete user
+  // Delete / deactivate user.
   deleteUser: (userId: string | number) => {
     return axiosClient.delete(`/users/${userId}`);
   },
 
-  // 🚀 Upload avatar (S3 safe)
-  // 🚀 Upload avatar (S3 safe)
+  // Upload avatar bằng presigned URL.
   uploadAvatar: async (userId: string | number, file: File) => {
-    // 1. Lấy presigned URL từ Backend
     const presignRes: any = await axiosClient.get(
       `/users/${userId}/avatar/presigned-url`,
       {
         params: {
           fileName: file.name,
-          contentType: file.type
-        }
-      }
+          contentType: file.type,
+        },
+      },
     );
 
-    // Bọc lót trích xuất URL an toàn
     const responseData = presignRes.data?.data || presignRes.data || {};
     const { uploadUrl, fileUrl } = responseData;
 
     if (!uploadUrl || !fileUrl) {
-      throw new Error("Presigned URL không hợp lệ hoặc Backend không trả về URL!");
+      throw new Error('Presigned URL không hợp lệ hoặc Backend không trả về URL.');
     }
 
-    // 2. Upload file trực tiếp lên S3 bằng presigned URL (Dùng fetch để tránh lỗi Header)
     const uploadRes = await fetch(uploadUrl, {
-      method: "PUT",
+      method: 'PUT',
       headers: {
-        "Content-Type": file.type
+        'Content-Type': file.type,
       },
-      body: file
+      body: file,
     });
 
     if (!uploadRes.ok) {
-      throw new Error(`Upload S3 thất bại: ${uploadRes.status} - ${uploadRes.statusText}`);
+      throw new Error(
+        `Upload S3 thất bại: ${uploadRes.status} - ${uploadRes.statusText}`,
+      );
     }
 
-    // 3. 🚀 BÍ KÍP ĐÂY: Gọi API báo cho Backend lưu link vào Database
     await axiosClient.put(`/users/${userId}/avatar`, {
-      avatarUrl: fileUrl
+      avatarUrl: fileUrl,
     });
 
-    // 4. 🚀 ĐỔI TÊN BIẾN TRẢ VỀ: Trả đúng field 'url' để Hook useUpdateProfile hứng được
     return {
-      url: fileUrl 
+      url: fileUrl,
     };
-  }
+  },
 };

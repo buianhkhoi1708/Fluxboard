@@ -2,18 +2,25 @@ const boardService = require('../services/board.service');
 
 exports.createBoard = async (req, res, next) => {
     try {
-        // 🚀 Bổ sung thêm biến create_default_cols lấy từ body
-        const { project_id, name, description, create_default_cols } = req.body;
-        
-        // Truyền xuống service
+        const {
+            project_id,
+            projectId,
+            name,
+            description,
+            create_default_cols,
+        } = req.body;
+
         const newBoard = await boardService.createBoard(
-            project_id, 
-            name, 
-            description, 
-            create_default_cols // 👈 Cắm vào đây
+            project_id || projectId,
+            name,
+            description,
+            create_default_cols,
         );
-        
-        res.status(201).json({ success: true, data: newBoard });
+
+        res.status(201).json({
+            success: true,
+            data: newBoard,
+        });
     } catch (error) {
         next(error);
     }
@@ -21,21 +28,31 @@ exports.createBoard = async (req, res, next) => {
 
 exports.getBoardDetail = async (req, res, next) => {
     try {
-        const board = await boardService.getBoardDetail(req.params.id);
-        res.status(200).json({ 
-            success: true, 
-            data: board 
+        const board = await boardService.getBoardDetail(
+            req.params.id,
+            req.user,
+        );
+
+        res.status(200).json({
+            success: true,
+            data: board,
         });
-    } catch (error) { next(error); }
+    } catch (error) {
+        next(error);
+    }
 };
 
 exports.updateBoard = async (req, res, next) => {
     try {
-        const { id } = req.params;
-        const updateData = req.body;
-        
-        const updatedBoard = await boardService.updateBoard(id, updateData);
-        res.status(200).json({ success: true, data: updatedBoard });
+        const updatedBoard = await boardService.updateBoard(
+            req.params.id,
+            req.body,
+        );
+
+        res.status(200).json({
+            success: true,
+            data: updatedBoard,
+        });
     } catch (error) {
         next(error);
     }
@@ -43,9 +60,12 @@ exports.updateBoard = async (req, res, next) => {
 
 exports.deleteBoard = async (req, res, next) => {
     try {
-        const { id } = req.params;
-        await boardService.deleteBoard(id);
-        res.status(200).json({ success: true, message: 'Xóa bảng thành công' });
+        await boardService.deleteBoard(req.params.id);
+
+        res.status(200).json({
+            success: true,
+            message: 'Xóa bảng thành công',
+        });
     } catch (error) {
         next(error);
     }
