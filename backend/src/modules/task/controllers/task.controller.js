@@ -95,6 +95,22 @@ exports.createTask = async (req, res, next) => {
             });
         }
 
+        // 🚀 BẮN TÍN HIỆU SOCKET: TẠO TASK MỚI (Khớp tần số Frontend)
+        try {
+            const io = req.app.get('io');
+            const targetBoardId = task.board_id || payload.board_id;
+            if (io && targetBoardId) {
+                const channelName = `/topic/board/${targetBoardId}`;
+                io.emit(channelName, { 
+                    boardId: targetBoardId,
+                    action: 'CREATE_TASK' 
+                });
+                console.log(`📢 Đã bắn tín hiệu thành công vào kênh: ${channelName}`);
+            }
+        } catch (socketErr) {
+            console.error('Lỗi khi bắn Socket (createTask):', socketErr);
+        }
+
         res.status(201).json({
             success: true,
             data: task,
@@ -123,6 +139,22 @@ exports.updateTask = async (req, res, next) => {
             }
         });
 
+        // 🚀 BẮN TÍN HIỆU SOCKET: CẬP NHẬT TASK
+        try {
+            const io = req.app.get('io');
+            const targetBoardId = task.board_id;
+            if (io && targetBoardId) {
+                const channelName = `/topic/board/${targetBoardId}`;
+                io.emit(channelName, { 
+                    boardId: targetBoardId,
+                    action: 'UPDATE_TASK'
+                });
+                console.log(`📢 Đã bắn tín hiệu thành công vào kênh: ${channelName}`);
+            }
+        } catch (socketErr) {
+            console.error('Lỗi khi bắn Socket (updateTask):', socketErr);
+        }
+
         res.status(200).json({
             success: true,
             data: task,
@@ -137,6 +169,14 @@ exports.deleteTask = async (req, res, next) => {
     try {
         const actorId = getAuthUserId(req);
 
+        // Lấy thông tin task TRƯỚC KHI xóa để lấy board_id bắn Socket
+        let taskToDelete = null;
+        try {
+            taskToDelete = await taskCoreService.getTaskById(req.params.id);
+        } catch (e) {
+            console.warn("Không tìm thấy task để lấy board_id trước khi xóa", e);
+        }
+
         await taskCoreService.deleteTask(req.params.id, actorId);
 
         await activityService.logActivity({
@@ -150,6 +190,24 @@ exports.deleteTask = async (req, res, next) => {
             }
         });
 
+        // 🚀 BẮN TÍN HIỆU SOCKET: XÓA TASK
+        if (taskToDelete && (taskToDelete.board_id || taskToDelete.boardId)) {
+            try {
+                const io = req.app.get('io');
+                const targetBoardId = taskToDelete.board_id || taskToDelete.boardId;
+                if (io && targetBoardId) {
+                    const channelName = `/topic/board/${targetBoardId}`;
+                    io.emit(channelName, { 
+                        boardId: targetBoardId,
+                        action: 'DELETE_TASK'
+                    });
+                    console.log(`📢 Đã bắn tín hiệu thành công vào kênh: ${channelName}`);
+                }
+            } catch (socketErr) {
+                console.error('Lỗi khi bắn Socket (deleteTask):', socketErr);
+            }
+        }
+
         res.status(200).json({
             success: true,
             message: 'Task deleted successfully'
@@ -162,7 +220,7 @@ exports.deleteTask = async (req, res, next) => {
 exports.moveTask = async (req, res, next) => {
     try {
         const actorId = getAuthUserId(req);
-        const { destColumnId, newOrder } = req.body;
+        const { destColumnId, newOrder, board_id } = req.body; 
 
         const task = await taskCoreService.moveTask(
             req.params.id,
@@ -182,6 +240,22 @@ exports.moveTask = async (req, res, next) => {
                 message: 'Moved task to another column'
             }
         });
+
+        // 🚀 BẮN TÍN HIỆU SOCKET: DI CHUYỂN TASK
+        try {
+            const io = req.app.get('io');
+            const targetBoardId = task.board_id || board_id;
+            if (io && targetBoardId) {
+                const channelName = `/topic/board/${targetBoardId}`;
+                io.emit(channelName, { 
+                    boardId: targetBoardId,
+                    action: 'MOVE_TASK'
+                });
+                console.log(`📢 Đã bắn tín hiệu thành công vào kênh: ${channelName}`);
+            }
+        } catch (socketErr) {
+            console.error('Lỗi khi bắn Socket (moveTask):', socketErr);
+        }
 
         res.status(200).json({
             success: true,

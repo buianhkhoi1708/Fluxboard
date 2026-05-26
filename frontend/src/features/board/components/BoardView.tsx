@@ -4,6 +4,7 @@ import TaskItem from './TaskItem';
 import { useUserStore } from '../../user/store/useUserStore'; 
 import { useBoardStore } from '../stores/useBoardStore';
 
+
 import { 
   DndContext, closestCenter, DragOverlay, useSensor, 
   useSensors, MouseSensor, TouchSensor, DragStartEvent, DragEndEvent 
@@ -11,7 +12,7 @@ import {
 
 import { arrayMove } from '@dnd-kit/sortable';
 import { Save, Sparkles, Filter, Users, Plus, X } from 'lucide-react'; 
-import { useRealtimeEvent } from '../../../hooks/useRealtimeEvent'
+import { useRealtimeEvent } from '../../../hooks/useRealtimeEvent'; // 🚀 Nhớ check đúng đường dẫn nha Sếp
 import { useParams, useSearchParams } from 'react-router-dom'; 
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -44,7 +45,10 @@ const BoardView = () => {
 
   const [selectedTaskDetailId, setSelectedTaskDetailId] = useState<string | null>(null);
 
-  // 🚀 Đã bảo vệ: Đồng bộ tên bảng (Hỗ trợ cả name và board_name)
+  // 🚀 BIẾN BẢO VỆ CHỐNG GIẬT UI KHI KÉO THẢ (Vô hiệu hóa Socket tạm thời)
+  const activeDragId = useRef<string | null>(null);
+
+  // Đồng bộ tên bảng
   const boardTitle = board?.name || board?.board_name || 'Bảng công việc';
 
   useEffect(() => {
@@ -56,7 +60,6 @@ const BoardView = () => {
   }, [taskIdFromUrl, board, searchParams, setSearchParams]);
 
   const selectedTaskData = useMemo(() => {
-    // 🚀 Đã bảo vệ: Kiểm tra columns có phải là mảng không
     if (!selectedTaskDetailId || !Array.isArray(board?.columns)) return { task: null, listId: '' };
 
     for (const col of board.columns) {
@@ -82,18 +85,30 @@ const BoardView = () => {
   const touchSensor = useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } });
   const sensors = useSensors(mouseSensor, touchSensor);
 
-  useRealtimeEvent(`/topic/board/${currentBoardId}`, () => {
-    queryClient.invalidateQueries({ queryKey: BOARD_QUERY_KEYS.boardDetail(currentBoardId) });
+  // ==============================================================
+  // 🚀 SOCKET NHẬN REALTIME DATA (ĐÃ TÍCH HỢP PHANH ABS)
+  // ==============================================================
+  useRealtimeEvent(`/topic/board/${currentBoardId}`, (data) => {
+    // Nếu Sếp đang cầm chuột kéo thả Task -> Tạm thời chặn Socket cập nhật UI để không bị giật lùi
+    if (activeDragId.current) {
+      console.log("🛑 Bỏ qua Socket do đang trong phiên kéo thả!");
+      return;
+    }
+
+    console.log("🔄 WebSocket có cập nhật mới! Tải lại Board...", data);
+    queryClient.invalidateQueries({ 
+      queryKey: BOARD_QUERY_KEYS.boardDetail(currentBoardId),
+      exact: true,
+      refetchType: 'active' 
+    });
   });
 
   const activeMembersInBoard = React.useMemo(() => {
-    // 🚀 Đã bảo vệ: Đảm bảo columns là mảng trước khi chạy forEach
     if (!board || !Array.isArray(board.columns)) return [];
     
     const assignedUserIds = new Set<string>();
     
     board.columns.forEach((col: BoardColumn) => {
-      // 🚀 Đã bảo vệ: Đảm bảo tasks là mảng
       if (!Array.isArray(col.tasks)) return;
       
       col.tasks.forEach((task: Task) => {
@@ -108,7 +123,6 @@ const BoardView = () => {
     });
 
     return Array.from(assignedUserIds).map(userId => {
-      // 🚀 Đã bảo vệ: userDictionary có thể chưa load kịp
       return userDictionary?.[userId] || { id: userId, full_name: 'Member', avatar_url: null }; 
     });
   }, [board, userDictionary]);
@@ -149,11 +163,13 @@ const BoardView = () => {
   );
 
   const handleDragEnd = async (e: DragEndEvent) => {
+    // 🚀 Mở khóa cho Socket hoạt động trở lại
+    activeDragId.current = null;
     setActiveTask(null); 
+
     const { active, over } = e;
     if (!over) return; 
 
-    // 🚀 BÍ QUYẾT 1: Ép tất cả ID về chuỗi (String) để né lỗi so sánh của MongoDB
     const activeId = String(active.id);
     const overId = String(over.id);
 
@@ -162,86 +178,102 @@ const BoardView = () => {
 
     if (!activeColId || !overColId) return;
 
-    let newOrder = 0; // Để gửi xuống API (Index 0-based)
+    let newOrder = 0; 
     
     const boardKey = BOARD_QUERY_KEYS.boardDetail(currentBoardId);
     const previousBoard = queryClient.getQueryData(boardKey);
 
-    // 🚀 BÍ QUYẾT 2: Dùng callback (oldBoard) để luôn lấy cục data tươi nhất từ RAM
+    // ==========================================
+    // 🚀 VẼ LẠI UI TỨC THÌ (OPTIMISTIC UPDATE)
+    // ==========================================
     queryClient.setQueryData(boardKey, (oldBoard: any) => {
       if (!oldBoard || !oldBoard.columns) return oldBoard;
 
-      // Deep clone cực mạnh để không bị dính tham chiếu (reference) cũ
+      // Deep copy để không làm biến dị cache của React Query
       const newColumns = JSON.parse(JSON.stringify(oldBoard.columns));
 
-      const sourceColIndex = newColumns.findIndex((c: any) => String(c.id || c._id) === activeColId);
-      const destColIndex = newColumns.findIndex((c: any) => String(c.id || c._id) === overColId);
+      const sourceCol = newColumns.find((c: any) => String(c.id || c._id) === activeColId);
+      const destCol = newColumns.find((c: any) => String(c.id || c._id) === overColId);
 
-      if (sourceColIndex === -1 || destColIndex === -1) return oldBoard;
+      if (!sourceCol || !destCol) return oldBoard;
 
-      const sourceCol = newColumns[sourceColIndex];
-      const destCol = newColumns[destColIndex];
+      // Lấy index gốc TRƯỚC KHI mảng bị cắt xén
+      const activeIndex = sourceCol.tasks.findIndex((t: any) => String(t.id || t._id) === activeId);
+      const overIndex = destCol.tasks.findIndex((t: any) => String(t.id || t._id) === overId);
 
-      // Tìm và rút Task ra khỏi cột cũ
-      const taskIndex = sourceCol.tasks.findIndex((t: any) => String(t.id || t._id) === activeId);
-      if (taskIndex === -1) return oldBoard; // Lỗi ẩn không tìm thấy task
-      
-      const [movedTask] = sourceCol.tasks.splice(taskIndex, 1);
+      if (activeIndex === -1) return oldBoard; 
 
-      // Nhét Task vào cột mới
+      // TRƯỜNG HỢP 1: KÉO THẢ TRONG CÙNG 1 CỘT
       if (activeColId === overColId) {
-        // Kéo trong cùng 1 cột
-        const overIndex = destCol.tasks.findIndex((t: any) => String(t.id || t._id) === overId);
-        const finalIndex = overIndex >= 0 ? overIndex : destCol.tasks.length;
+        if (activeIndex !== overIndex) {
+          // 🚀 Dùng arrayMove để tự động bù trừ độ lệch mảng (hết bị lỗi kéo xuống)
+          sourceCol.tasks = arrayMove(sourceCol.tasks, activeIndex, overIndex);
+          newOrder = overIndex;
+        } else {
+          // Kéo lên thả đúng chỗ cũ -> Không làm gì cả
+          return oldBoard; 
+        }
+      } 
+      
+      // TRƯỜNG HỢP 2: KÉO THẢ SANG CỘT KHÁC
+      else {
+        // 1. Bế task ra khỏi cột cũ
+        const [movedTask] = sourceCol.tasks.splice(activeIndex, 1);
         
-        destCol.tasks.splice(finalIndex, 0, movedTask);
-        newOrder = finalIndex; // Cập nhật thứ tự mới
-      } else {
-        // Kéo sang cột khác
+        // 2. Thả vào cột mới
         if (over.data.current?.type === 'Task') {
-          // Kéo thả đè lên 1 task khác ở cột mới
-          const overIndex = destCol.tasks.findIndex((t: any) => String(t.id || t._id) === overId);
+          // Thả chèn vào giữa các task khác
           const finalIndex = overIndex >= 0 ? overIndex : destCol.tasks.length;
-          
           destCol.tasks.splice(finalIndex, 0, movedTask);
           newOrder = finalIndex;
         } else {
-          // Thả vào vùng trống của cột mới
+          // Thả vào khoảng trống của cột (cột rỗng hoặc thả vào vùng trống cuối cột)
           destCol.tasks.push(movedTask);
           newOrder = destCol.tasks.length - 1; 
         }
       }
 
-      return { ...oldBoard, columns: newColumns }; // Vẽ lại giao diện NGAY LẬP TỨC
+      return { ...oldBoard, columns: newColumns }; 
     });
 
-    // 🚀 BÍ QUYẾT 3: GỌI API CHẠY NGẦM DƯỚI NỀN
+    // ==========================================
+    // 🚀 GỌI API ĐỒNG BỘ XUỐNG DATABASE
+    // ==========================================
     try {
-  // Trích xuất ID một cách tường minh nhất
-  const pId = board?.project_id || board?.projectId || board?.project?._id;
+      const pId = board?.project_id || board?.projectId || board?.project?._id;
 
-  if (!pId) {
-    console.error("🚨 Không tìm thấy Project ID! Board data:", board);
-    throw new Error("Missing Project ID");
-  }
+      if (!pId) {
+        console.error("🚨 Không tìm thấy Project ID! Board data:", board);
+        throw new Error("Missing Project ID");
+      }
 
-  await moveTaskApi({
-    taskId: activeId, 
-    columnId: overColId,
-    order: newOrder,
-    boardId: currentBoardId,
-    // Truyền trực tiếp ID đã được xác nhận là string
-    projectId: String(pId)
-  });
-} catch (error) {
-  console.error("Lỗi khi di chuyển task:", error);
-  // Roll-back lại dữ liệu cũ khi lỗi
-  queryClient.setQueryData(boardKey, previousBoard);
-}
+      // Đẩy vị trí chính xác (newOrder) xuống Backend
+      await moveTaskApi({
+        taskId: activeId, 
+        columnId: overColId,
+        order: newOrder,
+        boardId: currentBoardId,
+        projectId: String(pId)
+      });
+      
+    } catch (error) {
+      console.error("❌ Lỗi API khi di chuyển task, hoàn tác UI:", error);
+      // Nếu API xịt, trả UI về trạng thái cũ như chưa có gì xảy ra
+      queryClient.setQueryData(boardKey, previousBoard);
+    }
   };
   return (
     <>
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={(e) => setActiveTask(e.active.data.current?.task as Task)} onDragEnd={handleDragEnd}>
+      <DndContext 
+        sensors={sensors} 
+        collisionDetection={closestCenter} 
+        onDragStart={(e) => {
+          // 🚀 KHÓA SOCKET LẠI KHI BẮT ĐẦU KÉO
+          activeDragId.current = String(e.active.id);
+          setActiveTask(e.active.data.current?.task as Task);
+        }} 
+        onDragEnd={handleDragEnd}
+      >
         <div className="absolute inset-0 flex flex-col bg-slate-50/50 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-50/40 via-slate-50 to-white overflow-hidden">
 
           {/* HEADER */}
@@ -298,7 +330,6 @@ const BoardView = () => {
 
           {/* VÙNG CỘT KÉO THẢ */}
           <div className="flex-1 w-full p-4 md:p-6 overflow-x-auto overflow-y-hidden flex flex-nowrap gap-4 md:gap-6 items-start custom-scrollbar">
-            {/* 🚀 Đã bảo vệ: Lọc lỗi array.map is not a function */}
             {(Array.isArray(board.columns) ? board.columns : []).map((col: BoardColumn) => (
               <Column 
                 key={col.id || col._id} 
