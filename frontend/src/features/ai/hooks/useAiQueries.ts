@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { userApi } from "../../user/api/userApi";
+import { aiApi } from "../api/aiApi"; // 🚀 IMPORT THÊM CÁI NÀY VÀO NHA SẾP
 import axiosClient from "../../../lib/axiosClient";
 
 // ==========================================
@@ -45,7 +46,7 @@ export const useGenerateAiBoard = () => {
         throw new Error("Danh sách nhân sự không hợp lệ.");
       }
 
-      // 1. TẠO BOARD TRỐNG TRƯỚC
+      // 1. TẠO BOARD TRỐNG TRƯỚC (Dùng thẳng axiosClient cũng ok vì nó chung module Board)
       const boardRes: any = await axiosClient.post("/boards", {
         name: `Dự án AI: ${prompt.substring(0, 15)}...`,
         project_id: project_id,
@@ -65,22 +66,16 @@ export const useGenerateAiBoard = () => {
         throw new Error("Không lấy được Board ID sau khi tạo bảng rỗng.");
       }
 
-      // 2. GỌI API GEMINI ĐỂ BƠM TASK VÀO BẢNG ĐÓ
+      // 2. 🚀 GỌI API GEMINI THÔNG QUA FILE API CHUẨN
       try {
-        await axiosClient.post(
-          `/ai/generate-board`,
-          {
-            board_id: newBoardId, // Backend (ai.service.js) đang dùng boardId
-            project_id: project_id, // Backend đang dùng projectId
-            prompt: prompt,
-            member_ids: member_ids || [], // Đảm bảo không undefined
-            generation_mode: generation_mode || "SIMPLE",
-            start_date: project_start_date, //
-          },
-          {
-            timeout: 180000, // Đợi 3 phút cho AI thoải mái vẽ Task
-          },
-        );
+        await aiApi.generateBoard({
+          boardId: newBoardId,
+          projectId: project_id,
+          prompt: prompt,
+          memberIds: member_ids,
+          generationMode: generation_mode || "SIMPLE",
+          startDate: project_start_date
+        });
 
         return newBoardId;
       } catch (err: any) {

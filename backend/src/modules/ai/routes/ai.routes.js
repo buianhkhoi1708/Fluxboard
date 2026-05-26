@@ -31,14 +31,23 @@ const aiRateLimiter = (req, res, next) => {
 
 router.use(aiRateLimiter);
 
-// 🚀 FIX 1: Đổi hàm xử lý thành generateSmartTasks (hàm xịn nhất)
-router.post('/generate-board', requirePermission('AI_BOARD', 'WRITE', 'SYSTEM'), aiController.generateSmartTasks);
+// ==========================================
+// 🤖 CÁC API TÍCH HỢP AI GEMINI
+// ==========================================
 
-// 🚀 Bổ sung thêm API lấy Insight Deviation
-router.get('/deviation/:projectId', requirePermission('AI_INSIGHT', 'READ', 'SYSTEM'), aiController.getDeviationInsights);
+// 🚀 Tạo Task thông minh vào Board: Dùng quyền UPDATE BOARD ở scope PROJECT
+router.post('/generate-board', requirePermission('BOARD', 'UPDATE', 'PROJECT'), aiController.generateSmartTasks);
 
-router.post('/insights', requirePermission('AI_INSIGHT', 'READ', 'SYSTEM'), aiController.generateInsights);
-router.post('/generate-subtasks', requirePermission('AI_BOARD', 'WRITE', 'SYSTEM'), aiController.generateSubtasks);
-router.get('/summarize-task/:taskId', requirePermission('AI_INSIGHT', 'READ', 'SYSTEM'), aiController.summarizeTaskActivity);
+// 🚀 Lấy Insight rủi ro dự án (Deviation): Dùng quyền READ PROJECT ở scope PROJECT
+router.get('/deviation/:projectId', requirePermission('PROJECT', 'READ', 'PROJECT'), aiController.getDeviationInsights);
+
+// 🚀 Sinh báo cáo Insight chung: Dùng quyền READ PROJECT
+router.post('/insights', requirePermission('PROJECT', 'READ', 'PROJECT'), aiController.generateInsights);
+
+// 🚀 AI bẻ nhỏ Task (Subtasks): Dùng quyền CREATE TASK ở scope PROJECT
+router.post('/generate-subtasks', requirePermission('TASK', 'CREATE', 'PROJECT'), aiController.generateSubtasks);
+
+// 🚀 Tóm tắt hoạt động của 1 Task: Dùng quyền READ TASK ở scope PROJECT
+router.get('/summarize-task/:taskId', requirePermission('TASK', 'READ', 'PROJECT'), aiController.summarizeTaskActivity);
 
 module.exports = router;

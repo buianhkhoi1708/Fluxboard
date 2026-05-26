@@ -116,7 +116,9 @@ const seedRbac = async () => {
                     savedPermissions[`${Resources.PROJECT}_${Actions.CREATE}_${Scopes.SYSTEM}`],
                     ...getPerms(Resources.USER, [Actions.READ], Scopes.SYSTEM),
                     ...getPerms(Resources.TEAM, [Actions.CREATE, Actions.READ, Actions.UPDATE], Scopes.SYSTEM),
-                    ...getPerms(Resources.DEPARTMENT, [Actions.READ], Scopes.SYSTEM)
+                    ...getPerms(Resources.DEPARTMENT, [Actions.READ], Scopes.SYSTEM),
+                    ...getPerms(Resources.RBAC, [Actions.READ], Scopes.SYSTEM),
+                    ...getPerms(Resources.BOARD, [Actions.CREATE, Actions.UPDATE, Actions.DELETE], Scopes.PROJECT),
                 ]
             },
             {
@@ -124,7 +126,8 @@ const seedRbac = async () => {
                 permission_ids: [
                     ...getPerms(Resources.USER, [Actions.READ], Scopes.SYSTEM),
                     ...getPerms(Resources.TEAM, [Actions.READ], Scopes.SYSTEM),
-                    ...getPerms(Resources.DEPARTMENT, [Actions.READ], Scopes.SYSTEM)
+                    ...getPerms(Resources.DEPARTMENT, [Actions.READ], Scopes.SYSTEM),
+                    ...getPerms(Resources.RBAC, [Actions.READ], Scopes.SYSTEM)
                 ]
             },
             

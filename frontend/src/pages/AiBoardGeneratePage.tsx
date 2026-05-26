@@ -202,13 +202,13 @@ const AiBoardGeneratorPage = () => {
         .filter((m) => m.roleId !== viewerRoleId)
         .map((m) => m.userId);
 
+      // 🚀 CÁCH GỌI MỚI (CHUẨN KHỚP VỚI HOOK ĐÃ FIX):
       const newBoardId = await generateAiBoard({
         project_id: selectedProjectId,
         prompt: prompt,
         member_ids: validAssignees,
         generation_mode: generationMode,
-        // 🚀 FIX: Chỉ cần gửi thẳng biến startDate (Nó đã có dạng YYYY-MM-DD rồi)
-        project_start_date: startDate,
+        project_start_date: startDate // Sếp cứ truyền thẳng như này, cái Hook nó sẽ tự bóc ra và nhét xuống payload
       });
 
       navigate(`/board/${newBoardId}`);

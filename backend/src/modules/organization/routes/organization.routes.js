@@ -10,34 +10,35 @@ router.use(requireAuth);
 // ==========================================
 // 1. SƠ ĐỒ TỔ CHỨC (TREE)
 // ==========================================
-router.get('/tree', requirePermission('ORGANIZATION', 'READ', 'SYSTEM'), organizationController.getTree);
+// 🚀 Lấy sơ đồ tổ chức thì dùng quyền xem Phòng ban là chuẩn nhất
+router.get('/tree', requirePermission('DEPARTMENT', 'READ', 'SYSTEM'), organizationController.getTree);
 
 // ==========================================
 // 2. QUẢN LÝ PHÒNG BAN (DEPARTMENTS)
 // ==========================================
-router.post('/departments', requirePermission('ORGANIZATION', 'CREATE', 'SYSTEM'), organizationController.createDepartment);
-router.put('/departments/:id', requirePermission('ORGANIZATION', 'UPDATE', 'SYSTEM'), organizationController.updateDepartment);
-router.delete('/departments/:id', requirePermission('ORGANIZATION', 'DELETE', 'SYSTEM'), organizationController.deleteDepartment);
+// 🚀 Trả lại tên cho em: DEPARTMENT
+router.post('/departments', requirePermission('DEPARTMENT', 'CREATE', 'SYSTEM'), organizationController.createDepartment);
+router.put('/departments/:id', requirePermission('DEPARTMENT', 'UPDATE', 'SYSTEM'), organizationController.updateDepartment);
+router.delete('/departments/:id', requirePermission('DEPARTMENT', 'DELETE', 'SYSTEM'), organizationController.deleteDepartment);
 
 // ==========================================
 // 3. QUẢN LÝ NHÓM (TEAMS)
 // ==========================================
-router.post('/teams', requirePermission('ORGANIZATION', 'CREATE', 'SYSTEM'), organizationController.createTeam);
-router.put('/teams/:teamId', requirePermission('ORGANIZATION', 'UPDATE', 'SYSTEM'), organizationController.updateTeam);
+// 🚀 Làm việc với nhóm thì phải gọi tài nguyên TEAM
+router.post('/teams', requirePermission('TEAM', 'CREATE', 'SYSTEM'), organizationController.createTeam);
+router.put('/teams/:teamId', requirePermission('TEAM', 'UPDATE', 'SYSTEM'), organizationController.updateTeam);
 
 // ==========================================
 // 4. QUẢN LÝ NHÂN SỰ VÀO NHÓM (MEMBERS)
 // ==========================================
-// Lấy danh sách nhân sự chưa có nhóm
-router.get('/users/unassigned', requirePermission('ORGANIZATION', 'READ', 'SYSTEM'), organizationController.getUnassignedUsers);
+// 🚀 Đọc danh sách nhân sự chưa có nhóm -> Dùng quyền xem USER
+router.get('/users/unassigned', requirePermission('USER', 'READ', 'SYSTEM'), organizationController.getUnassignedUsers);
 
-// Gán nhân sự vào nhóm
-router.post('/teams/:teamId/users', requirePermission('ORGANIZATION', 'UPDATE', 'SYSTEM'), organizationController.assignToTeam);
+// 🚀 Thêm/bớt người vào Team bản chất là đang sửa data của Team -> Dùng TEAM UPDATE
+router.post('/teams/:teamId/users', requirePermission('TEAM', 'UPDATE', 'SYSTEM'), organizationController.assignToTeam);
+router.delete('/teams/:teamId/users/:userId', requirePermission('TEAM', 'UPDATE', 'SYSTEM'), organizationController.removeUserFromTeam);
 
-// Gỡ nhân sự khỏi nhóm
-router.delete('/teams/:teamId/users/:userId', requirePermission('ORGANIZATION', 'UPDATE', 'SYSTEM'), organizationController.removeUserFromTeam);
-
-// Tìm kiếm nhân sự (để gán làm Leader)
-router.get('/search', organizationController.searchUsers);
+// 🚀 Tìm kiếm user để gán Leader -> Dùng quyền xem USER
+router.get('/search', requirePermission('USER', 'READ', 'SYSTEM'), organizationController.searchUsers);
 
 module.exports = router;

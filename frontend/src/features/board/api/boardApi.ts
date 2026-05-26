@@ -2,14 +2,23 @@ import axiosClient from '../../../lib/axiosClient';
 
 export interface CreateBoardPayload {
   name: string;
-  projectId: string;
+  projectId?: string; // Tạm thời để cả 2 cho an toàn
+  project_id?: string;
   status: string;
+  create_default_cols?: boolean;
 }
 
 export const boardApi = {
   // --- BOARD ---
   createBoard: async (payload: CreateBoardPayload): Promise<any> => {
-    const response: any = await axiosClient.post('/boards', payload);
+    // 🚀 ÉP KIỂU VỀ CHUẨN BACKEND SNAKE_CASE
+    const finalPayload = {
+      name: payload.name,
+      project_id: payload.projectId || payload.project_id, // 🚀 Bắt cả 2 trường hợp
+      status: payload.status || "ACTIVE",
+      create_default_cols: payload.create_default_cols
+    };
+    const response: any = await axiosClient.post('/boards', finalPayload);
     return response.data || response;
   },
 

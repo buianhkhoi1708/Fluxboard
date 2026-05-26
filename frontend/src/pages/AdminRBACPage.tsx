@@ -130,14 +130,18 @@ const AdminRBACPage = () => {
 
   // 🚀 FIX: Gom nhóm quyền theo 'resource' thay vì 'module'
   const groupedPermissions = useMemo(() => {
+    if (!activeRole) return {};
+
     return permissions.reduce((acc, perm) => {
+      // 🛡️ CHẶN ĐỨNG Ở ĐÂY: Quyền không cùng cấp bậc với Role thì vứt đi, không hiển thị!
+      if (perm.scope !== activeRole.scope) return acc;
+
       const moduleName = perm.resource || 'Chung';
       if (!acc[moduleName]) acc[moduleName] = [];
       acc[moduleName].push(perm);
       return acc;
     }, {});
-  }, [permissions]);
-
+  }, [permissions, activeRole]);
   const handleCreateNewRole = () => {
     alert('Chức năng tạo vai trò mới sẽ được phát triển.');
   };

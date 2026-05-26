@@ -5,6 +5,7 @@ const Department = require('../../department/models/department.model');
 const Team = require('../../team/models/team.model');
 const Role = require('../../rbac/models/role.model');
 const mongoose = require('mongoose');
+const Project = require('../../project/models/project.model'); // Sếp chỉnh lại đường dẫn cho đúng nha
 
 // Bộ nhớ Cache nội bộ để lưu trữ KPI ít biến động (thay thế Redis)
 const kpiCache = new Map();
@@ -154,25 +155,48 @@ const getSystemAdminMetrics = async (queryParams) => {
 // ==========================================
 // 2. ROLE: MANAGER / TEAM LEAD
 // ==========================================
+// ==========================================
+// 2. ROLE: MANAGER (TRƯỞNG PHÒNG)
+// ==========================================
 const getManagerMetrics = async (userId, userTeamId, queryParams) => {
-    const teamId = queryParams.team_id || userTeamId; 
     const now = new Date();
     
-    const teamUsers = teamId && mongoose.Types.ObjectId.isValid(teamId) 
-        ? await User.find({ team_id: teamId, is_deleted: false, status: 'ACTIVE' }).select('_id').lean()
-        : [];
-    const teamUserIds = teamUsers.map(u => u._id);
+    // 🚀 BƯỚC 1: Tìm xem Manager này đang thuộc Phòng ban nào
+    const manager = await User.findById(userId).select('department_id').lean();
 
-    // Tính toán Workload (🚀 Đã sửa $or cho teamUserIds)
+    if (!manager || !manager.department_id) {
+        // Nếu Manager vô gia cư (không có phòng ban) thì trả về mảng rỗng
+        return {
+            team_workload: [],
+            team_deadline_status: { on_track: 0, at_risk: 0, overdue: 0 },
+            at_risk_tasks: []
+        };
+    }
+
+    // 🚀 BƯỚC 2: Tìm TẤT CẢ các Dự án thuộc Phòng ban của Manager này
+    const departmentProjects = await Project.find({ 
+        department_id: manager.department_id,
+        is_deleted: false 
+    }).select('_id').lean();
+
+    const projectIds = departmentProjects.map(p => p._id);
+
+    // Nếu phòng ban này chưa có dự án nào thì cũng trả về rỗng
+    if (projectIds.length === 0) {
+        return {
+            team_workload: [],
+            team_deadline_status: { on_track: 0, at_risk: 0, overdue: 0 },
+            at_risk_tasks: []
+        };
+    }
+
+    // 🚀 BƯỚC 3: Tính Workload của tất cả nhân sự đang làm trong các Project của Phòng
     const teamWorkload = await Task.aggregate([
         { 
             $match: { 
                 is_done: false, 
                 is_deleted: false, 
-                $or: [
-                    { assignee_id: { $in: teamUserIds } },
-                    { assignees_user_id: { $in: teamUserIds } }
-                ]
+                project_id: { $in: projectIds } // Lọc task theo danh sách dự án của Phòng
             } 
         },
         { $lookup: { from: 'taskdeadlines', localField: '_id', foreignField: 'task_id', as: 'dl' } },
@@ -182,7 +206,7 @@ const getManagerMetrics = async (userId, userTeamId, queryParams) => {
         { 
             $group: { 
                 _id: '$assignee_id', 
-                full_name: { $first: { $ifNull: ['$assignee.full_name', 'Chưa có người nhận (Đa Assignee)'] } },
+                full_name: { $first: { $ifNull: ['$assignee.full_name', 'Chưa có người nhận'] } },
                 assigned_points: { $sum: { $ifNull: ['$story_point', 1] } },
                 tasks_overdue: { $sum: { $cond: [{ $eq: ['$dl.is_overdue', true] }, 1, 0] } }
             } 
@@ -194,22 +218,15 @@ const getManagerMetrics = async (userId, userTeamId, queryParams) => {
         }
     ]);
 
-    // Truy vấn trạng thái deadline (🚀 Đã sửa $or)
+    // 🚀 BƯỚC 4: Truy vấn trạng thái deadline tổng của các Project trong Phòng
     const deadlineStats = await TaskDeadline.aggregate([
-        { 
-            $lookup: { 
-                from: 'tasks', localField: 'task_id', foreignField: '_id', as: 'task' 
-            } 
-        },
+        { $lookup: { from: 'tasks', localField: 'task_id', foreignField: '_id', as: 'task' } },
         { $unwind: '$task' },
         { 
             $match: { 
                 'task.is_deleted': false, 
                 'task.is_done': false,
-                $or: [
-                    { 'task.assignee_id': { $in: teamUserIds } },
-                    { 'task.assignees_user_id': { $in: teamUserIds } }
-                ]
+                'task.project_id': { $in: projectIds }
             } 
         },
         {
@@ -242,7 +259,7 @@ const getManagerMetrics = async (userId, userTeamId, queryParams) => {
 
     const stats = deadlineStats[0] || { on_track: 0, at_risk: 0, overdue: 0 };
 
-    // Truy xuất các Task At Risk hoặc Overdue (🚀 Đã sửa $or trong Match của Populate)
+    // 🚀 BƯỚC 5: Lấy danh sách Task sắp trễ / Đã trễ để sếp réo tên
     const atRiskRaw = await TaskDeadline.find({
         is_deleted: false,
         $or: [
@@ -254,16 +271,13 @@ const getManagerMetrics = async (userId, userTeamId, queryParams) => {
         match: { 
             is_deleted: false, 
             is_done: false, 
-            $or: [
-                { assignee_id: { $in: teamUserIds } },
-                { assignees_user_id: { $in: teamUserIds } }
-            ]
+            project_id: { $in: projectIds }
         },
         populate: { path: 'assignee_id', select: 'full_name' }
     }).lean();
 
     const atRiskTasks = atRiskRaw
-        .filter(d => d.task_id) // Lọc bỏ nếu task_id bị null do match failed
+        .filter(d => d.task_id) 
         .map(d => {
             const isOverdue = d.is_overdue || new Date(d.due_date) < now;
             const hoursLeft = Math.max(0, Math.floor((new Date(d.due_date) - now) / (1000 * 60 * 60)));

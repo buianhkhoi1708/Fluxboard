@@ -33,9 +33,7 @@ export const workspaceApi = {
     return axiosClient.get(`/projects/departments/${departmentId}`, { params });
   },
 
-  updateProject: (projectId: string, data: UpdateProjectPayload): Promise<ApiResponse<any>> => {
-    return axiosClient.put(`/projects/${projectId}`, data);
-  },
+
 
 deleteBoard: async ({ boardId, projectId }: { boardId: string; projectId: string }): Promise<any> => {
     const response: any = await axiosClient.delete(`/boards/${boardId}`, {
@@ -46,6 +44,7 @@ deleteBoard: async ({ boardId, projectId }: { boardId: string; projectId: string
     });
     return response.data || response;
   },
+  
   getProjectMembers: (projectId: string): Promise<ApiResponse<IncomingUser[] | any>> => {
     return axiosClient.get(`/projects/${projectId}/members`);
   },
