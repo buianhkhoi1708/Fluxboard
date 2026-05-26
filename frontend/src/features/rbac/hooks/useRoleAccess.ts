@@ -2,40 +2,112 @@ import { useMemo } from 'react';
 import { useAuthStore } from '../../auth/store/useAuthStore';
 import { useRolesDictionary } from './useRbacQueries';
 
+const normalizeRoleName = (value?: string | null) => {
+  if (!value) return '';
+
+  return String(value)
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, '_')
+    .replace(/-/g, '_');
+};
+
+const getRoleId = (value: any) => {
+  if (!value) return '';
+
+  if (typeof value === 'object') {
+    return String(value._id || value.id || '');
+  }
+
+  return String(value);
+};
+
 export const useRoleAccess = () => {
   const { user } = useAuthStore();
   const { data: roles = [], isLoading } = useRolesDictionary();
 
+  const rolesById = useMemo(() => {
+    const map: Record<string, string> = {};
+
+    roles.forEach((role: any) => {
+      const roleId = getRoleId(role);
+
+      if (roleId) {
+        map[roleId] = normalizeRoleName(role.name);
+      }
+    });
+
+    return map;
+  }, [roles]);
+
   const currentRoleName = useMemo(() => {
-    if (!user) return "GUEST";
+    if (!user) return 'GUEST';
 
-    // 1. Nếu Backend có sẵn tên Role (role_name, system_role...)
-    const rawRoleName = user.system_role || (user as any).role_name || (user as any).role;
-    if (rawRoleName) return String(rawRoleName).toUpperCase().trim();
+    const rawRoleName =
+      user.system_role ||
+      user.systemRole ||
+      user.role_name ||
+      user.roleName ||
+      user.role;
 
-    // 2. Tra cứu bằng role_id (FIX LỖI _id CỦA MONGODB TẠI ĐÂY)
-    const roleId = user.role_id;
-    if (roleId && roles.length > 0) {
-      // Thêm r._id để bắt đúng ID từ MongoDB
-      const matchedRole = roles.find(r => 
-        String(r._id || r.id) === String(roleId)
-      );
-      
-      if (matchedRole) return matchedRole.name.toUpperCase().trim();
+    if (rawRoleName) {
+      return normalizeRoleName(rawRoleName);
     }
 
-    return "MEMBER"; 
-  }, [user, roles]);
+    if (typeof user.role_id === 'object' && user.role_id?.name) {
+      return normalizeRoleName(user.role_id.name);
+    }
+
+    const roleId = getRoleId(user.role_id);
+
+    if (roleId && rolesById[roleId]) {
+      return rolesById[roleId];
+    }
+
+    return 'MEMBER';
+  }, [user, rolesById]);
+
+  const hasRoleNameReady = Boolean(
+    user?.system_role ||
+      user?.systemRole ||
+      user?.role_name ||
+      user?.roleName ||
+      user?.role ||
+      (typeof user?.role_id === 'object' && user.role_id?.name) ||
+      rolesById[getRoleId(user?.role_id)],
+  );
+
+  const isLoadingRoles = isLoading && !hasRoleNameReady;
 
   const hasAccess = (allowedRoles: string[]) => {
-    const hasRoleNameReady = user?.system_role || (user as any).role_name || (user as any).role;
-    if (isLoading && !hasRoleNameReady) return false;
+    if (!allowedRoles || allowedRoles.length === 0) {
+      return true;
+    }
 
-    // Kích hoạt full quyền nếu là SYSTEM_ADMIN hoặc ADMIN
-    if (currentRoleName.includes('ADMIN')) return true;
-    
-    return allowedRoles.some(role => currentRoleName.includes(role.toUpperCase()));
+    if (isLoadingRoles) {
+      return false;
+    }
+
+    const normalizedAllowedRoles = allowedRoles.map(normalizeRoleName);
+
+    /**
+     * Quan trọng:
+     * Không dùng currentRoleName.includes('ADMIN') nữa.
+     *
+     * Lý do:
+     * - ADMIN không được tự động lọt vào route chỉ dành riêng cho SYSTEM_ADMIN.
+     * - Route nào muốn SYSTEM_ADMIN vào thì phải khai báo rõ SYSTEM_ADMIN.
+     * - Route nào muốn ADMIN + MANAGER + SYSTEM_ADMIN thì khai báo đủ cả 3.
+     */
+    return normalizedAllowedRoles.includes(currentRoleName);
   };
 
-  return { currentRoleName, hasAccess, isLoadingRoles: isLoading };
+  const isSystemAdmin = currentRoleName === 'SYSTEM_ADMIN';
+
+  return {
+    currentRoleName,
+    hasAccess,
+    isLoadingRoles,
+    isSystemAdmin,
+  };
 };

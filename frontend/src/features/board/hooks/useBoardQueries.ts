@@ -1,8 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { boardApi, CreateBoardPayload } from '../api/boardApi';
 import { useUserStore } from '../../user/store/useUserStore';
-
-// 🚀 1. IMPORT TYPE TỪ FILE TYPES CHUNG
+import { useAuthStore } from '../../auth/store/useAuthStore';
 import { Board, Task } from '../types/index';
 
 export const BOARD_QUERY_KEYS = {
@@ -11,8 +10,89 @@ export const BOARD_QUERY_KEYS = {
   projectMembers: (projectId: string) => ['members', 'project', projectId] as const,
 };
 
+const normalizeRoleName = (value?: string | null) => {
+  if (!value) return '';
+
+  return String(value)
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, '_')
+    .replace(/-/g, '_');
+};
+
+const getUserId = (user: any) => {
+  return String(user?.user_id || user?.id || user?._id || '');
+};
+
+const getRoleName = (user: any) => {
+  const directRole =
+    user?.role_name ||
+    user?.roleName ||
+    user?.system_role ||
+    user?.systemRole ||
+    user?.role ||
+    user?.role_code ||
+    user?.roleCode;
+
+  if (directRole) {
+    return normalizeRoleName(directRole);
+  }
+
+  if (user?.role_id && typeof user.role_id === 'object') {
+    return normalizeRoleName(user.role_id.name || user.role_id.code);
+  }
+
+  if (Array.isArray(user?.system_role_ids)) {
+    const roleName = user.system_role_ids.find((item: any) => {
+      return normalizeRoleName(item) === 'SYSTEM_ADMIN';
+    });
+
+    if (roleName) {
+      return 'SYSTEM_ADMIN';
+    }
+  }
+
+  return '';
+};
+
+const isSystemAdminUser = (user: any) => {
+  return getRoleName(user) === 'SYSTEM_ADMIN';
+};
+
+const isCurrentUserSystemAdmin = () => {
+  return getRoleName(useAuthStore.getState().user) === 'SYSTEM_ADMIN';
+};
+
+const shouldExposeUserInAssignableList = (candidate: any) => {
+  if (!candidate) return false;
+
+  if (!isSystemAdminUser(candidate)) {
+    return true;
+  }
+
+  const currentUser = useAuthStore.getState().user;
+
+  return isCurrentUserSystemAdmin() && getUserId(currentUser) === getUserId(candidate);
+};
+
+const extractList = (res: any) => {
+  const payload =
+    res?.data?.data?.content ??
+    res?.data?.content ??
+    res?.data?.data ??
+    res?.data ??
+    res?.content ??
+    res;
+
+  return Array.isArray(payload) ? payload : [];
+};
+
+const filterAssignableUsers = (users: any[]) => {
+  return users.filter(shouldExposeUserInAssignableList);
+};
+
 // ==========================================
-// QUERIES (LẤY DỮ LIỆU)
+// QUERIES
 // ==========================================
 
 export const useGetBoardsByProject = (projectId: string) => {
@@ -28,34 +108,29 @@ export const useGetBoardDetail = (boardId: string) => {
     queryKey: BOARD_QUERY_KEYS.boardDetail(boardId),
     queryFn: async () => {
       const response = await boardApi.getBoard(boardId);
-      
-      // 1. Tìm object chính (lớp bọc)
-      let coreData = response;
-      while (coreData && coreData.data && !coreData.projectId && !coreData.project_id) {
-        coreData = coreData.data;
-      }
+      const coreData = response?.data || response;
 
-      // 🚀 2. TỐI ƯU CẤU TRÚC ĐỂ UI KHÔNG BỊ TRẮNG
-      // Backend đang trả về: name, column_order_ids
-      // Frontend cần: board_name, columns
       const formattedBoard = {
-  ...coreData,
-  board_name: coreData?.name || 'Bảng công việc',
-  columns: (coreData?.column_order_ids || []).map(col => ({
-    ...col,
-    tasks: col.task_order_ids || [] // 👈 Ánh xạ sang 'tasks' để UI dùng chung
-  })),
-};
+        ...coreData,
+        board_name: coreData?.name || 'Bảng công việc',
+        columns: Array.isArray(coreData?.column_order_ids)
+          ? coreData.column_order_ids.map((col: any) => ({
+              ...col,
+              tasks: col.task_order_ids || [],
+            }))
+          : [],
+      };
 
-      // 🚀 3. BƠM DATA VÀO KHO (Giữ nguyên logic cũ của sếp)
       const projectId = coreData?.projectId || coreData?.project_id;
+
       if (projectId) {
-        boardApi.getProjectMembers(projectId)
-          .then(res => {
-            const members = (res as any)?.data?.data || (res as any)?.data || res || [];
+        boardApi
+          .getProjectMembers(projectId)
+          .then((res) => {
+            const members = filterAssignableUsers(extractList(res));
             useUserStore.getState().saveUsersToCache(members, projectId);
           })
-          .catch(err => console.error("❌ Lỗi đồng bộ danh bạ dự án:", err));
+          .catch((err) => console.error('❌ Lỗi đồng bộ members:', err));
       }
 
       return formattedBoard as unknown as Board;
@@ -69,35 +144,57 @@ export const useGetProjectMembers = (projectId: string) => {
     queryKey: BOARD_QUERY_KEYS.projectMembers(projectId),
     queryFn: async () => {
       const res: any = await boardApi.getProjectMembers(projectId);
-      return res.data?.data || res.data || res;
+      return filterAssignableUsers(extractList(res));
     },
     enabled: !!projectId,
   });
 };
 
 // ==========================================
-// MUTATIONS (THÊM, SỬA, XÓA)
+// TASK MUTATIONS
 // ==========================================
 
-export const useCreateBoard = () => {
+export const useMoveTask = () => {
   const queryClient = useQueryClient();
+
   return useMutation({
-    mutationFn: (payload: CreateBoardPayload) => boardApi.createBoard(payload),
+    mutationFn: (data: any) => boardApi.moveTask(data),
+
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: BOARD_QUERY_KEYS.boardsByProject(variables.projectId) });
+      queryClient.invalidateQueries({
+        queryKey: BOARD_QUERY_KEYS.boardDetail(variables.boardId),
+      });
     },
   });
 };
+
+export const useCreateBoard = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: CreateBoardPayload) => boardApi.createBoard(payload),
+
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: BOARD_QUERY_KEYS.boardsByProject(variables.projectId),
+      });
+    },
+  });
+};
+
 export const useCreateTask = () => {
   const queryClient = useQueryClient();
+
   return useMutation({
-    // Sếp chỉ cần nhận 1 tham số là taskData
     mutationFn: (taskData: Partial<Task>) => boardApi.createTask(taskData),
+
     onSuccess: (_, variables) => {
-      // Dùng board_id trong biến gửi đi để invalidate cache
-      const boardId = variables.board_id;
+      const boardId = (variables as any).board_id;
+
       if (boardId) {
-        queryClient.invalidateQueries({ queryKey: BOARD_QUERY_KEYS.boardDetail(boardId as string) });
+        queryClient.invalidateQueries({
+          queryKey: BOARD_QUERY_KEYS.boardDetail(boardId as string),
+        });
       }
     },
   });
@@ -105,92 +202,266 @@ export const useCreateTask = () => {
 
 export const useUpdateTask = () => {
   const queryClient = useQueryClient();
-  return useMutation({
-    // 🚀 3. TƯƠNG TỰ CHO UPDATEDATA
-    mutationFn: ({ taskId, updateData, boardId }: { taskId: string; updateData: Partial<Task>; boardId: string }) => 
-      boardApi.updateTask(taskId, updateData),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: BOARD_QUERY_KEYS.boardDetail(variables.boardId) });
-    },
-  });
-};
 
-export const useMoveTask = () => {
-  const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ taskId, columnId, order, boardId }: { taskId: string; columnId: string; order: number; boardId: string }) => 
-      boardApi.moveTask(taskId, columnId, order, boardId),
+    mutationFn: ({
+      taskId,
+      updateData,
+    }: {
+      taskId: string;
+      updateData: any;
+      boardId: string;
+    }) => boardApi.updateTask(taskId, updateData),
+
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: BOARD_QUERY_KEYS.boardDetail(variables.boardId) });
+      queryClient.invalidateQueries({
+        queryKey: BOARD_QUERY_KEYS.boardDetail(variables.boardId),
+      });
     },
   });
 };
 
 export const useDeleteTask = () => {
   const queryClient = useQueryClient();
+
   return useMutation({
-    mutationFn: ({ taskId, boardId }: { taskId: string; boardId: string }) => boardApi.deleteTask(taskId),
+    mutationFn: ({
+      taskId,
+      projectId,
+    }: {
+      taskId: string;
+      boardId: string;
+      projectId: string;
+    }) => boardApi.deleteTask({ taskId, projectId }),
+
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: BOARD_QUERY_KEYS.boardDetail(variables.boardId) });
+      queryClient.invalidateQueries({
+        queryKey: BOARD_QUERY_KEYS.boardDetail(variables.boardId),
+      });
     },
   });
 };
 
-// --- COLUMN MUTATIONS ---
+// ==========================================
+// COLUMN MUTATIONS
+// ==========================================
 
 export const useCreateColumn = () => {
   const queryClient = useQueryClient();
+
   return useMutation({
-    mutationFn: ({ list_name, project_id, order, boardId }: { list_name: string, project_id: string, order: number, boardId: string }) => 
-      // 🚀 FIX TẠI ĐÂY: Dịch list_name thành name, dùng boardId truyền vào board_id
-      boardApi.createColumn({ name: list_name, board_id: boardId, order }),
+    mutationFn: ({
+      list_name,
+      project_id,
+      order,
+      boardId,
+    }: {
+      list_name: string;
+      project_id: string;
+      order: number;
+      boardId: string;
+    }) =>
+      boardApi.createColumn({
+        name: list_name,
+        board_id: boardId,
+        order,
+        project_id,
+      }),
+
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: BOARD_QUERY_KEYS.boardDetail(variables.boardId) });
+      queryClient.invalidateQueries({
+        queryKey: BOARD_QUERY_KEYS.boardDetail(variables.boardId),
+      });
     },
   });
 };
 
 export const useUpdateColumn = () => {
   const queryClient = useQueryClient();
+
   return useMutation({
-    mutationFn: ({ columnId, list_name, boardId }: { columnId: string, list_name: string, boardId: string }) => 
-      // 🚀 FIX TẠI ĐÂY: Dịch list_name thành name
-      boardApi.updateColumn(columnId, { name: list_name }),
+    mutationFn: ({
+      columnId,
+      list_name,
+      projectId,
+    }: {
+      columnId: string;
+      list_name: string;
+      boardId: string;
+      projectId: string;
+    }) =>
+      boardApi.updateColumn(columnId, {
+        name: list_name,
+        project_id: projectId,
+      }),
+
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: BOARD_QUERY_KEYS.boardDetail(variables.boardId) });
+      queryClient.invalidateQueries({
+        queryKey: BOARD_QUERY_KEYS.boardDetail(variables.boardId),
+      });
     },
   });
 };
 
 export const useDeleteColumn = () => {
   const queryClient = useQueryClient();
+
   return useMutation({
-    mutationFn: ({ columnId, boardId }: { columnId: string, boardId: string }) => 
-      boardApi.deleteColumn(columnId),
+    mutationFn: ({
+      columnId,
+      projectId,
+    }: {
+      columnId: string;
+      boardId: string;
+      projectId: string;
+    }) => boardApi.deleteColumn({ columnId, projectId }),
+
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: BOARD_QUERY_KEYS.boardDetail(variables.boardId) });
+      queryClient.invalidateQueries({
+        queryKey: BOARD_QUERY_KEYS.boardDetail(variables.boardId),
+      });
     },
   });
 };
 
-export const getPresignedUrl = async (fileName: string, contentType: string) => {
-  // 🚀 Gọi qua boardApi cho chuẩn kiến trúc
+// ==========================================
+// MEDIA / ATTACHMENTS
+// ==========================================
+
+export const getPresignedUrl = async (
+  fileName: string,
+  contentType: string,
+) => {
   const res: any = await boardApi.getPresignedUrl(fileName, contentType);
-  return res.data || res; // Lấy ra { uploadUrl, publicUrl }
+  return res.data || res;
 };
 
-// 2. Hook lưu link file vào Task
 export const useAddAttachmentToTask = () => {
   const queryClient = useQueryClient();
+
   return useMutation({
-    mutationFn: async ({ taskId, boardId, payload }: { taskId: string, boardId: string, payload: any }) => {
-      // 🚀 Gọi qua boardApi
+    mutationFn: async ({
+      taskId,
+      payload,
+    }: {
+      taskId: string;
+      boardId: string;
+      payload: any;
+    }) => {
       const res: any = await boardApi.addAttachmentToTask(taskId, payload);
       return res.data || res;
     },
+
     onSuccess: (_, variables) => {
-      // Làm mới UI ngay lập tức
-      queryClient.invalidateQueries({ queryKey: BOARD_QUERY_KEYS.boardDetail(variables.boardId) }); 
-    }
+      queryClient.invalidateQueries({
+        queryKey: BOARD_QUERY_KEYS.boardDetail(variables.boardId),
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: ['task-attachments', variables.taskId],
+      });
+    },
+  });
+};
+
+export const useUpdateBoard = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      boardId,
+      payload,
+    }: {
+      boardId: string;
+      payload: any;
+    }) => boardApi.updateBoard(boardId, payload),
+
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: BOARD_QUERY_KEYS.boardDetail(variables.boardId),
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: ['workspaces'],
+      });
+    },
+  });
+};
+
+export const useDeleteBoard = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      boardId,
+      projectId,
+    }: {
+      boardId: string;
+      projectId: string;
+    }) => boardApi.deleteBoard({ boardId, projectId }),
+
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: BOARD_QUERY_KEYS.boardsByProject(variables.projectId),
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: ['workspaces'],
+      });
+    },
+  });
+};
+
+export const useUploadFile = () => {
+  return useMutation({
+    mutationFn: (file: File) => boardApi.uploadFile(file),
+
+    onSuccess: (data) => {
+      console.log('Upload thành công! URL:', data?.url);
+    },
+
+    onError: (error) => {
+      console.error('Lỗi upload file:', error);
+    },
+  });
+};
+
+export const useGetTaskAttachments = (taskId: string, projectId: string) => {
+  return useQuery({
+    queryKey: ['task-attachments', taskId, projectId],
+
+    queryFn: () => boardApi.getTaskAttachments(taskId, projectId),
+
+    enabled:
+      !!taskId &&
+      !!projectId &&
+      String(projectId) !== 'undefined',
+  });
+};
+
+export const useDeleteAttachment = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      taskId,
+      attachmentId,
+      projectId,
+    }: {
+      taskId: string;
+      attachmentId: string;
+      boardId: string;
+      projectId: string;
+    }) => boardApi.deleteAttachment({ taskId, attachmentId, projectId }),
+
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ['task-attachments', variables.taskId, variables.projectId],
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: BOARD_QUERY_KEYS.boardDetail(variables.boardId),
+      });
+    },
   });
 };

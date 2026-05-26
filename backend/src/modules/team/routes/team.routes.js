@@ -7,6 +7,6 @@ const requirePermission = require('../../rbac/middlewares/requirePermission.midd
 router.use(requireAuth);
 
 // POST /api/v1/organization/teams
-router.post('/', requirePermission('ORGANIZATION', 'WRITE'), teamController.createTeam);
+router.post('/', requirePermission('TEAM', 'CREATE', 'SYSTEM'), teamController.createTeam);
 
 module.exports = router;

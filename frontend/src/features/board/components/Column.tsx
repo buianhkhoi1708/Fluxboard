@@ -1,4 +1,5 @@
 import React, { useState, memo, useRef, useEffect } from "react";
+import ReactDOM from "react-dom";
 import { MoreHorizontal, Plus, Trash2, Edit2 } from "lucide-react";
 import TaskItem from "./TaskItem";
 import CreateTaskModal from "./CreateTaskModal";
@@ -6,7 +7,8 @@ import CreateTaskModal from "./CreateTaskModal";
 import { useBoardStore } from "../stores/useBoardStore";
 import { getColumnTotalPoints } from "../utils/boardUtils";
 
-import { useUpdateColumn, useDeleteColumn } from "../hooks/useBoardQueries";
+// 🚀 Đã import đủ 3 món để xử lý Cột và Project ID
+import { useUpdateColumn, useDeleteColumn, useGetBoardDetail } from "../hooks/useBoardQueries";
 import { ColumnProps } from "../types/index";
 
 import { useDroppable } from "@dnd-kit/core";
@@ -19,13 +21,62 @@ interface ExtendedColumnProps extends ColumnProps {
   onOpenTaskDetail?: (taskId: string) => void;
 }
 
+// ✅ Modal xác nhận xoá (dùng Portal bên ngoài để luôn ở giữa màn hình)
+const ConfirmDeleteModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  columnName: string;
+}> = ({ isOpen, onClose, onConfirm, columnName }) => {
+  if (!isOpen) return null;
+
+  return ReactDOM.createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4 transform transition-all scale-100 animate-in zoom-in-95"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="text-lg font-bold text-slate-800 mb-2">Xóa danh sách</h3>
+        <p className="text-sm text-slate-600 mb-5">
+          Bạn có chắc chắn muốn xóa danh sách{" "}
+          <span className="font-semibold text-slate-800">“{columnName}”</span>?
+          Hành động này không thể hoàn tác.
+        </p>
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+          >
+            Hủy
+          </button>
+          <button
+            onClick={onConfirm}
+            className="px-4 py-2 text-sm font-semibold text-white bg-rose-500 hover:bg-rose-600 rounded-lg transition-colors"
+          >
+            Xóa
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body 
+  );
+};
+
 const Column: React.FC<ExtendedColumnProps> = memo(
   ({ list, onOpenTaskDetail }) => {
+    // 🚀 1. LẤY ACTIVE BOARD ID (Phải nằm trong component)
     const { activeBoardId } = useBoardStore();
+    
+    // 🚀 2. LẤY BOARD DATA & PROJECT ID ĐỂ VƯỢT RBAC
+    const { data: board } = useGetBoardDetail(activeBoardId as string);
+    const safeProjectId = board?.project_id || board?.projectId || board?.project?._id || board?._id;
+
     const { mutateAsync: updateColumnApi } = useUpdateColumn();
     const { mutateAsync: deleteColumnApi } = useDeleteColumn();
 
-    // 🚀 Dùng list.name (từ API mới) fallback về list.list_name (cũ)
     const displayName = list.name || list.list_name || "Chưa đặt tên";
 
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -34,6 +85,8 @@ const Column: React.FC<ExtendedColumnProps> = memo(
     const [isEditingName, setIsEditingName] = useState(false);
     const [editColName, setEditColName] = useState(displayName);
     const editNameInputRef = useRef<HTMLInputElement>(null);
+
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
     const listId = list.id || list._id;
     const safeListId = String(listId);
@@ -51,6 +104,7 @@ const Column: React.FC<ExtendedColumnProps> = memo(
       }
     }, [isEditingName]);
 
+    // 🚀 HÀM LƯU TÊN CỘT ĐÃ CÓ PROJECT ID
     const handleSaveColName = async () => {
       setIsEditingName(false);
       if (
@@ -61,11 +115,19 @@ const Column: React.FC<ExtendedColumnProps> = memo(
         setEditColName(displayName);
         return;
       }
+
+      if (!safeProjectId) {
+         console.error("🚨 Không tìm thấy ID dự án!");
+         setEditColName(displayName);
+         return;
+      }
+
       try {
         await updateColumnApi({
           columnId: safeListId,
-          list_name: editColName.trim(), // API update vẫn nhận list_name
+          list_name: editColName.trim(),
           boardId: activeBoardId,
+          projectId: String(safeProjectId) // Vé thông hành
         });
       } catch (error) {
         console.error("Lỗi khi sửa tên cột:", error);
@@ -73,29 +135,40 @@ const Column: React.FC<ExtendedColumnProps> = memo(
       }
     };
 
-    const handleDeleteColumn = async () => {
+    const handleDeleteColumnClick = () => {
       setIsMenuOpen(false);
-      if (!activeBoardId) return;
       if (tasks.length > 0) {
         alert(
           "Cột này đang có việc. Vui lòng chuyển việc sang cột khác trước khi xóa!",
         );
         return;
       }
-      if (window.confirm(`Xóa danh sách "${displayName}"?`)) {
-        try {
-          await deleteColumnApi({
-            columnId: safeListId,
-            boardId: activeBoardId,
-          });
-        } catch (error) {
-          console.error("Lỗi khi xóa cột:", error);
-        }
+      setIsDeleteModalOpen(true);
+    };
+
+    // 🚀 HÀM XÓA CỘT ĐÃ CÓ PROJECT ID
+    const confirmDeleteColumn = async () => {
+      setIsDeleteModalOpen(false);
+      
+      if (!safeProjectId) {
+         console.error("🚨 Không tìm thấy ID dự án để xóa!");
+         return;
+      }
+
+      try {
+        await deleteColumnApi({
+          columnId: safeListId,
+          boardId: activeBoardId,
+          projectId: String(safeProjectId) // Vé thông hành
+        });
+      } catch (error) {
+        console.error("Lỗi khi xóa cột:", error);
       }
     };
 
     return (
       <div className="w-[85vw] max-w-[300px] sm:w-[300px] shrink-0 flex flex-col bg-slate-100/80 backdrop-blur-md rounded-2xl max-h-full relative border border-white/60 shadow-sm">
+        {/* Menu overlay khi mở menu */}
         {isMenuOpen && (
           <div
             className="fixed inset-0 z-10"
@@ -163,7 +236,7 @@ const Column: React.FC<ExtendedColumnProps> = memo(
                   <Edit2 size={14} /> Sửa tên cột
                 </button>
                 <button
-                  onClick={handleDeleteColumn}
+                  onClick={handleDeleteColumnClick}
                   className="w-full text-left px-4 py-2.5 text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-2 transition-colors border-t border-slate-100"
                 >
                   <Trash2 size={14} /> Xóa cột
@@ -213,6 +286,13 @@ const Column: React.FC<ExtendedColumnProps> = memo(
           isOpen={isCreateModalOpen}
           onClose={() => setIsCreateModalOpen(false)}
           columnId={safeListId}
+          columnName={displayName}
+        />
+
+        <ConfirmDeleteModal
+          isOpen={isDeleteModalOpen}
+          onClose={() => setIsDeleteModalOpen(false)}
+          onConfirm={confirmDeleteColumn}
           columnName={displayName}
         />
       </div>

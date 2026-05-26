@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { settingApi } from '../api/settingApi';
-import { useAuthStore } from '../../auth/store/useAuthStore'; // Nạp store Zustand của hệ thống để đồng bộ danh tính toàn cục
+import { settingApi, NotificationSettingsPayload } from '../api/settingApi';
+import { useAuthStore } from '../../auth/store/useAuthStore';
 
 export const SETTING_KEYS = {
   profile: ['settings', 'profile'] as const,
@@ -9,14 +9,25 @@ export const SETTING_KEYS = {
   logs: ['settings', 'logs'] as const,
 };
 
+const unwrapData = (res: any) => {
+  return res?.data?.data ?? res?.data ?? res;
+};
+
+const normalizeNotificationSettings = (raw: any): NotificationSettingsPayload => {
+  return {
+    email_notifications: raw?.email_notifications ?? true,
+    push_notifications: raw?.push_notifications ?? true,
+    task_deadline_reminders: raw?.task_deadline_reminders ?? true,
+  };
+};
+
 export const useProfileOverview = () => {
   return useQuery({
     queryKey: SETTING_KEYS.profile,
     queryFn: async () => {
       const res: any = await settingApi.getProfileOverview();
-      // Loại bỏ bớt 1 tầng .data do interceptor của axiosClient đã xử lý sẵn lớp bọc vỏ ngoài
-      return res.data;
-    }
+      return unwrapData(res);
+    },
   });
 };
 
@@ -25,21 +36,22 @@ export const useNotificationSettings = () => {
     queryKey: SETTING_KEYS.notifications,
     queryFn: async () => {
       const res: any = await settingApi.getNotificationSettings();
-      return res.data;
-    }
+      return normalizeNotificationSettings(unwrapData(res));
+    },
   });
 };
 
 export const useUpdateNotifications = () => {
   const queryClient = useQueryClient();
+
   return useMutation({
-    mutationFn: async (settingsData: any) => {
+    mutationFn: async (settingsData: NotificationSettingsPayload) => {
       const res: any = await settingApi.updateNotificationSettings(settingsData);
-      return res.data;
+      return normalizeNotificationSettings(unwrapData(res));
     },
     onSuccess: (updatedData) => {
       queryClient.setQueryData(SETTING_KEYS.notifications, updatedData);
-    }
+    },
   });
 };
 
@@ -48,8 +60,8 @@ export const useActiveSessions = () => {
     queryKey: SETTING_KEYS.sessions,
     queryFn: async () => {
       const res: any = await settingApi.getActiveSessions();
-      return res.data;
-    }
+      return unwrapData(res);
+    },
   });
 };
 
@@ -58,8 +70,8 @@ export const useSecurityLogs = () => {
     queryKey: SETTING_KEYS.logs,
     queryFn: async () => {
       const res: any = await settingApi.getSecurityLogs();
-      return res.data;
-    }
+      return unwrapData(res);
+    },
   });
 };
 
@@ -71,72 +83,80 @@ export const useUpdateProfile = () => {
       let avatarUrl = undefined;
 
       if (file) {
-        const presignedRes: any = await settingApi.getAvatarPresignedUrl(file.name, file.type);
-        const { uploadUrl, fileUrl } = presignedRes.data;
-
-        await fetch(uploadUrl, {
-          method: 'PUT',
-          headers: { 'Content-Type': file.type },
-          body: file
-        });
-        avatarUrl = fileUrl;
+        const uploadRes: any = await settingApi.uploadAvatar(file);
+        const uploadData = unwrapData(uploadRes);
+        avatarUrl = uploadData?.url;
       }
 
-      const updatePayload: { full_name: string; avatar_url?: string } = { full_name: name };
-      if (avatarUrl) updatePayload.avatar_url = avatarUrl;
+      const updatePayload: { full_name: string; avatar_url?: string } = {
+        full_name: name,
+      };
+
+      if (avatarUrl) {
+        updatePayload.avatar_url = avatarUrl;
+      }
 
       const res: any = await settingApi.updateProfileInfo(updatePayload);
-      return res.data; // Backend trả về tài liệu User dạng phẳng bao gồm { full_name, avatar_url, email }
+      return unwrapData(res);
     },
     onSuccess: (resData) => {
-      // 💡 Bước 1: Cập nhật lại chuỗi dữ liệu trong localStorage để phòng hờ trường hợp F5 vẫn giữ tên mới
       const cachedUserRaw = localStorage.getItem('user');
+
       if (cachedUserRaw) {
         const userObj = JSON.parse(cachedUserRaw);
         userObj.full_name = resData.full_name;
-        if (resData.avatar_url) userObj.avatar_url = resData.avatar_url;
+        userObj.fullName = resData.full_name;
+
+        if (resData.avatar_url) {
+          userObj.avatar_url = resData.avatar_url;
+          userObj.avatarUrl = resData.avatar_url;
+        }
+
         localStorage.setItem('user', JSON.stringify(userObj));
       }
 
-      // 💡 Bước 2: Kích hoạt ghi đè trạng thái của Zustand Store để buộc TopNavbar re-render phản ứng ngay lập tức
       try {
         const authStore = useAuthStore.getState();
+
         if (authStore && authStore.user) {
           useAuthStore.setState({
             user: {
               ...authStore.user,
               full_name: resData.full_name,
-              avatar_url: resData.avatar_url || authStore.user.avatar_url
-            }
+              fullName: resData.full_name,
+              avatar_url: resData.avatar_url || authStore.user.avatar_url,
+              avatarUrl: resData.avatar_url || authStore.user.avatarUrl,
+            },
           });
         }
       } catch (error) {
         console.error('Failed to synchronize memory auth store state:', error);
       }
 
-      // Làm mới dữ liệu cache của React Query ngầm
       queryClient.invalidateQueries({ queryKey: SETTING_KEYS.profile });
       queryClient.invalidateQueries({ queryKey: ['user', 'me'] });
-    }
+    },
   });
 };
 
 export const useSignOutAllSessions = () => {
   const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: settingApi.signOutAllSessions,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: SETTING_KEYS.sessions });
-    }
+    },
   });
 };
 
 export const useRevokeSession = () => {
   const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: settingApi.revokeSessionById,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: SETTING_KEYS.sessions });
-    }
+    },
   });
 };

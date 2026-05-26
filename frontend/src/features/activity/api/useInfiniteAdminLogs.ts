@@ -1,20 +1,38 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { activityApi, ActivityFilters } from './activityApi'; // Đường dẫn file API
+import {
+  activityApi,
+  ActivityFilters,
+  ActivityListResponse,
+} from './activityApi';
+
+const unwrapActivityResponse = (res: any): ActivityListResponse => {
+  if (res?.success !== undefined && (Array.isArray(res?.data) || res?.meta)) {
+    return res;
+  }
+
+  if (res?.data?.success !== undefined) {
+    return res.data;
+  }
+
+  return res;
+};
 
 export function useInfiniteAdminLogs(filters: ActivityFilters) {
   return useInfiniteQuery({
-    queryKey: ['adminLogs', 'infinite', filters], 
-    
-    // GỌI ĐÚNG 3 THAM SỐ NHƯ FILE BAN ĐẦU CỦA BẠN: page, size, filters
-    queryFn: ({ pageParam = 0 }) => activityApi.getAdminLogs(pageParam, 20, filters),
-    
+    queryKey: ['adminLogs', 'infinite', filters],
+
+    queryFn: async ({ pageParam = 0 }) => {
+      const res: any = await activityApi.getAdminLogs(pageParam, 20, filters);
+      return unwrapActivityResponse(res);
+    },
+
     initialPageParam: 0,
-    
-    getNextPageParam: (lastPage, allPages) => {
-      // Dựa vào file API của bạn, meta nằm ngang cấp với data
+
+    getNextPageParam: (lastPage) => {
       if (lastPage?.meta?.has_next) {
-        return allPages.length; 
+        return Number(lastPage.meta.page || 0) + 1;
       }
+
       return undefined;
     },
   });

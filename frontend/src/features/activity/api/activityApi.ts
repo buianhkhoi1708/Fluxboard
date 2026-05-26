@@ -1,7 +1,5 @@
 import axiosClient from '../../../lib/axiosClient';
-import { ApiResponse, PaginatedData } from '../../../types/api';
 
-// Định nghĩa Meta
 export interface PaginationMeta {
   page: number;
   size: number;
@@ -10,21 +8,34 @@ export interface PaginationMeta {
   has_next: boolean;
   has_previous: boolean;
 }
-// Định nghĩa Activity
+
+export interface ActivityActor {
+  user_id?: string;
+  id?: string;
+  _id?: string;
+  full_name?: string;
+  fullName?: string;
+  name?: string;
+  email?: string;
+  avatar_url?: string | null;
+  avatarUrl?: string | null;
+  role_id?: string | { _id?: string; id?: string; name?: string };
+  role_name?: string;
+  role?: string;
+  system_role?: string;
+}
+
 export interface Activity {
-  id: string;
+  id?: string;
+  _id?: string;
   message: string;
-  actor: {
-    user_id: string;
-    full_name: string;
-    avatar_url: string | null;
-  };
+  actor?: ActivityActor;
   created_at: string;
   action: string;
   source_type: string;
+  source?: string;
 }
 
-// Interface cho params filter
 export interface ActivityFilters {
   sourceTypes?: string;
   actions?: string;
@@ -32,7 +43,6 @@ export interface ActivityFilters {
   to?: string;
 }
 
-// Định nghĩa response bao ngoài
 export interface ActivityListResponse {
   success: boolean;
   code: string;
@@ -41,16 +51,81 @@ export interface ActivityListResponse {
   meta: PaginationMeta;
 }
 
+export interface SecurityLog {
+  id?: string;
+  _id?: string;
+  action: string;
+  type?: string;
+  message?: string;
+  description?: string;
+  details?: {
+    message?: string;
+    [key: string]: any;
+  };
+  actor?: ActivityActor;
+  user?: ActivityActor;
+  actor_name?: string;
+  role_id?: string;
+  role_name?: string;
+  created_at: string;
+}
+
+const buildPaginationParams = (page = 0, size = 20) => ({
+  page,
+  size,
+});
+
 export const activityApi = {
-  getAdminLogs: (page = 0, size = 20, filters: ActivityFilters = {}): Promise<ActivityListResponse> => {
-    const paramsToSend: any = { page, size };
+  getAdminLogs: (
+    page = 0,
+    size = 20,
+    filters: ActivityFilters = {},
+  ): Promise<ActivityListResponse> => {
+    const paramsToSend: any = buildPaginationParams(page, size);
 
-    // Chuyển đổi tên biến sang đúng chuẩn @RequestParam của Spring Boot
-    if (filters.sourceTypes) paramsToSend.source_type = filters.sourceTypes;
-    if (filters.actions) paramsToSend.action = filters.actions;
-    if (filters.from) paramsToSend.from = filters.from;
-    if (filters.to) paramsToSend.to = filters.to;
+    if (filters.sourceTypes) {
+      paramsToSend.source_type = filters.sourceTypes;
+    }
 
-    return axiosClient.get(`/activities`, { params: paramsToSend });
-  }
+    if (filters.actions) {
+      paramsToSend.action = filters.actions;
+    }
+
+    if (filters.from) {
+      paramsToSend.from = filters.from;
+    }
+
+    if (filters.to) {
+      paramsToSend.to = filters.to;
+    }
+
+    return axiosClient.get('/activities', {
+      params: paramsToSend,
+    });
+  },
+
+  /**
+   * Tab "Bảo mật hệ thống" trong trang Hoạt động.
+   *
+   * Backend tương ứng nên tạo:
+   * GET /api/v1/activities/security?page=0&size=100
+   *
+   * Dữ liệu nên gồm:
+   * - CREATE_USER: SYSTEM_ADMIN tạo tài khoản mới
+   * - CHANGE_PASSWORD: người dùng đổi mật khẩu
+   */
+  getSystemSecurityLogs: (
+    page = 0,
+    size = 100,
+  ): Promise<{
+    success: boolean;
+    code: string;
+    message: string;
+    data: SecurityLog[];
+    meta?: PaginationMeta;
+  }> => {
+    return axiosClient.get('/activities/security', {
+      params: buildPaginationParams(page, size),
+    });
+  },
 };

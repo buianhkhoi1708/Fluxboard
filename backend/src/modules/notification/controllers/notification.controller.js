@@ -1,51 +1,131 @@
 const notificationService = require('../services/notification.service');
 const eventBus = require('../../../common/utils/eventBus');
 
+const getAuthUserId = (req) => {
+    return req.user?.id || req.user?._id;
+};
+
 exports.getMyNotifications = async (req, res, next) => {
     try {
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 20;
-        const notifications = await notificationService.getUserNotifications(req.user.id, page, limit);
-        
-        res.status(200).json({ success: true, data: notifications });
-    } catch (error) { next(error); }
+        const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+        const limit = Math.max(parseInt(req.query.limit, 10) || 20, 1);
+
+        const userId = getAuthUserId(req);
+
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized'
+            });
+        }
+
+        const notifications = await notificationService.getUserNotifications(userId, page, limit);
+
+        res.status(200).json({
+            success: true,
+            data: notifications
+        });
+    } catch (error) {
+        next(error);
+    }
 };
 
 exports.markAsRead = async (req, res, next) => {
     try {
-        const notification = await notificationService.markAsRead(req.params.id, req.user.id);
-        res.status(200).json({ success: true, data: notification, message: 'Notification marked as read' });
-    } catch (error) { next(error); }
+        const userId = getAuthUserId(req);
+
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized'
+            });
+        }
+
+        const notification = await notificationService.markAsRead(req.params.id, userId);
+
+        if (!notification) {
+            return res.status(404).json({
+                success: false,
+                message: 'Notification not found'
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            data: notification,
+            message: 'Notification marked as read'
+        });
+    } catch (error) {
+        next(error);
+    }
 };
 
 // ==========================================
-// API LONG POLLING (Chờ 30s)
+// API LONG POLLING
 // ==========================================
 exports.longPollingNotifications = (req, res, next) => {
-    const userId = req.user.id;
-    const timeout_ms = 30000; // Treo request tối đa 30 giây
+    try {
+        const userId = getAuthUserId(req);
 
-    // Tạo kênh phát sóng dành riêng cho user này
-    const userEventName = `new_notification_for_${userId}`;
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized'
+            });
+        }
 
-    // 1. Timeout: Xử lý khi hết 30s mà không có thông báo
-    const timeoutId = setTimeout(() => {
-        eventBus.removeListener(userEventName, onNewNotification);
-        return res.status(200).json({ success: true, data: [], message: 'Timeout: No new notifications' });
-    }, timeout_ms);
+        const userIdString = userId.toString();
+        const timeoutMs = 30000;
+        const userEventName = `new_notification_for_${userIdString}`;
 
-    // 2. Thành công: Xử lý khi có thông báo mới
-    const onNewNotification = (notification) => {
-        clearTimeout(timeoutId); 
-        return res.status(200).json({ success: true, data: [notification], message: 'New notification arrived!' });
-    };
+        const collectedNotifications = [];
+        let finished = false;
 
-    // Đăng ký nghe trên kênh của user (Dùng once để nghe 1 lần rồi tự hủy)
-    eventBus.once(userEventName, onNewNotification);
+        const cleanup = () => {
+            clearTimeout(timeoutId);
+            eventBus.removeListener(userEventName, onNewNotification);
+        };
 
-    // 3. Đứt kết nối: Xử lý khi user tắt web giữa chừng (Hủy listener rác)
-    req.on('close', () => {
-        clearTimeout(timeoutId);
-        eventBus.removeListener(userEventName, onNewNotification);
-    });
+        const finish = (payload) => {
+            if (finished || res.headersSent) return;
+
+            finished = true;
+            cleanup();
+
+            res.status(200).json(payload);
+        };
+
+        const timeoutId = setTimeout(() => {
+            finish({
+                success: true,
+                data: collectedNotifications,
+                message: 'Polling cycle completed'
+            });
+        }, timeoutMs);
+
+        const onNewNotification = (notification) => {
+            if (!notification) return;
+
+            collectedNotifications.push(notification);
+
+            setImmediate(() => {
+                finish({
+                    success: true,
+                    data: collectedNotifications,
+                    message: 'New notifications retrieved successfully'
+                });
+            });
+        };
+
+        eventBus.on(userEventName, onNewNotification);
+
+        req.on('close', () => {
+            if (!finished) {
+                finished = true;
+                cleanup();
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
 };

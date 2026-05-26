@@ -84,12 +84,29 @@ const TaskItem: React.FC<TaskItemProps> = memo(
     };
 
     const handleDeleteTask = async () => {
-      if (!activeBoardId) return;
+      // 🚀 BẢO VỆ 1: Kiểm tra có đủ data board chưa
+      if (!activeBoardId || !board) return;
+
+      // 🚀 BẢO VỆ 2: Lấy Project ID an toàn
+      const safeProjectId = board.project_id || board.projectId || board._id;
+
+      if (!safeProjectId) {
+         console.error("🚨 Không tìm thấy ID dự án!");
+         alert("Lỗi: Không tìm thấy ID dự án để xóa!");
+         return;
+      }
+
       try {
-        await deleteApiTask({ taskId: safeTaskId, boardId: activeBoardId });
+        await deleteApiTask({ 
+            taskId: safeTaskId, 
+            boardId: activeBoardId,
+            // 🚀 BƠM VÉ THÔNG HÀNH VÀO ĐÂY LÀ HẾT BỊ 400
+            projectId: String(safeProjectId) 
+        });
         setIsDeleteModalOpen(false);
       } catch (error) {
         console.error("Lỗi khi xóa Task:", error);
+        alert("Xóa task thất bại. Vui lòng thử lại.");
       }
     };
 

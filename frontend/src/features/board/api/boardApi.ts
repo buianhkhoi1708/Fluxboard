@@ -2,14 +2,90 @@ import axiosClient from '../../../lib/axiosClient';
 
 export interface CreateBoardPayload {
   name: string;
-  projectId: string;
+  projectId?: string; // Tạm thời để cả 2 cho an toàn
+  project_id?: string;
   status: string;
+  create_default_cols?: boolean;
 }
+
+const normalizeRoleName = (value?: string | null) => {
+  if (!value) return '';
+
+  return String(value)
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, '_')
+    .replace(/-/g, '_');
+};
+
+const getCurrentUser = () => {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const rawUser = localStorage.getItem('user');
+    return rawUser ? JSON.parse(rawUser) : null;
+  } catch {
+    return null;
+  }
+};
+
+const getUserId = (user: any) => {
+  return String(user?.user_id || user?.id || user?._id || '');
+};
+
+const getRoleName = (user: any) => {
+  const directRole =
+    user?.role_name ||
+    user?.roleName ||
+    user?.system_role ||
+    user?.systemRole ||
+    user?.role ||
+    user?.role_code ||
+    user?.roleCode;
+
+  if (directRole) {
+    return normalizeRoleName(directRole);
+  }
+
+  if (user?.role_id && typeof user.role_id === 'object') {
+    return normalizeRoleName(user.role_id.name || user.role_id.code);
+  }
+
+  if (Array.isArray(user?.system_role_ids)) {
+    const roleName = user.system_role_ids.find((item: any) => {
+      return normalizeRoleName(item) === 'SYSTEM_ADMIN';
+    });
+
+    if (roleName) {
+      return 'SYSTEM_ADMIN';
+    }
+  }
+
+  return '';
+};
+
+const getUserVisibilityParams = () => {
+  const currentUser = getCurrentUser();
+  const isCurrentSystemAdmin = getRoleName(currentUser) === 'SYSTEM_ADMIN';
+
+  return {
+    exclude_system_admin: true,
+    include_current_system_admin: isCurrentSystemAdmin,
+    current_user_id: getUserId(currentUser) || undefined,
+  };
+};
 
 export const boardApi = {
   // --- BOARD ---
   createBoard: async (payload: CreateBoardPayload): Promise<any> => {
-    const response: any = await axiosClient.post('/boards', payload);
+    // 🚀 ÉP KIỂU VỀ CHUẨN BACKEND SNAKE_CASE
+    const finalPayload = {
+      name: payload.name,
+      project_id: payload.projectId || payload.project_id, // 🚀 Bắt cả 2 trường hợp
+      status: payload.status || "ACTIVE",
+      create_default_cols: payload.create_default_cols
+    };
+    const response: any = await axiosClient.post('/boards', finalPayload);
     return response.data || response;
   },
 
@@ -20,84 +96,221 @@ export const boardApi = {
 
   getBoard: async (boardId: string): Promise<any> => {
     const response: any = await axiosClient.get(`/boards/${boardId}`);
-    return response.data || response; 
+    return response.data || response;
+  },
+
+  updateBoard: async (boardId: string, payload: any): Promise<any> => {
+    const response: any = await axiosClient.put(`/boards/${boardId}`, payload);
+    return response.data || response;
+  },
+
+  deleteBoard: async ({
+    boardId,
+    projectId,
+  }: {
+    boardId: string;
+    projectId: string;
+  }): Promise<any> => {
+    const response: any = await axiosClient.delete(`/boards/${boardId}`, {
+      params: {
+        project_id: projectId,
+      },
+    });
+
+    return response.data || response;
   },
 
   // --- COLUMN ---
-  // 🚀 ĐÃ TỐI ƯU: Chỉ lọc lấy name và board_id gửi đi, loại bỏ hoàn toàn trường 'order' để không bị gãy lỗi 400
-  createColumn: async (payload: { name: string; board_id: string; order?: number }) => {
+  createColumn: async (payload: {
+    name: string;
+    board_id: string;
+    order?: number;
+    project_id: string;
+  }) => {
     const finalPayload = {
       name: payload.name,
-      board_id: payload.board_id
+      board_id: payload.board_id,
+      project_id: payload.project_id,
     };
+
     const response: any = await axiosClient.post('/columns', finalPayload);
     return response.data || response;
   },
 
-  // 🚀 ĐÃ FIX: Đồng bộ đổi list_name thành name gửi lên API cập nhật cột
-  updateColumn: async (columnId: string, payload: { name: string }) => {
-    const response: any = await axiosClient.put(`/board-columns/${columnId}`, payload);
+  updateColumn: async (
+    columnId: string,
+    payload: {
+      name: string;
+      project_id: string;
+    },
+  ) => {
+    const response: any = await axiosClient.put(`/columns/${columnId}`, payload);
     return response.data || response;
   },
 
-  deleteColumn: async (columnId: string) => {
-    const response: any = await axiosClient.delete(`/board-columns/${columnId}`);
+  deleteColumn: async ({
+    columnId,
+    projectId,
+  }: {
+    columnId: string;
+    projectId: string;
+  }) => {
+    const response: any = await axiosClient.delete(`/columns/${columnId}`, {
+      params: {
+        project_id: projectId,
+      },
+    });
+
     return response.data || response;
   },
 
   // --- TASK ---
-  // boardApi.ts
-// Trong file src/modules/task/api/boardApi.ts
-// Đảm bảo hàm này đang trông như thế này:
-createTask: async (taskData: any) => {
-    // Không cần truyền thêm config header phức tạp nếu axiosClient đã cấu hình tốt
-    const response = await axiosClient.post('/tasks', taskData);
+  createTask: async (taskData: any) => {
+    const response: any = await axiosClient.post('/tasks', taskData);
     return response.data || response;
-},
+  },
 
   updateTask: async (taskId: string, updateData: any) => {
     const response: any = await axiosClient.put(`/tasks/${taskId}`, updateData);
     return response.data || response;
   },
 
-  deleteTask: async (taskId: string) => {
-    const response: any = await axiosClient.delete(`/tasks/${taskId}`);
+  deleteTask: async ({
+    taskId,
+    projectId,
+  }: {
+    taskId: string;
+    projectId: string;
+  }) => {
+    const response: any = await axiosClient.delete(`/tasks/${taskId}`, {
+      params: {
+        project_id: projectId,
+      },
+    });
+
     return response.data || response;
   },
 
-  moveTask: async (taskId: string, columnId: string, order: number, boardId: string) => {
-    return await axiosClient.patch(`/tasks/${taskId}/move`, {
-      new_column_id: columnId, 
-      new_order: order,
-      board_id: boardId 
+  moveTask: async ({
+    taskId,
+    columnId,
+    order,
+    boardId,
+    projectId,
+  }: {
+    taskId: string;
+    columnId: string;
+    order: number;
+    boardId: string;
+    projectId: string;
+  }) => {
+    const response: any = await axiosClient.put(`/tasks/${taskId}/move`, {
+      destColumnId: columnId,
+      newOrder: order,
+      board_id: boardId,
+      project_id: projectId,
     });
+
+    return response.data || response;
   },
 
   // --- PROJECT MEMBERS ---
-  addProjectMember: async (projectId: string, userId: string, roleIds: string[] = ["MEMBER"]) => {
+  addProjectMember: async (
+    projectId: string,
+    userId: string,
+    roleIds: string[] = ['MEMBER'],
+  ) => {
     const payload = {
       user_id: userId,
-      role_ids: roleIds
+      role_ids: roleIds,
     };
-    const response: any = await axiosClient.post(`/projects/${projectId}/members`, payload);
+
+    const response: any = await axiosClient.post(
+      `/projects/${projectId}/members`,
+      payload,
+    );
+
     return response.data || response;
   },
 
-getProjectMembers: (projectId: string) => {
-    // Bỏ chữ /projects/ nếu Router của sếp đang ghép nó vào từ file index chính
-    return axiosClient.get(`/projects/${projectId}/members`); 
-},
-
-  // --- MEDIA & ATTACHMENT ---
-  getPresignedUrl: async (fileName: string, contentType: string): Promise<any> => {
-    const response: any = await axiosClient.get(`/media/presigned-url`, {
-      params: { fileName, contentType }
+  getProjectMembers: (projectId: string) => {
+    return axiosClient.get(`/projects/${projectId}/members`, {
+      params: getUserVisibilityParams(),
     });
-    return response.data || response; 
   },
 
-  addAttachmentToTask: async (taskId: string, payload: any): Promise<any> => {
-    const response: any = await axiosClient.post(`/tasks/${taskId}/attachments`, payload);
+  // --- MEDIA & ATTACHMENT ---
+  getPresignedUrl: async (
+    fileName: string,
+    contentType: string,
+  ): Promise<any> => {
+    const response: any = await axiosClient.get('/media/presigned-url', {
+      params: {
+        fileName,
+        contentType,
+      },
+    });
+
+    return response.data || response;
+  },
+
+  addAttachmentToTask: async (
+    taskId: string,
+    payload: any,
+  ): Promise<any> => {
+    const response: any = await axiosClient.post(
+      `/tasks/${taskId}/attachments`,
+      payload,
+    );
+
+    return response.data || response;
+  },
+
+  getTaskAttachments: async (
+    taskId: string,
+    projectId: string,
+  ): Promise<any> => {
+    const response: any = await axiosClient.get(`/tasks/${taskId}/attachments`, {
+      params: {
+        project_id: projectId,
+      },
+    });
+
+    return response.data || response;
+  },
+
+  uploadFile: async (file: File): Promise<any> => {
+    const formData = new FormData();
+
+    formData.append('file', file);
+
+    const response: any = await axiosClient.post('/media/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    return response.data?.data || response.data;
+  },
+
+  deleteAttachment: async ({
+    taskId,
+    attachmentId,
+    projectId,
+  }: {
+    taskId: string;
+    attachmentId: string;
+    projectId: string;
+  }) => {
+    const response: any = await axiosClient.delete(
+      `/tasks/${taskId}/attachments/${attachmentId}`,
+      {
+        params: {
+          project_id: projectId,
+        },
+      },
+    );
+
     return response.data || response;
   },
 };

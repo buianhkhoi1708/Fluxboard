@@ -1,58 +1,213 @@
-import React, { useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
-import { NuqsAdapter } from "nuqs/adapters/react-router";
-import MainLayout from "./layouts/MainLayout";
-import BoardPage from "./pages/BoardPage";
-import { SocketProvider, useSocket } from "./context/SocketContext"; 
-import AdminRBACPage from "./pages/AdminRBACPage";
-import WorkspacesPage from "./pages/WorkspacesPage";
-import BoardView from "./features/board/components/BoardView";
-import AiBoardGeneratorPage from "./pages/AiBoardGeneratePage";
-import LoginPage from "./pages/LoginPage";
-import ProtectedRoute from "./routes/ProtectedRoute";
-import ForgotPasswordPage from "./pages/ForgotPasswordPage";
-import ResetPasswordPage from "./pages/ResetPasswordPage";
-import DashboardPage from "./pages/DashboardPage";
-import SettingsPage from "./pages/SettingsPage";
-import ActivityLogPage from "./pages/ActivityLogPage";
-import OrganizationPage from "./pages/OrganizationPage";
-import ProjectDetailPage from "./pages/ProjectDetailPage";
-import CreateUserTab from "./features/user/components/CreateUserTab";
-import MyTasksPage from "./pages/MyTasksPage";
-import UnauthorizedPage from "./pages/UnauthorizedPage";
-import NotificationsPage from "./pages/NotificationsPage";
-import { useQueryClient } from "@tanstack/react-query";
+import React, { useEffect, useRef } from 'react';
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useNavigate,
+  useLocation,
+} from 'react-router-dom';
+import { NuqsAdapter } from 'nuqs/adapters/react-router';
+import { useQueryClient } from '@tanstack/react-query';
 
-// =========================================================
-// THÀNH PHẦN LẮNG NGHE BẢO MẬT HỆ THỐNG (SECURITY LISTENER)
-// =========================================================
+import MainLayout from './layouts/MainLayout';
+import BoardPage from './pages/BoardPage';
+import { SocketProvider, useSocket } from './context/SocketContext';
+import AdminRBACPage from './pages/AdminRBACPage';
+import WorkspacesPage from './pages/WorkspacesPage';
+import BoardView from './features/board/components/BoardView';
+import AiBoardGeneratorPage from './pages/AiBoardGeneratePage';
+import LoginPage from './pages/LoginPage';
+import ProtectedRoute from './routes/ProtectedRoute';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
+import DashboardPage from './pages/DashboardPage';
+import SettingsPage from './pages/SettingsPage';
+import ActivityLogPage from './pages/ActivityLogPage';
+import OrganizationPage from './pages/OrganizationPage';
+import ProjectDetailPage from './pages/ProjectDetailPage';
+import CreateUserTab from './features/user/components/CreateUserTab';
+import MyTasksPage from './pages/MyTasksPage';
+import UnauthorizedPage from './pages/UnauthorizedPage';
+import NotificationsPage from './pages/NotificationsPage';
+
+import { useAuthStore } from './features/auth/store/useAuthStore';
+
+const IDLE_TIMEOUT_MS = 20 * 60 * 1000;
+const LAST_ACTIVITY_KEY = 'lastActivityAt';
+
+const ACTIVITY_EVENTS: Array<keyof WindowEventMap> = [
+  'click',
+  'mousedown',
+  'mousemove',
+  'keydown',
+  'scroll',
+  'wheel',
+  'touchstart',
+];
+
+const publicPaths = new Set([
+  '/login',
+  '/forgot-password',
+  '/reset-password',
+]);
+
 const SecurityListener: React.FC = () => {
-  const { socket } = useSocket(); // 💡 Sửa lỗi: Destructure lấy thực thể socket instance từ Context Object
+  const { socket } = useSocket();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const logout = useAuthStore((state) => state.logout);
 
   useEffect(() => {
     if (!socket) return;
 
-    // Lắng nghe tín hiệu đăng xuất cưỡng chế từ máy chủ thời gian thực
-    socket.on("force_logout", (data: { reason: string }) => {
-      console.warn(`[SECURITY] Force logout triggered: ${data.reason}`);
-      
-      // Dọn sạch token, bộ nhớ đệm ứng dụng và bộ nhớ Cache của TanStack Query
-      localStorage.removeItem("accessToken");
-      sessionStorage.clear();
+    const handleForceLogout = (data: { reason?: string; message?: string }) => {
+      const reason =
+        data?.reason ||
+        data?.message ||
+        'Phiên đăng nhập của bạn đã bị kết thúc.';
+
+      console.warn(`[SECURITY] Force logout triggered: ${reason}`);
+
       queryClient.clear();
 
-      // Điều hướng ngay lập tức về trang đăng nhập kèm lý do hệ thống
-      navigate("/login", { replace: true, state: { reason: data.reason } });
-    });
+      logout({
+        redirect: false,
+      });
+
+      navigate('/login', {
+        replace: true,
+        state: {
+          reason,
+        },
+      });
+    };
+
+    const handleProjectRevoked = (data: { message?: string }) => {
+      queryClient.clear();
+
+      navigate('/dashboard', {
+        replace: true,
+        state: {
+          reason:
+            data?.message ||
+            'Quyền truy cập dự án của bạn đã thay đổi.',
+        },
+      });
+    };
+
+    /**
+     * Backend trong các phần trước có thể emit FORCE_LOGOUT,
+     * còn FE cũ từng nghe force_logout.
+     * Nghe cả 2 để tránh lệch contract realtime.
+     */
+    socket.on('FORCE_LOGOUT', handleForceLogout);
+    socket.on('force_logout', handleForceLogout);
+    socket.on('PROJECT_REVOKED', handleProjectRevoked);
 
     return () => {
-      socket.off("force_logout");
+      socket.off('FORCE_LOGOUT', handleForceLogout);
+      socket.off('force_logout', handleForceLogout);
+      socket.off('PROJECT_REVOKED', handleProjectRevoked);
     };
-  }, [socket, navigate, queryClient]);
+  }, [socket, navigate, queryClient, logout]);
 
-  return null; // Thành phần chạy ngầm không render giao diện
+  return null;
+};
+
+const IdleSessionGuard: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const queryClient = useQueryClient();
+
+  const token = useAuthStore((state) => state.token);
+  const user = useAuthStore((state) => state.user);
+  const logout = useAuthStore((state) => state.logout);
+  const syncFromStorage = useAuthStore((state) => state.syncFromStorage);
+
+  const isLoggingOutRef = useRef(false);
+
+  const isPublicPath = publicPaths.has(location.pathname);
+
+  useEffect(() => {
+    syncFromStorage();
+  }, [syncFromStorage]);
+
+  useEffect(() => {
+    if (!token || !user || isPublicPath) {
+      return;
+    }
+
+    const markActivity = () => {
+      if (isLoggingOutRef.current) return;
+
+      localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()));
+    };
+
+    const logoutByIdle = () => {
+      if (isLoggingOutRef.current) return;
+
+      isLoggingOutRef.current = true;
+
+      queryClient.clear();
+
+      logout({
+        redirect: false,
+      });
+
+      navigate('/login', {
+        replace: true,
+        state: {
+          reason: 'Bạn đã không thao tác trong 20 phút. Vui lòng đăng nhập lại.',
+        },
+      });
+    };
+
+    const checkIdle = () => {
+      const rawLastActivity = localStorage.getItem(LAST_ACTIVITY_KEY);
+      const lastActivity = rawLastActivity ? Number(rawLastActivity) : Date.now();
+
+      if (!rawLastActivity || Number.isNaN(lastActivity)) {
+        markActivity();
+        return;
+      }
+
+      const idleTime = Date.now() - lastActivity;
+
+      if (idleTime >= IDLE_TIMEOUT_MS) {
+        logoutByIdle();
+      }
+    };
+
+    if (!localStorage.getItem(LAST_ACTIVITY_KEY)) {
+      markActivity();
+    }
+
+    ACTIVITY_EVENTS.forEach((eventName) => {
+      window.addEventListener(eventName, markActivity, {
+        passive: true,
+      });
+    });
+
+    document.addEventListener('visibilitychange', checkIdle);
+
+    const intervalId = window.setInterval(checkIdle, 10000);
+
+    return () => {
+      ACTIVITY_EVENTS.forEach((eventName) => {
+        window.removeEventListener(eventName, markActivity);
+      });
+
+      document.removeEventListener('visibilitychange', checkIdle);
+      window.clearInterval(intervalId);
+    };
+  }, [token, user, isPublicPath, navigate, queryClient, logout]);
+
+  useEffect(() => {
+    isLoggingOutRef.current = false;
+  }, [token, user]);
+
+  return null;
 };
 
 function App() {
@@ -60,49 +215,51 @@ function App() {
     <SocketProvider>
       <BrowserRouter>
         <NuqsAdapter>
-          {/* Đặt SecurityListener bên trong BrowserRouter để có thể sử dụng useNavigate */}
           <SecurityListener />
-          
-          <Routes>
+          <IdleSessionGuard />
 
-            {/* ROUTE CÔNG KHAI (Không cần đăng nhập) */}
+          <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/403" element={<UnauthorizedPage />} />
 
-            {/* ROUTE CẦN ĐĂNG NHẬP */}
             <Route element={<ProtectedRoute />}>
               <Route element={<MainLayout />}>
-                
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-                {/* ========================================== */}
-                {/* 🟢 KHU VỰC CHUNG (Member, Manager, Admin đều xem được) */}
-                {/* ========================================== */}
-                <Route path="/dashboard" element={<DashboardPage/>} />
+                {/* PUBLIC-INTERNAL ROUTES: chỉ cần đăng nhập */}
+                <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/board" element={<BoardPage />} />
                 <Route path="/board/:id" element={<BoardView />} />
                 <Route path="/workspaces" element={<WorkspacesPage />} />
                 <Route path="/aigenerateboard" element={<AiBoardGeneratorPage />} />
                 <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
-                <Route path="/settings" element={<SettingsPage />} /> 
-                <Route path="/mytasks" element={<MyTasksPage />} /> 
-                <Route path="/notifications" element={<NotificationsPage />} /> 
+                <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/mytasks" element={<MyTasksPage />} />
+                <Route path="/notifications" element={<NotificationsPage />} />
 
-                {/* ========================================== */}
-                {/* 🔴 KHU VỰC QUẢN TRỊ (Chỉ Admin hoặc Role được cấp phép) */}
-                {/* ========================================== */}
-                <Route element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'SYSTEM_ADMIN']} />}>
+                {/* ADMIN MANAGEMENT ROUTES */}
+                <Route
+                  element={
+                    <ProtectedRoute allowedRoles={['ADMIN', 'SYSTEM_ADMIN']} />
+                  }
+                >
                   <Route path="/adminrbac" element={<AdminRBACPage />} />
                   <Route path="/organization" element={<OrganizationPage />} />
                   <Route path="/createuser" element={<CreateUserTab />} />
-                  <Route path="/activity" element={<ActivityLogPage />} />
                 </Route>
 
+                {/* SYSTEM_ADMIN ONLY */}
+                <Route
+                  element={
+                    <ProtectedRoute allowedRoles={['SYSTEM_ADMIN']} />
+                  }
+                >
+                  <Route path="/activity" element={<ActivityLogPage />} />
+                </Route>
               </Route>
             </Route>
-
           </Routes>
         </NuqsAdapter>
       </BrowserRouter>

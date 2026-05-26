@@ -45,11 +45,11 @@ const CustomDateInput = forwardRef<HTMLButtonElement, CustomDateInputProps>(
 CustomDateInput.displayName = 'CustomDateInput';
 
 const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClose, columnId, columnName }) => {
-  // 🚀 FIX LỖI Ở ĐÂY: Dùng useGetBoardDetail để lấy đúng projectId
   const { activeBoardId } = useBoardStore();
   const { data: board } = useGetBoardDetail(activeBoardId as string); 
   const getUser = useUserStore((state) => state.getUser);
   
+  // Lấy ra projectId từ board detail
   const projectId = board?.projectId || board?.project_id;
   const { data: apiMembers, isLoading: isMembersLoading } = useGetProjectMembers(projectId as string);
   const { mutateAsync: createTaskApi } = useCreateTask();
@@ -116,6 +116,8 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClose, colu
 
     try {
       const payload = {
+        // 🚀 BẢN VÁ 1: Thêm project_id để Backend RBAC cho qua cửa!
+        project_id: String(projectId), 
         board_id: String(activeBoardId),
         title: title.trim(),
         description: desc,
@@ -126,17 +128,13 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClose, colu
         story_point: Number(storyPoints) || 0,
         start_date: startDate ? startDate.toISOString() : null,
         due_date: dueDate ? dueDate.toISOString() : null,
-        // 🚀 ĐÚNG CHUẨN BACKEND: Map mảng subtasks thành mảng object trước khi gửi
         subtasks: subtasks.map(stTitle => ({
           title: stTitle,
           is_done: false
         }))
       };
 
-      // Gọi 1 API duy nhất để tạo Task kèm toàn bộ Subtask
       await createTaskApi(payload);
-    
-      // Đóng modal, React Query sẽ lo việc refetch và hiển thị
       onClose();
 
     } catch (error) {
@@ -247,11 +245,15 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClose, colu
                   <div className="flex flex-wrap gap-2 relative">
                     {assignees.length > 0 ? (
                       assignees.map((userId, idx) => {
-                        const apiMember = projectMembers.find((m: any) => String(m.user_id || m.id || m._id) === userId);
-                        const member = apiMember || getUser(userId, projectId);
-                        
-                        const displayName = member?.full_name || member?.name || "Unnamed";
-                        const avatarUrl = member?.avatar_url || member?.avatarUrl;
+                        // 🚀 BẢN VÁ 2: Xử lý Avatar chuẩn
+                        const apiMember = projectMembers.find((m: any) => {
+                           const targetId = m.user_id?._id || m.user_id?.id || m.user_id || m.id || m._id;
+                           return String(targetId) === String(userId);
+                        });
+
+                        const userDetail = apiMember?.user_id || getUser(userId, projectId as string); 
+                        const displayName = userDetail?.full_name || userDetail?.name || "Unnamed";
+                        const avatarUrl = userDetail?.avatar_url || userDetail?.avatarUrl;
                         const initial = String(displayName).charAt(0).toUpperCase();
 
                         return (
@@ -284,17 +286,25 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ isOpen, onClose, colu
                             <div className="text-xs text-center text-slate-400 p-2">Đang tải...</div>
                           ) : projectMembers.length > 0 ? (
                             projectMembers.map((member: any, idx: number) => {
-                              const rawId = member.user_id || member.id || member._id;
+                              // 🚀 BẢN VÁ 2 (tt): Lấy avatar cho Popup chuẩn
+                              const userDetail = member.user_id || member; 
+                              const rawId = userDetail._id || userDetail.id;
                               if (!rawId) return null;
+                              
                               const safeId = String(rawId);
                               const isSelected = assignees.includes(safeId);
-                              const name = member.full_name || member.name || "Unnamed";
+                              const name = userDetail.full_name || userDetail.name || "Unnamed";
+                              const avatarUrl = userDetail.avatar_url || userDetail.avatarUrl;
                               const initial = String(name).charAt(0).toUpperCase();
                               
                               return (
                                 <div key={`pop-${safeId || idx}`} onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleAssignee(safeId); }} className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors ${isSelected ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}>
                                   <div className="flex items-center gap-2">
-                                    {member.avatar_url ? <img src={member.avatar_url} className="w-6 h-6 rounded-full object-cover" /> : <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600">{initial}</div>}
+                                    {avatarUrl ? (
+                                      <img src={avatarUrl} className="w-6 h-6 rounded-full object-cover" />
+                                    ) : (
+                                      <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600">{initial}</div>
+                                    )}
                                     <span className="text-xs font-medium text-slate-700">{name}</span>
                                   </div>
                                   {isSelected && <Check size={14} className="text-indigo-600" />}
