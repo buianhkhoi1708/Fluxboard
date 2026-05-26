@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Bell,
   Check,
@@ -14,9 +14,8 @@ import {
   ExternalLink,
   Loader2,
   ShieldCheck,
-  Send,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useNotificationStore } from '../features/notification/stores/useNotificationStore';
 import { notificationApi } from '../features/notification/api/notificationApi';
 import { AppNotification } from '../features/notification/types/notificationTypes';
@@ -51,10 +50,9 @@ const normalizeActionUrl = (rawUrl?: string | null) => {
       url = `${parsed.pathname}${parsed.search}`;
     }
   } catch {
-    // Giữ nguyên rawUrl nếu URL parse lỗi
+    // Giữ nguyên rawUrl nếu URL parse lỗi.
   }
 
-  // App hiện đang khai báo route /board/:id, không phải /boards/:id
   if (url.startsWith('/boards/')) {
     url = url.replace('/boards/', '/board/');
   }
@@ -74,6 +72,10 @@ const resolveActionUrl = (notif: AppNotification) => {
   }
 
   return null;
+};
+
+const isExtensionRequestNotification = (notif: AppNotification) => {
+  return notif.type === 'EXTENSION_REQUEST';
 };
 
 interface ConfirmActionModalProps {
@@ -420,6 +422,8 @@ const ExtensionReviewModal: React.FC<ExtensionReviewModalProps> = ({
 
 const NotificationsPage = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotificationStore();
 
   const [reviewNotification, setReviewNotification] = useState<AppNotification | null>(null);
@@ -427,6 +431,24 @@ const NotificationsPage = () => {
   const sortedNotifications = useMemo(() => {
     return [...notifications].sort((a, b) => b.timestamp - a.timestamp);
   }, [notifications]);
+
+  const reviewNotificationId = searchParams.get('reviewNotificationId');
+
+  useEffect(() => {
+    if (!reviewNotificationId) return;
+
+    const found = notifications.find((notif) => notif.id === reviewNotificationId);
+
+    if (!found) return;
+
+    if (isExtensionRequestNotification(found)) {
+      setReviewNotification(found);
+
+      if (!found.isRead) {
+        markAsRead(found.id);
+      }
+    }
+  }, [reviewNotificationId, notifications, markAsRead]);
 
   const getNotificationStyle = (notif: AppNotification) => {
     const message = `${notif.title || ''} ${notif.message || ''} ${notif.type || ''}`.toUpperCase();
@@ -477,8 +499,12 @@ const NotificationsPage = () => {
   };
 
   const handleNotificationClick = async (notif: AppNotification) => {
-    if (notif.type === 'EXTENSION_REQUEST') {
+    if (isExtensionRequestNotification(notif)) {
       setReviewNotification(notif);
+
+      setSearchParams({
+        reviewNotificationId: notif.id,
+      });
 
       if (!notif.isRead) {
         await markAsRead(notif.id);
@@ -495,6 +521,14 @@ const NotificationsPage = () => {
 
     if (actionUrl) {
       navigate(actionUrl);
+    }
+  };
+
+  const closeReviewModal = () => {
+    setReviewNotification(null);
+
+    if (searchParams.has('reviewNotificationId')) {
+      setSearchParams({});
     }
   };
 
@@ -555,7 +589,7 @@ const NotificationsPage = () => {
                   const style = getNotificationStyle(notif);
                   const actionUrl = resolveActionUrl(notif);
                   const canNavigate = Boolean(actionUrl);
-                  const isExtensionRequest = notif.type === 'EXTENSION_REQUEST';
+                  const isExtensionRequest = isExtensionRequestNotification(notif);
 
                   return (
                     <div
@@ -627,7 +661,7 @@ const NotificationsPage = () => {
       <ExtensionReviewModal
         open={!!reviewNotification}
         notification={reviewNotification}
-        onClose={() => setReviewNotification(null)}
+        onClose={closeReviewModal}
         onDone={handleModalDone}
       />
     </>

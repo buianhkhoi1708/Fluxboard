@@ -10,7 +10,8 @@ const taskDeadlineSchema = new mongoose.Schema({
     },
 
     start_date: {
-        type: Date
+        type: Date,
+        default: null
     },
 
     due_date: {
@@ -29,12 +30,14 @@ const taskDeadlineSchema = new mongoose.Schema({
     // =====================================================
     extension_limit: {
         type: Number,
-        default: 2
+        default: 2,
+        min: 0
     },
 
     extension_count: {
         type: Number,
-        default: 0
+        default: 0,
+        min: 0
     },
 
     extension_status: {
@@ -73,7 +76,8 @@ const taskDeadlineSchema = new mongoose.Schema({
      */
     extension_reason: {
         type: String,
-        default: ''
+        default: '',
+        trim: true
     },
 
     /**
@@ -82,7 +86,8 @@ const taskDeadlineSchema = new mongoose.Schema({
     extension_reviewed_by: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
-        default: null
+        default: null,
+        index: true
     },
 
     extension_reviewed_at: {
@@ -95,7 +100,8 @@ const taskDeadlineSchema = new mongoose.Schema({
      */
     extension_reject_reason: {
         type: String,
-        default: ''
+        default: '',
+        trim: true
     },
 
     // =====================================================
@@ -119,12 +125,14 @@ const taskDeadlineSchema = new mongoose.Schema({
     completion_status: {
         type: String,
         enum: ['PENDING', 'ON_TIME', 'LATE'],
-        default: 'PENDING'
+        default: 'PENDING',
+        index: true
     },
 
     late_minutes: {
         type: Number,
-        default: 0
+        default: 0,
+        min: 0
     },
 
     is_deleted: {
@@ -145,5 +153,11 @@ taskDeadlineSchema.index({ due_date: 1, is_overdue: 1, reminder_sent: 1 });
 
 // Tối ưu lọc các request xin dời đang chờ duyệt
 taskDeadlineSchema.index({ extension_status: 1, extension_requested_by: 1 });
+
+// Tối ưu trang quản lý request chờ duyệt nếu sau này làm màn hình riêng
+taskDeadlineSchema.index({ extension_status: 1, extension_requested_at: -1 });
+
+// Tối ưu lookup deadline của task còn active
+taskDeadlineSchema.index({ task_id: 1, is_deleted: 1 });
 
 module.exports = mongoose.model('TaskDeadline', taskDeadlineSchema);

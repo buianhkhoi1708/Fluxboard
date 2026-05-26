@@ -3,6 +3,7 @@ import { notificationApi } from '../api/notificationApi';
 import { NotificationStore, AppNotification } from '../types/notificationTypes';
 
 let isPollingActive = false;
+let currentPollingUserId: string | null = null;
 
 const optionalString = (value: any): string | undefined => {
   if (value === null || value === undefined || value === '') return undefined;
@@ -11,6 +12,28 @@ const optionalString = (value: any): string | undefined => {
 
 const getRawNotificationId = (notif: any): string => {
   return String(notif?._id || notif?.id || notif?.notification_id || '');
+};
+
+const normalizeActionUrl = (rawUrl?: string | null): string | undefined => {
+  if (!rawUrl) return undefined;
+
+  let url = String(rawUrl).trim();
+  if (!url) return undefined;
+
+  try {
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      const parsed = new URL(url);
+      url = `${parsed.pathname}${parsed.search}`;
+    }
+  } catch {
+    // Giữ nguyên nếu parse URL lỗi.
+  }
+
+  if (url.startsWith('/boards/')) {
+    url = url.replace('/boards/', '/board/');
+  }
+
+  return url;
 };
 
 const mapNotification = (notif: any): AppNotification => {
@@ -24,13 +47,15 @@ const mapNotification = (notif: any): AppNotification => {
 
     referenceId: optionalString(notif?.reference_id || notif?.referenceId),
     referenceType: optionalString(notif?.reference_type || notif?.referenceType),
-    actionUrl: optionalString(notif?.action_url || notif?.actionUrl),
+    actionUrl: normalizeActionUrl(notif?.action_url || notif?.actionUrl),
 
     metadata: notif?.metadata || {},
 
     timestamp: notif?.created_at
       ? new Date(notif.created_at).getTime()
-      : Date.now(),
+      : notif?.timestamp
+        ? new Date(notif.timestamp).getTime()
+        : Date.now(),
 
     isRead: Boolean(notif?.is_read ?? notif?.isRead ?? false),
   };
@@ -49,6 +74,10 @@ const extractNotificationList = (response: any): any[] => {
     return response.data.data;
   }
 
+  if (Array.isArray(response?.notifications)) {
+    return response.notifications;
+  }
+
   if (Array.isArray(response)) {
     return response;
   }
@@ -59,19 +88,31 @@ const extractNotificationList = (response: any): any[] => {
 export const useNotificationStore = create<NotificationStore>((set, get) => ({
   notifications: [],
   unreadCount: 0,
+  latestToastNotification: null,
   stompClient: null,
 
-  connectWebSocket: async (_userId: string) => {
-    if (isPollingActive) return;
+  connectWebSocket: async (userId: string) => {
+    if (!userId) return;
+
+    const normalizedUserId = String(userId);
+
+    if (isPollingActive && currentPollingUserId === normalizedUserId) {
+      return;
+    }
+
+    if (isPollingActive && currentPollingUserId !== normalizedUserId) {
+      isPollingActive = false;
+    }
 
     isPollingActive = true;
+    currentPollingUserId = normalizedUserId;
 
     // ==========================================
     // 1. TẢI LỊCH SỬ THÔNG BÁO TỪ MONGODB
+    // Không hiện toast cho dữ liệu lịch sử.
     // ==========================================
     try {
       const response: any = await notificationApi.getNotificationHistory(1, 50);
-
       const rawList = extractNotificationList(response);
 
       const mappedNotifs = sortNotifications(
@@ -94,17 +135,17 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     // 2. LONG POLLING REALTIME PIPELINE
     // ==========================================
     const executePoll = async () => {
-      if (!isPollingActive) return;
+      if (!isPollingActive || currentPollingUserId !== normalizedUserId) return;
 
       try {
         const response: any = await notificationApi.listenToLongPolling();
-
         const incomingNotifications = extractNotificationList(response);
 
         if (incomingNotifications.length > 0) {
           set((state) => {
             let currentList = [...state.notifications];
             let currentUnread = state.unreadCount;
+            let latestNewNotification: AppNotification | null = null;
 
             incomingNotifications.forEach((rawNotif: any) => {
               const mapped = mapNotification(rawNotif);
@@ -120,6 +161,10 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
 
                 if (!mapped.isRead) {
                   currentUnread += 1;
+                }
+
+                if (!latestNewNotification) {
+                  latestNewNotification = mapped;
                 }
 
                 return;
@@ -139,15 +184,16 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
             return {
               notifications: sortNotifications(currentList),
               unreadCount: currentUnread,
+              latestToastNotification: latestNewNotification || state.latestToastNotification,
             };
           });
         }
 
-        if (isPollingActive) {
+        if (isPollingActive && currentPollingUserId === normalizedUserId) {
           setTimeout(executePoll, 0);
         }
       } catch (error) {
-        if (isPollingActive) {
+        if (isPollingActive && currentPollingUserId === normalizedUserId) {
           setTimeout(executePoll, 5000);
         }
       }
@@ -158,6 +204,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
 
   disconnectWebSocket: () => {
     isPollingActive = false;
+    currentPollingUserId = null;
     console.log('Notification real-time pipeline stopped.');
   },
 
@@ -171,7 +218,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
 
         referenceId: extra.referenceId,
         referenceType: extra.referenceType,
-        actionUrl: extra.actionUrl,
+        actionUrl: normalizeActionUrl(extra.actionUrl),
 
         metadata: extra.metadata || {},
         timestamp: extra.timestamp || Date.now(),
@@ -181,6 +228,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
       return {
         notifications: sortNotifications([newNotif, ...state.notifications]),
         unreadCount: state.unreadCount + (newNotif.isRead ? 0 : 1),
+        latestToastNotification: newNotif,
       };
     });
   },
@@ -242,5 +290,17 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     } catch (error) {
       console.error('Failed to clear all unread notification statuses on server:', error);
     }
+  },
+
+  clearToastNotification: (id?: string) => {
+    set((state) => {
+      if (!id || state.latestToastNotification?.id === id) {
+        return {
+          latestToastNotification: null,
+        };
+      }
+
+      return state;
+    });
   },
 }));

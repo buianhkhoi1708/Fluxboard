@@ -1,7 +1,13 @@
 const Notification = require('../models/notification.model');
-const User = require('../../user/models/user.model');
+const UserNotificationPref = require('../../user/models/userNotificationPref.model');
 const emailService = require('../../email/services/email.service');
 const eventBus = require('../../../common/utils/eventBus');
+
+const DEADLINE_REMINDER_TYPES = new Set([
+    'TASK_OVERDUE',
+    'TASK_DEADLINE_REMINDER',
+    'DEADLINE_REMINDER'
+]);
 
 const getDelayMinutes = (value) => {
     if (value === undefined || value === null) return 10;
@@ -20,10 +26,33 @@ const buildSendTime = (delayMinutes) => {
 const sanitizeNotificationData = (data = {}) => {
     const {
         email_delay_minutes,
+        emit_realtime,
         ...dataToSave
     } = data;
 
     return dataToSave;
+};
+
+const getPrefs = async (userId) => {
+    const prefs = await UserNotificationPref.findOne({
+        user_id: userId.toString()
+    }).lean();
+
+    return {
+        emailEnabled:
+            prefs?.email_notifications_enabled ??
+            prefs?.email_notifications ??
+            true,
+
+        pushEnabled:
+            prefs?.in_app_notifications_enabled ??
+            prefs?.push_notifications ??
+            true,
+
+        deadlineReminderEnabled:
+            prefs?.task_deadline_reminders ??
+            true
+    };
 };
 
 const emitNotificationToLongPolling = (notification) => {
@@ -49,6 +78,7 @@ exports.queueNotification = async (data) => {
         const delayMinutes = getDelayMinutes(data.email_delay_minutes);
         const sendTime = buildSendTime(delayMinutes);
         const dataToSave = sanitizeNotificationData(data);
+        const shouldEmitRealtime = data.emit_realtime !== false;
 
         const existingNotif = await Notification.findOne({
             recipient_id: data.recipient_id,
@@ -72,7 +102,9 @@ exports.queueNotification = async (data) => {
 
             await existingNotif.save();
 
-            emitNotificationToLongPolling(existingNotif);
+            if (shouldEmitRealtime) {
+                emitNotificationToLongPolling(existingNotif);
+            }
 
             return existingNotif;
         }
@@ -83,7 +115,9 @@ exports.queueNotification = async (data) => {
             send_at: sendTime
         });
 
-        emitNotificationToLongPolling(newNotif);
+        if (shouldEmitRealtime) {
+            emitNotificationToLongPolling(newNotif);
+        }
 
         return newNotif;
     } catch (error) {
@@ -106,6 +140,21 @@ exports.executePendingNotification = async (notificationId) => {
         }
 
         if (!notif.recipient_id) {
+            notif.status = 'SENT';
+            await notif.save();
+            return notif;
+        }
+
+        const recipientId = notif.recipient_id._id || notif.recipient_id;
+        const prefs = await getPrefs(recipientId);
+
+        if (!prefs.emailEnabled) {
+            notif.status = 'SENT';
+            await notif.save();
+            return notif;
+        }
+
+        if (DEADLINE_REMINDER_TYPES.has(notif.type) && !prefs.deadlineReminderEnabled) {
             notif.status = 'SENT';
             await notif.save();
             return notif;

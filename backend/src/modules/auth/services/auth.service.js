@@ -1,29 +1,106 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
+
 const User = require('../../user/models/user.model');
 const AppError = require('../../../common/exceptions/AppError');
 
-const getSafeUser = (user) => ({
-  id: user._id,
-  email: user.email,
-  fullName: user.full_name,
-  avatarUrl: user.avatar_url,
-  departmentId: user.department_id,
-  
-  // ✅ FIX: Đổi từ systemRoleIds / system_role_id thành role_id
-  role_id: user.role_id, 
-  
-  status: user.status,
-});
+const getJwtVerifyOptions = () => {
+    const options = {};
 
-const generateTokenPayload = (user) => ({
-  id: user._id,
-  email: user.email,
-  department_id: user.department_id,
-  
-  // ✅ FIX: Đổi thành role_id để Jwt nén đúng dữ liệu
-  role_id: user.role_id, 
-});
+    if (process.env.JWT_ISSUER) {
+        options.issuer = process.env.JWT_ISSUER;
+    }
+
+    return options;
+};
+
+const getJwtSignOptions = (expiresIn) => {
+    const options = {
+        expiresIn
+    };
+
+    if (process.env.JWT_ISSUER) {
+        options.issuer = process.env.JWT_ISSUER;
+    }
+
+    return options;
+};
+
+const getSafeUser = (user) => {
+    const id = user._id || user.id;
+
+    return {
+        id,
+        _id: id,
+        user_id: id,
+
+        email: user.email,
+
+        full_name: user.full_name || user.fullName || user.name || 'Người dùng',
+        fullName: user.fullName || user.full_name || user.name || 'Người dùng',
+
+        avatar_url: user.avatar_url || user.avatarUrl || null,
+        avatarUrl: user.avatarUrl || user.avatar_url || null,
+
+        department_id: user.department_id || user.departmentId || null,
+        departmentId: user.departmentId || user.department_id || null,
+
+        role_id: user.role_id || null,
+        system_role: user.system_role || user.role || null,
+
+        status: user.status
+    };
+};
+
+const generateTokenPayload = (user) => {
+    const id = user._id || user.id;
+
+    return {
+        id,
+        _id: id,
+        user_id: id,
+
+        email: user.email,
+        department_id: user.department_id || null,
+        role_id: user.role_id || null,
+        system_role: user.system_role || user.role || null
+    };
+};
+
+const signAccessToken = (user) => {
+    const payload = generateTokenPayload(user);
+
+    return jwt.sign(
+        payload,
+        process.env.JWT_SECRET,
+        getJwtSignOptions(process.env.JWT_ACCESS_EXPIRES_IN || '15m')
+    );
+};
+
+const signRefreshToken = (user) => {
+    const id = user._id || user.id;
+
+    return jwt.sign(
+        {
+            id,
+            _id: id,
+            user_id: id,
+            token_type: 'refresh'
+        },
+        process.env.JWT_SECRET,
+        getJwtSignOptions(process.env.JWT_REFRESH_EXPIRES_IN || '7d')
+    );
+};
+
+const validateActiveUser = (user) => {
+    if (!user) {
+        throw new AppError('Invalid credentials', 401, 'UNAUTHORIZED');
+    }
+
+    if (user.status === 'INACTIVE' || user.status === 'DISABLED' || user.is_deleted) {
+        throw new AppError('Tài khoản đã bị khóa hoặc không tồn tại', 401, 'UNAUTHORIZED');
+    }
+};
 
 exports.login = async (email, password) => {
     if (!email || !password) {
@@ -31,65 +108,73 @@ exports.login = async (email, password) => {
     }
 
     const user = await User.findOne({ email })
-        .select('+password_hash +password') 
+        .select('+password_hash +password')
         .lean();
 
-    if (!user || user.status === 'INACTIVE') {
-        throw new AppError('Invalid credentials', 401, 'UNAUTHORIZED');
-    }
+    validateActiveUser(user);
+
     const hashToCompare = user.password_hash || user.password;
-    
+
     if (!hashToCompare) {
-        throw new AppError('Account has no password set. Please reset password.', 401, 'UNAUTHORIZED');
+        throw new AppError(
+            'Account has no password set. Please reset password.',
+            401,
+            'UNAUTHORIZED'
+        );
     }
 
     const isMatch = await bcrypt.compare(password, hashToCompare);
+
     if (!isMatch) {
         throw new AppError('Invalid credentials', 401, 'UNAUTHORIZED');
     }
 
-    const payload = generateTokenPayload(user);
-
-    const token = jwt.sign(payload, process.env.JWT_SECRET, {
-        expiresIn: '15m',
-        issuer: process.env.JWT_ISSUER
-    });
-
-    // Refresh Token sống 7 ngày (Chỉ chứa ID để ép quét lại Database khi hết hạn)
-    const refreshToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-        expiresIn: '7d', 
-        issuer: process.env.JWT_ISSUER
-    });
+    const accessToken = signAccessToken(user);
+    const refreshToken = signRefreshToken(user);
 
     return {
-   user: getSafeUser(user),
-   accessToken: token,
-   refreshToken
-};
+        user: getSafeUser(user),
+        accessToken,
+        refreshToken
+    };
 };
 
 exports.refreshToken = async (token) => {
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const user = await User.findById(decoded.id).lean();
-        
-        if (!user || user.status === 'INACTIVE') {
-            throw new AppError('Tài khoản đã bị khóa hoặc không tồn tại', 401, 'UNAUTHORIZED');
+        const decoded = jwt.verify(
+            token,
+            process.env.JWT_SECRET,
+            getJwtVerifyOptions()
+        );
+
+        const userId =
+            decoded.id ||
+            decoded._id ||
+            decoded.user_id;
+
+        if (!userId) {
+            throw new AppError('Invalid refresh token', 401, 'UNAUTHORIZED');
         }
-        
-        const payload = generateTokenPayload(user);
 
-        // 💡 Cấp lại Token 15 phút với dữ liệu mới nhất
-        const newToken = jwt.sign(payload, process.env.JWT_SECRET, {
-            expiresIn: '15m',
-            issuer: process.env.JWT_ISSUER
-        });
+        const user = await User.findById(userId).lean();
 
-        return { 
-            token: newToken, 
-            user: getSafeUser(user) 
+        validateActiveUser(user);
+
+        const accessToken = signAccessToken(user);
+
+        // Rotate refresh token để phiên sạch hơn.
+        const refreshToken = signRefreshToken(user);
+
+        return {
+            user: getSafeUser(user),
+            accessToken,
+            refreshToken
         };
     } catch (error) {
-        throw new AppError('Phiên đăng nhập hết hạn, vui lòng đăng nhập lại', 401, 'UNAUTHORIZED');
+        throw new AppError(
+            'Phiên đăng nhập hết hạn, vui lòng đăng nhập lại',
+            401,
+            'UNAUTHORIZED'
+        );
     }
 };

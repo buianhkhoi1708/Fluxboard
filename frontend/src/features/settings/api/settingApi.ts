@@ -1,7 +1,12 @@
 import axiosClient from '../../../lib/axiosClient';
 
-export const settingApi = {
+export interface NotificationSettingsPayload {
+  email_notifications: boolean;
+  push_notifications: boolean;
+  task_deadline_reminders: boolean;
+}
 
+export const settingApi = {
   /**
    * =========================================================
    * PROFILE
@@ -9,22 +14,16 @@ export const settingApi = {
    */
 
   getProfileOverview: () => {
-    return axiosClient.get(
-      '/settings/profile'
-    );
+    return axiosClient.get('/settings/profile');
   },
 
   updateProfileInfo: (
     profileData: {
       full_name?: string;
       avatar_url?: string;
-    }
+    },
   ) => {
-
-    return axiosClient.put(
-      '/settings/profile',
-      profileData
-    );
+    return axiosClient.put('/settings/profile', profileData);
   },
 
   /**
@@ -33,28 +32,16 @@ export const settingApi = {
    * =========================================================
    */
 
-  uploadAvatar: (
-    file: File
-  ) => {
+  uploadAvatar: (file: File) => {
+    const formData = new FormData();
 
-    const formData =
-      new FormData();
+    formData.append('file', file);
 
-    formData.append(
-      'file',
-      file
-    );
-
-    return axiosClient.post(
-      '/media/upload',
-      formData,
-      {
-        headers: {
-          'Content-Type':
-            'multipart/form-data'
-        }
-      }
-    );
+    return axiosClient.post('/media/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
   },
 
   /**
@@ -63,37 +50,20 @@ export const settingApi = {
    * =========================================================
    */
 
-  changePassword: (
-    passwordData: any
-  ) => {
-
-    return axiosClient.put(
-      '/settings/security/password',
-      passwordData
-    );
+  changePassword: (passwordData: any) => {
+    return axiosClient.put('/settings/security/password', passwordData);
   },
 
   getActiveSessions: () => {
-
-    return axiosClient.get(
-      '/settings/security/sessions'
-    );
+    return axiosClient.get('/settings/security/sessions');
   },
 
   signOutAllSessions: () => {
-
-    return axiosClient.delete(
-      '/settings/security/sessions'
-    );
+    return axiosClient.delete('/settings/security/sessions');
   },
 
-  revokeSessionById: (
-    sessionId: string
-  ) => {
-
-    return axiosClient.delete(
-      `/settings/security/sessions/${sessionId}`
-    );
+  revokeSessionById: (sessionId: string) => {
+    return axiosClient.delete(`/settings/security/sessions/${sessionId}`);
   },
 
   /**
@@ -103,20 +73,15 @@ export const settingApi = {
    */
 
   getNotificationSettings: () => {
-
-    return axiosClient.get(
-      '/settings/notifications'
-    );
+    return axiosClient.get('/settings/notifications');
   },
 
-  updateNotificationSettings: (
-    settingsData: any
-  ) => {
-
-    return axiosClient.put(
-      '/settings/notifications',
-      settingsData
-    );
+  updateNotificationSettings: (settingsData: NotificationSettingsPayload) => {
+    return axiosClient.put('/settings/notifications', {
+      email_notifications: !!settingsData.email_notifications,
+      push_notifications: !!settingsData.push_notifications,
+      task_deadline_reminders: !!settingsData.task_deadline_reminders,
+    });
   },
 
   /**
@@ -126,23 +91,11 @@ export const settingApi = {
    */
 
   setup2FA: () => {
-
-    return axiosClient.post(
-      '/settings/security/2fa/setup'
-    );
+    return axiosClient.post('/settings/security/2fa/setup');
   },
 
-  toggle2FA: (
-    data: {
-      enable: boolean;
-      code: string;
-    }
-  ) => {
-
-    return axiosClient.put(
-      '/settings/security/2fa/toggle',
-      data
-    );
+  toggle2FA: (data: { enable: boolean; code: string }) => {
+    return axiosClient.put('/settings/security/2fa/toggle', data);
   },
 
   /**
@@ -152,9 +105,6 @@ export const settingApi = {
    */
 
   getSecurityLogs: () => {
-
-    return axiosClient.get(
-      '/settings/security/logs'
-    );
-  }
+    return axiosClient.get('/settings/security/logs');
+  },
 };

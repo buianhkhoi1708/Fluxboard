@@ -100,6 +100,8 @@ const normalizeTaskPayload = async (taskData = {}, actorId = null) => {
     } else {
         payload.is_done = Boolean(payload.is_done);
         payload.status = payload.status || 'TODO';
+        payload.completed_at = null;
+        payload.completed_by_user_id = null;
     }
 
     return payload;
@@ -222,6 +224,43 @@ const appendDeadlineToTaskObject = async (task, deadline = null) => {
     return taskObj;
 };
 
+const updateDeadlineCompletionStatus = async (taskId, task, completedAt) => {
+    const deadlineRecord = await TaskDeadline.findOne({ task_id: taskId }).lean();
+
+    const dueDate =
+        deadlineRecord?.due_date ||
+        task?.due_date ||
+        null;
+
+    if (!deadlineRecord) {
+        return null;
+    }
+
+    const isLate =
+        dueDate &&
+        new Date(completedAt).getTime() > new Date(dueDate).getTime();
+
+    return await TaskDeadline.findOneAndUpdate(
+        { task_id: taskId },
+        {
+            $set: {
+                actual_completed_at: completedAt,
+                completion_status: isLate ? 'LATE' : 'ON_TIME',
+                late_minutes: isLate
+                    ? Math.max(
+                        0,
+                        Math.ceil(
+                            (new Date(completedAt).getTime() - new Date(dueDate).getTime()) /
+                            60000
+                        )
+                    )
+                    : 0
+            }
+        },
+        { new: true }
+    );
+};
+
 exports.createTask = async (taskData, actorId = null) => {
     const payload = await normalizeTaskPayload(taskData, actorId);
 
@@ -296,18 +335,7 @@ exports.updateTask = async (taskId, updateData, actorId = null) => {
     if (justCompleted) {
         const completedAt = task.completed_at || new Date();
 
-        await TaskDeadline.findOneAndUpdate(
-            { task_id: taskId },
-            {
-                $set: {
-                    actual_completed_at: completedAt,
-                    completion_status: task.due_date && new Date(completedAt) > new Date(task.due_date)
-                        ? 'LATE'
-                        : 'ON_TIME'
-                }
-            },
-            { new: true }
-        );
+        deadline = await updateDeadlineCompletionStatus(taskId, task, completedAt);
 
         eventBus.emit('task_completed', {
             task_id: task._id,
