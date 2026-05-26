@@ -61,8 +61,13 @@ const SecurityListener: React.FC = () => {
   useEffect(() => {
     if (!socket) return;
 
-    const handleForceLogout = (data: { reason?: string }) => {
-      console.warn(`[SECURITY] Force logout triggered: ${data?.reason || 'No reason'}`);
+    const handleForceLogout = (data: { reason?: string; message?: string }) => {
+      const reason =
+        data?.reason ||
+        data?.message ||
+        'Phiên đăng nhập của bạn đã bị kết thúc.';
+
+      console.warn(`[SECURITY] Force logout triggered: ${reason}`);
 
       queryClient.clear();
 
@@ -73,15 +78,37 @@ const SecurityListener: React.FC = () => {
       navigate('/login', {
         replace: true,
         state: {
-          reason: data?.reason || 'Phiên đăng nhập của bạn đã bị kết thúc.',
+          reason,
         },
       });
     };
 
+    const handleProjectRevoked = (data: { message?: string }) => {
+      queryClient.clear();
+
+      navigate('/dashboard', {
+        replace: true,
+        state: {
+          reason:
+            data?.message ||
+            'Quyền truy cập dự án của bạn đã thay đổi.',
+        },
+      });
+    };
+
+    /**
+     * Backend trong các phần trước có thể emit FORCE_LOGOUT,
+     * còn FE cũ từng nghe force_logout.
+     * Nghe cả 2 để tránh lệch contract realtime.
+     */
+    socket.on('FORCE_LOGOUT', handleForceLogout);
     socket.on('force_logout', handleForceLogout);
+    socket.on('PROJECT_REVOKED', handleProjectRevoked);
 
     return () => {
+      socket.off('FORCE_LOGOUT', handleForceLogout);
       socket.off('force_logout', handleForceLogout);
+      socket.off('PROJECT_REVOKED', handleProjectRevoked);
     };
   }, [socket, navigate, queryClient, logout]);
 
@@ -201,6 +228,7 @@ function App() {
               <Route element={<MainLayout />}>
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
+                {/* PUBLIC-INTERNAL ROUTES: chỉ cần đăng nhập */}
                 <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/board" element={<BoardPage />} />
                 <Route path="/board/:id" element={<BoardView />} />
@@ -211,14 +239,23 @@ function App() {
                 <Route path="/mytasks" element={<MyTasksPage />} />
                 <Route path="/notifications" element={<NotificationsPage />} />
 
+                {/* ADMIN MANAGEMENT ROUTES */}
                 <Route
                   element={
-                    <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'SYSTEM_ADMIN']} />
+                    <ProtectedRoute allowedRoles={['ADMIN', 'SYSTEM_ADMIN']} />
                   }
                 >
                   <Route path="/adminrbac" element={<AdminRBACPage />} />
                   <Route path="/organization" element={<OrganizationPage />} />
                   <Route path="/createuser" element={<CreateUserTab />} />
+                </Route>
+
+                {/* SYSTEM_ADMIN ONLY */}
+                <Route
+                  element={
+                    <ProtectedRoute allowedRoles={['SYSTEM_ADMIN']} />
+                  }
+                >
                   <Route path="/activity" element={<ActivityLogPage />} />
                 </Route>
               </Route>

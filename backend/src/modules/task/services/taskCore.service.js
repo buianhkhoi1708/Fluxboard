@@ -1,6 +1,8 @@
 const Task = require('../models/task.model');
 const Column = require('../../column/models/column.model');
 const Board = require('../../board/models/board.model');
+const User = require('../../user/models/user.model');
+const Role = require('../../rbac/models/role.model');
 const AppError = require('../../../common/exceptions/AppError');
 const socketConfig = require('../../../common/config/socket');
 const eventBus = require('../../../common/utils/eventBus');
@@ -16,9 +18,162 @@ const emitBoardEvent = (boardId, eventName, payload) => {
     }
 };
 
+const normalizeRoleName = (value) => {
+    if (!value) return '';
+
+    return String(value)
+        .trim()
+        .toUpperCase()
+        .replace(/\s+/g, '_')
+        .replace(/-/g, '_');
+};
+
+const getUserId = (user) => {
+    if (!user) return '';
+
+    return String(user.user_id || user.id || user._id || '');
+};
+
+const getRoleNameFromValue = (value) => {
+    if (!value) return '';
+
+    const directRole =
+        value.role_name ||
+        value.roleName ||
+        value.system_role ||
+        value.systemRole ||
+        value.role ||
+        value.role_code ||
+        value.roleCode;
+
+    if (directRole) {
+        return normalizeRoleName(directRole);
+    }
+
+    if (value.role_id && typeof value.role_id === 'object') {
+        return normalizeRoleName(value.role_id.name || value.role_id.code);
+    }
+
+    return '';
+};
+
+const isSystemAdminValue = (value) => {
+    return getRoleNameFromValue(value) === 'SYSTEM_ADMIN';
+};
+
+const getActorFromDb = async (actorId) => {
+    if (!actorId) return null;
+
+    return User.findById(actorId)
+        .populate('role_id', 'name scope')
+        .lean();
+};
+
+const getSystemAdminRole = async () => {
+    return Role.findOne({
+        name: 'SYSTEM_ADMIN',
+    }).lean();
+};
+
+const buildActorContext = async (actorId) => {
+    const actor = await getActorFromDb(actorId);
+    const systemAdminRole = await getSystemAdminRole();
+
+    return {
+        actor,
+        actorId: getUserId(actor) || String(actorId || ''),
+        actorIsSystemAdmin: isSystemAdminValue(actor),
+        systemAdminRoleId: systemAdminRole?._id ? String(systemAdminRole._id) : null,
+    };
+};
+
+const isUserSystemAdminByRoleId = (user, context) => {
+    if (!user || !context.systemAdminRoleId) {
+        return false;
+    }
+
+    const roleId =
+        typeof user.role_id === 'object'
+            ? user.role_id?._id || user.role_id?.id
+            : user.role_id;
+
+    return String(roleId || '') === context.systemAdminRoleId;
+};
+
+const assertAssignableUsers = async (userIds = [], actorId = null) => {
+    const ids = Array.from(
+        new Set(
+            userIds
+                .map((id) => toIdString(id))
+                .filter(Boolean),
+        ),
+    );
+
+    if (ids.length === 0) {
+        return;
+    }
+
+    const context = await buildActorContext(actorId);
+
+    const users = await User.find({
+        _id: {
+            $in: ids,
+        },
+    })
+        .populate('role_id', 'name scope')
+        .lean();
+
+    const foundIds = users.map((user) => String(user._id));
+
+    const missingId = ids.find((id) => !foundIds.includes(String(id)));
+
+    if (missingId) {
+        throw new AppError(
+            `Assignee not found: ${missingId}`,
+            404,
+            'USER_NOT_FOUND',
+        );
+    }
+
+    const protectedUser = users.find((user) => {
+        const userIsSystemAdmin =
+            isSystemAdminValue(user) ||
+            isUserSystemAdminByRoleId(user, context);
+
+        if (!userIsSystemAdmin) {
+            return false;
+        }
+
+        return !(
+            context.actorIsSystemAdmin &&
+            String(user._id) === String(context.actorId)
+        );
+    });
+
+    if (protectedUser) {
+        throw new AppError(
+            'SYSTEM_ADMIN là tài khoản quản trị cao nhất và không thể bị gán vào task bởi tài khoản khác.',
+            403,
+            'SYSTEM_ADMIN_PROTECTED',
+        );
+    }
+};
+
 const toIdString = (value) => {
     if (!value) return null;
-    if (typeof value === 'object' && value._id) return value._id.toString();
+
+    if (typeof value === 'object' && value._id) {
+        return value._id.toString();
+    }
+
+    if (typeof value === 'object' && value.id) {
+        return value.id.toString();
+    }
+
+    if (typeof value === 'object' && value.user_id) {
+        return value.user_id.toString();
+    }
+
     return value.toString();
 };
 
@@ -61,7 +216,7 @@ const getProjectIdFromBoard = async (boardId) => {
 
 const normalizeTaskPayload = async (taskData = {}, actorId = null) => {
     const payload = {
-        ...taskData
+        ...taskData,
     };
 
     payload.board_id = payload.board_id || payload.boardId;
@@ -79,14 +234,15 @@ const normalizeTaskPayload = async (taskData = {}, actorId = null) => {
         payload.project_id = await getProjectIdFromBoard(payload.board_id);
     }
 
-    if (!payload.author_user_id) {
-        payload.author_user_id = actorId || payload.created_by || payload.user_id || null;
-    }
+    // Backend là nguồn sự thật: người tạo task luôn là actor đang đăng nhập.
+    payload.author_user_id = actorId || payload.author_user_id || payload.created_by || payload.user_id || null;
 
     payload.assignees_user_id = normalizeAssignees(
         payload.assignees_user_id || payload.assigneesUserId || payload.assignees,
-        payload.assignee_id
+        payload.assignee_id,
     );
+
+    await assertAssignableUsers(payload.assignees_user_id, actorId);
 
     payload.assignee_id =
         payload.assignee_id ||
@@ -107,19 +263,26 @@ const normalizeTaskPayload = async (taskData = {}, actorId = null) => {
     return payload;
 };
 
-const normalizeTaskUpdatePayload = (updateData = {}, oldTask = null, actorId = null) => {
+const normalizeTaskUpdatePayload = async (updateData = {}, oldTask = null, actorId = null) => {
     const payload = {
-        ...updateData
+        ...updateData,
     };
 
     delete payload.boardId;
     delete payload.columnId;
 
-    if (payload.assignees_user_id || payload.assigneesUserId || payload.assignees || payload.assignee_id) {
+    if (
+        payload.assignees_user_id ||
+        payload.assigneesUserId ||
+        payload.assignees ||
+        payload.assignee_id
+    ) {
         payload.assignees_user_id = normalizeAssignees(
             payload.assignees_user_id || payload.assigneesUserId || payload.assignees,
-            payload.assignee_id
+            payload.assignee_id,
         );
+
+        await assertAssignableUsers(payload.assignees_user_id, actorId);
 
         payload.assignee_id =
             payload.assignee_id ||
@@ -172,11 +335,16 @@ const syncTaskDeadline = async (taskId, payload) => {
         payload.due_date === '';
 
     if (wantsClearDueDate) {
-        await TaskDeadline.findOneAndDelete({ task_id: taskId });
+        await TaskDeadline.findOneAndDelete({
+            task_id: taskId,
+        });
+
         return null;
     }
 
-    const existingDeadline = await TaskDeadline.findOne({ task_id: taskId });
+    const existingDeadline = await TaskDeadline.findOne({
+        task_id: taskId,
+    });
 
     if (existingDeadline) {
         if (Object.prototype.hasOwnProperty.call(payload, 'start_date')) {
@@ -199,7 +367,7 @@ const syncTaskDeadline = async (taskId, payload) => {
     return await TaskDeadline.create({
         task_id: taskId,
         start_date: payload.start_date || null,
-        due_date: payload.due_date
+        due_date: payload.due_date,
     });
 };
 
@@ -212,7 +380,9 @@ const appendDeadlineToTaskObject = async (task, deadline = null) => {
     let deadlineRecord = deadline;
 
     if (!deadlineRecord) {
-        deadlineRecord = await TaskDeadline.findOne({ task_id: taskObj._id }).lean();
+        deadlineRecord = await TaskDeadline.findOne({
+            task_id: taskObj._id,
+        }).lean();
     }
 
     if (deadlineRecord) {
@@ -225,7 +395,9 @@ const appendDeadlineToTaskObject = async (task, deadline = null) => {
 };
 
 const updateDeadlineCompletionStatus = async (taskId, task, completedAt) => {
-    const deadlineRecord = await TaskDeadline.findOne({ task_id: taskId }).lean();
+    const deadlineRecord = await TaskDeadline.findOne({
+        task_id: taskId,
+    }).lean();
 
     const dueDate =
         deadlineRecord?.due_date ||
@@ -241,7 +413,9 @@ const updateDeadlineCompletionStatus = async (taskId, task, completedAt) => {
         new Date(completedAt).getTime() > new Date(dueDate).getTime();
 
     return await TaskDeadline.findOneAndUpdate(
-        { task_id: taskId },
+        {
+            task_id: taskId,
+        },
         {
             $set: {
                 actual_completed_at: completedAt,
@@ -250,14 +424,15 @@ const updateDeadlineCompletionStatus = async (taskId, task, completedAt) => {
                     ? Math.max(
                         0,
                         Math.ceil(
-                            (new Date(completedAt).getTime() - new Date(dueDate).getTime()) /
-                            60000
-                        )
+                            (new Date(completedAt).getTime() - new Date(dueDate).getTime()) / 60000,
+                        ),
                     )
-                    : 0
-            }
+                    : 0,
+            },
         },
-        { new: true }
+        {
+            new: true,
+        },
     );
 };
 
@@ -272,13 +447,17 @@ exports.createTask = async (taskData, actorId = null) => {
         deadline = await TaskDeadline.create({
             task_id: task._id,
             start_date: payload.start_date || null,
-            due_date: payload.due_date
+            due_date: payload.due_date,
         });
     }
 
     await Column.findByIdAndUpdate(
         payload.column_id,
-        { $push: { task_order_ids: task._id } }
+        {
+            $push: {
+                task_order_ids: task._id,
+            },
+        },
     );
 
     eventBus.emit('task_created', {
@@ -290,7 +469,7 @@ exports.createTask = async (taskData, actorId = null) => {
         projectId: payload.project_id,
         start_date: payload.start_date,
         due_date: payload.due_date,
-        extension_limit: payload.extension_limit || 2
+        extension_limit: payload.extension_limit || 2,
     });
 
     const taskObj = await appendDeadlineToTaskObject(task, deadline);
@@ -307,12 +486,17 @@ exports.updateTask = async (taskId, updateData, actorId = null) => {
         throw new AppError('Task not found', 404, 'NOT_FOUND');
     }
 
-    const payload = normalizeTaskUpdatePayload(updateData, oldTask, actorId);
+    const payload = await normalizeTaskUpdatePayload(updateData, oldTask, actorId);
 
     const task = await Task.findByIdAndUpdate(
         taskId,
-        { $set: payload },
-        { new: true, runValidators: true }
+        {
+            $set: payload,
+        },
+        {
+            new: true,
+            runValidators: true,
+        },
     );
 
     if (!task) {
@@ -345,7 +529,7 @@ exports.updateTask = async (taskId, updateData, actorId = null) => {
             completedBy: actorId,
             completedAt,
             boardId: task.board_id,
-            projectId: task.project_id
+            projectId: task.project_id,
         });
     } else {
         eventBus.emit('system_task_updated', {
@@ -354,7 +538,7 @@ exports.updateTask = async (taskId, updateData, actorId = null) => {
             userId: actorId,
             senderId: actorId,
             boardId: task.board_id,
-            projectId: task.project_id
+            projectId: task.project_id,
         });
     }
 
@@ -374,7 +558,9 @@ exports.deleteTask = async (taskId, actorId = null) => {
 
     await taskCommentService.deleteAllByTaskId(taskId);
     await taskAttachmentService.deleteAllByTaskId(taskId);
-    await TaskDeadline.findOneAndDelete({ task_id: taskId });
+    await TaskDeadline.findOneAndDelete({
+        task_id: taskId,
+    });
 
     eventBus.emit('task_deleted', {
         task_id: taskId,
@@ -382,12 +568,16 @@ exports.deleteTask = async (taskId, actorId = null) => {
         userId: actorId,
         senderId: actorId,
         boardId: task.board_id,
-        projectId: task.project_id
+        projectId: task.project_id,
     });
 
     await Column.findByIdAndUpdate(
         task.column_id,
-        { $pull: { task_order_ids: taskId } }
+        {
+            $pull: {
+                task_order_ids: taskId,
+            },
+        },
     );
 
     await Task.findByIdAndDelete(taskId);
@@ -414,7 +604,7 @@ exports.moveTask = async (taskId, destColumnId, newOrder, actorId = null) => {
         }
 
         column.task_order_ids = column.task_order_ids.filter(
-            id => id.toString() !== taskId.toString()
+            (id) => id.toString() !== taskId.toString(),
         );
 
         column.task_order_ids.splice(Number(newOrder) || 0, 0, taskId);
@@ -423,7 +613,7 @@ exports.moveTask = async (taskId, destColumnId, newOrder, actorId = null) => {
     } else {
         const [sourceCol, destCol] = await Promise.all([
             Column.findById(sourceColumnId),
-            Column.findById(destColumnId)
+            Column.findById(destColumnId),
         ]);
 
         if (!sourceCol || !destCol) {
@@ -431,7 +621,7 @@ exports.moveTask = async (taskId, destColumnId, newOrder, actorId = null) => {
         }
 
         sourceCol.task_order_ids = sourceCol.task_order_ids.filter(
-            id => id.toString() !== taskId.toString()
+            (id) => id.toString() !== taskId.toString(),
         );
 
         destCol.task_order_ids.splice(Number(newOrder) || 0, 0, taskId);
@@ -441,7 +631,7 @@ exports.moveTask = async (taskId, destColumnId, newOrder, actorId = null) => {
         await Promise.all([
             sourceCol.save(),
             destCol.save(),
-            task.save()
+            task.save(),
         ]);
     }
 
@@ -453,13 +643,13 @@ exports.moveTask = async (taskId, destColumnId, newOrder, actorId = null) => {
         userId: actorId,
         senderId: actorId,
         boardId: task.board_id,
-        projectId: task.project_id
+        projectId: task.project_id,
     });
 
     emitBoardEvent(task.board_id, 'taskMoved', {
         taskId: task._id,
         destColumnId,
-        newOrder
+        newOrder,
     });
 
     return task;
@@ -468,18 +658,26 @@ exports.moveTask = async (taskId, destColumnId, newOrder, actorId = null) => {
 exports.getMyTasks = async (userId) => {
     const tasks = await Task.find({
         $or: [
-            { assignee_id: userId },
-            { assignees_user_id: userId }
+            {
+                assignee_id: userId,
+            },
+            {
+                assignees_user_id: userId,
+            },
         ],
-        is_deleted: false
+        is_deleted: false,
     })
         .populate('board_id', 'name')
         .populate('column_id', 'name list_name title')
-        .sort({ created_at: -1 })
+        .sort({
+            created_at: -1,
+        })
         .lean();
 
     for (const task of tasks) {
-        const deadline = await TaskDeadline.findOne({ task_id: task._id }).lean();
+        const deadline = await TaskDeadline.findOne({
+            task_id: task._id,
+        }).lean();
 
         if (deadline) {
             task.start_date = deadline.start_date;
