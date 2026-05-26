@@ -36,6 +36,7 @@ import {
   useGetProjectMembers,
   useAddAttachmentToTask,
   useMoveTask,
+  useDeleteAttachment,
 } from "../hooks/useBoardQueries";
 
 import { useBoardStore } from "../stores/useBoardStore";
@@ -55,6 +56,8 @@ interface CustomDateInputProps {
   onClick?: () => void;
   placeholder?: string;
 }
+
+
 
 type ConfirmActionType = "request-extension" | "delete-task" | null;
 
@@ -264,7 +267,40 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const [isDeleting, setIsDeleting] = useState(false);
 
   const currentTaskId = String(task?.id || task?._id || "");
-  const { data: fetchedAttachments } = useGetTaskAttachments(currentTaskId);
+const safeProjectIdForHook = board?.project_id || board?.projectId || board?.project?._id || board?._id;
+  const { data: fetchedAttachments } = useGetTaskAttachments(currentTaskId, String(safeProjectIdForHook));
+
+  const { mutateAsync: deleteAttachmentApi } = useDeleteAttachment();
+
+  // 🚀 Hàm xử lý khi bấm nút xoá file
+  const handleDeleteAttachment = async (e: React.MouseEvent, attachmentId: string) => {
+    e.stopPropagation(); // Chặn không cho click lan ra ngoài (gây mở tab mới)
+    
+    if (!window.confirm("Bạn có chắc chắn muốn xóa tài liệu này?")) return;
+
+    if (!activeBoardId || !board) return;
+    const safeProjectId = board?.project_id || board?.projectId || board?.project?._id || board?._id;
+
+    if (!safeProjectId) {
+      alert("Lỗi: Không tìm thấy ID dự án!");
+      return;
+    }
+
+    try {
+      await deleteAttachmentApi({
+        taskId: currentTaskId,
+        attachmentId: attachmentId,
+        boardId: activeBoardId,
+        projectId: String(safeProjectId)
+      });
+
+      // Cập nhật luôn UI cho nhanh mượt
+      setLocalAttachments(prev => prev.filter(a => (a._id || a.id) !== attachmentId));
+    } catch (error) {
+      console.error("Lỗi khi xóa file:", error);
+      alert("Xóa tài liệu thất bại. Vui lòng thử lại!");
+    }
+  };
 
   const projectMembers = useMemo(() => {
     if (!apiMembers) return [];
@@ -375,11 +411,23 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
 
-    if (!file || !activeBoardId) return;
+    // 🚀 BẢO VỆ 1: Phải có file, boardId và data board
+    if (!file || !activeBoardId || !board) return;
 
     setIsUploading(true);
 
+    // 🚀 BẢO VỆ 2: Lấy Project ID an toàn
+    const safeProjectId = board?.project_id || board?.projectId || board?.project?._id || board?._id;
+
+    if (!safeProjectId) {
+      console.error("🚨 Không tìm thấy ID dự án từ board!");
+      alert("Lỗi dữ liệu: Không tìm thấy ID dự án để tải file lên!");
+      setIsUploading(false);
+      return;
+    }
+
     try {
+      // 1. Gửi file lên server / cloud để lấy URL về
       const uploadResult = await uploadFile(file);
       const finalUrl = uploadResult?.url || uploadResult?.data?.url;
 
@@ -387,6 +435,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
         throw new Error("Không lấy được URL từ server!");
       }
 
+      // 2. Gửi URL và thông tin file vào Task (CÓ NHÉT THÊM VÉ THÔNG HÀNH)
       const response = await addAttachment({
         taskId: String(task.id || task._id),
         boardId: activeBoardId,
@@ -394,6 +443,9 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
           fileName: file.name,
           fileUrl: finalUrl,
           mimeType: file.type,
+          
+          // 🚀 NHÉT VÉ THÔNG HÀNH VÀO ĐÂY LÀ QUA CỬA RBAC CÁI VÈO
+          project_id: String(safeProjectId)
         },
       });
 
@@ -424,6 +476,14 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const handleSave = async () => {
     if (!activeBoardId || !board) return;
 
+    // 🚀 LẤY PROJECT ID AN TOÀN TRƯỚC KHI LƯU
+    const safeProjectId = board?.project_id || board?.projectId || board?.project?._id || board?._id;
+    
+    if (!safeProjectId) {
+      alert("Lỗi dữ liệu: Không tìm thấy ID dự án!");
+      return;
+    }
+
     setIsSaving(true);
 
     const cleanAssignees = editAssignees.filter(
@@ -432,7 +492,12 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
     const finalPriority = editPriority ? editPriority.toUpperCase() : "MEDIUM";
 
+    // 🚀 ĐOẠN NÀY ĐÃ ĐƯỢC FIX LẠI CỰC KỲ AN TOÀN
+    // Ép kiểu ID về String và lọc bỏ mọi trường hợp null/undefined/trống
+    const currentAttachmentIds = localAttachments
+      
     try {
+      // 🚀 1. GỌI LỆNH UPDATE CÓ KẸP VÉ THÔNG HÀNH
       await updateApiTask({
         taskId: String(task.id || task._id),
         boardId: activeBoardId,
@@ -449,9 +514,11 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
           assignee_id: cleanAssignees.length > 0 ? cleanAssignees[0] : null,
           parent_task_id: taskAny.parent_task_id,
           subtasks: localSubtasks,
+          project_id: String(safeProjectId)
         } as any,
       });
 
+      // 2. NẾU CÓ ĐỔI CỘT THÌ GỌI MOVE TASK
       if (String(editColumnId) !== String(listId)) {
         const destCol = board?.columns?.find(
           (c: any) => String(c.id || c._id) === String(editColumnId),
@@ -464,6 +531,8 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
           columnId: String(editColumnId),
           order: newOrder,
           boardId: activeBoardId,
+          // Lệnh move nãy Sếp sửa rồi nhưng tui nhắc lại cho chắc
+          projectId: String(safeProjectId) 
         });
       }
 
@@ -476,21 +545,32 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       setIsSaving(false);
     }
   };
-
   const handleDelete = () => {
     if (!activeBoardId) return;
     setConfirmAction("delete-task");
   };
 
   const executeDeleteTask = async () => {
-    if (!activeBoardId) return;
+    // 🚀 BẢO VỆ 1: Phải có board mới cho chạy
+    if (!activeBoardId || !board) return; 
 
     setIsDeleting(true);
+
+    // 🚀 BẢO VỆ 2: Quét mọi ngóc ngách để tìm bằng được Project ID
+    const safeProjectId = board?.project_id || board?.projectId || board?.project?._id || board?._id;
+
+    if (!safeProjectId) {
+      console.error("🚨 Không tìm thấy ID dự án từ board!", board);
+      alert("Lỗi dữ liệu: Không tìm thấy ID dự án để xóa!");
+      setIsDeleting(false);
+      return;
+    }
 
     try {
       await deleteApiTask({
         taskId: String(task.id || task._id),
         boardId: activeBoardId,
+        projectId: String(safeProjectId) // Truyền cái ID đã được "bảo kê" xuống
       });
 
       await queryClient.invalidateQueries({ queryKey: ["board", activeBoardId] });
@@ -735,8 +815,28 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                           </p>
                         </div>
 
-                        <div className="w-8 h-8 shrink-0 flex items-center justify-center rounded-lg bg-slate-50 text-slate-400 group-hover:text-indigo-600 group-hover:bg-indigo-50 transition-all">
-                          <Download size={16} />
+                        {/* 🚀 ĐÃ BỔ SUNG CỤM NÚT TẢI XUỐNG VÀ XÓA TẠI ĐÂY */}
+                        <div className="flex items-center gap-1 shrink-0 z-10">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.open(file.file_url || file.fileUrl, "_blank");
+                            }}
+                            className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-50 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all"
+                            title="Tải xuống / Xem"
+                          >
+                            <Download size={16} />
+                          </button>
+                          
+                          <button
+                            type="button"
+                            onClick={(e) => handleDeleteAttachment(e, String(file._id || file.id))}
+                            className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-50 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all"
+                            title="Xóa tài liệu"
+                          >
+                            <Trash2 size={16} />
+                          </button>
                         </div>
                       </div>
                     ))

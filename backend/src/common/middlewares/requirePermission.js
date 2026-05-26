@@ -31,10 +31,10 @@ const requirePermission = (resource, action, scope = "SYSTEM") => {
         userRoles = systemRoles;
       } else if (scope === "PROJECT") {
         const projectId =
-          req.body.project_id ||
-          req.body.projectId ||
-          req.query.project_id ||
-          req.params.projectId ||
+          req.body?.project_id ||
+          req.body?.projectId ||
+          req.query?.project_id ||
+          req.params?.projectId ||
           (req.originalUrl.includes('/projects') ? req.params.id : null); // Chỉ lấy :id nếu URL thuộc về projects
 
         if (!projectId) {

@@ -35,23 +35,30 @@ export const boardApi = {
 
   // --- COLUMN ---
   // 🚀 ĐÃ TỐI ƯU: Chỉ lọc lấy name và board_id gửi đi, loại bỏ hoàn toàn trường 'order' để không bị gãy lỗi 400
-  createColumn: async (payload: { name: string; board_id: string; order?: number }) => {
+  createColumn: async (payload: { name: string; board_id: string; order?: number; project_id: string }) => {
+    // 🚀 Đảm bảo project_id được gửi đi trong Body
     const finalPayload = {
       name: payload.name,
-      board_id: payload.board_id
+      board_id: payload.board_id,
+      project_id: payload.project_id 
     };
     const response: any = await axiosClient.post('/columns', finalPayload);
     return response.data || response;
   },
 
-  // 🚀 ĐÃ FIX: Đồng bộ đổi list_name thành name gửi lên API cập nhật cột
- updateColumn: async (columnId: string, payload: { name: string }) => {
+  updateColumn: async (columnId: string, payload: { name: string; project_id: string }) => {
+    // 🚀 Gửi project_id trong Body khi PUT
     const response: any = await axiosClient.put(`/columns/${columnId}`, payload);
     return response.data || response;
   },
 
-  deleteColumn: async (columnId: string) => {
-    const response: any = await axiosClient.delete(`/columns/${columnId}`);
+  deleteColumn: async ({ columnId, projectId }: { columnId: string; projectId: string }) => {
+    // 🚀 RIÊNG DELETE LÀ PHẢI KẸP project_id VÀO PARAMS!
+    const response: any = await axiosClient.delete(`/columns/${columnId}`, {
+      params: {
+        project_id: projectId
+      }
+    });
     return response.data || response;
   },
 
@@ -66,30 +73,34 @@ createTask: async (taskData: any) => {
 },
 
   updateTask: async (taskId: string, updateData: any) => {
+    // Sếp đã truyền updateData (có chứa project_id) từ Hook xuống chưa?
     const response: any = await axiosClient.put(`/tasks/${taskId}`, updateData);
     return response.data || response;
   },
 
-  deleteTask: async (taskId: string) => {
-    const response: any = await axiosClient.delete(`/tasks/${taskId}`);
+// Cập nhật lại deleteTask trong boardApi.ts
+  deleteTask: async ({ taskId, projectId }: { taskId: string; projectId: string }) => {
+    const response: any = await axiosClient.delete(`/tasks/${taskId}`, {
+      // 🚀 KẸP VÀO PARAMS THAY VÌ BODY (Vì Axios mặc định bỏ qua Body của DELETE)
+      params: { 
+        project_id: projectId 
+      }
+    });
     return response.data || response;
   },
 
-  moveTask: async ({ taskId, columnId, order, boardId, project_id }: { 
+  moveTask: async ({ taskId, columnId, order, boardId, projectId }: { 
     taskId: string; 
     columnId: string; 
     order: number; 
     boardId: string; 
-    project_id: string; // 🚀 ĐÓN PROJECT ID TỪ COMPONENT
+    projectId: string; // 🚀 Đón chuẩn key từ BoardView.tsx truyền sang
   }) => {
-    // 🚀 ĐÃ FIX: 
-    // 1. Sửa thành axiosClient.put để khớp với router.put ở Backend
-    // 2. Đổi tên key thành destColumnId và newOrder để khớp với Controller
     const response: any = await axiosClient.put(`/tasks/${taskId}/move`, {
       destColumnId: columnId, 
       newOrder: order,
       board_id: boardId,
-      project_id: project_id // 🚀 GỬI KÈM XUỐNG BACKEND ĐỂ QUA CỬA RBAC
+      project_id: projectId // 🚀 Đổi sang chuẩn snake_case cho Backend đọc
     });
     return response.data || response;
   },
@@ -122,8 +133,14 @@ getProjectMembers: (projectId: string) => {
     return response.data || response;
   },
 
-  getTaskAttachments: async (taskId: string): Promise<any> => {
-    const response: any = await axiosClient.get(`/tasks/${taskId}/attachments`);
+ // Trong boardApi.ts
+  getTaskAttachments: async (taskId: string, projectId: string): Promise<any> => {
+    // 🚀 Lệnh GET bắt buộc nhét project_id vào params
+    const response: any = await axiosClient.get(`/tasks/${taskId}/attachments`, {
+      params: {
+        project_id: projectId
+      }
+    });
     return response.data || response;
   },
 
@@ -139,5 +156,14 @@ getProjectMembers: (projectId: string) => {
     });
     
     return response.data?.data || response.data; 
+  },
+
+  // Trong boardApi.ts
+  deleteAttachment: async ({ taskId, attachmentId, projectId }: { taskId: string; attachmentId: string; projectId: string }) => {
+    // 🚀 Nhét project_id vào params để vượt ải RBAC
+    const response: any = await axiosClient.delete(`/tasks/${taskId}/attachments/${attachmentId}`, {
+      params: { project_id: projectId }
+    });
+    return response.data || response;
   },
 };

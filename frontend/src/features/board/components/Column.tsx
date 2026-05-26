@@ -1,5 +1,5 @@
 import React, { useState, memo, useRef, useEffect } from "react";
-import ReactDOM from "react-dom"; // 🆕 Import ReactDOM để dùng Portal
+import ReactDOM from "react-dom";
 import { MoreHorizontal, Plus, Trash2, Edit2 } from "lucide-react";
 import TaskItem from "./TaskItem";
 import CreateTaskModal from "./CreateTaskModal";
@@ -7,7 +7,8 @@ import CreateTaskModal from "./CreateTaskModal";
 import { useBoardStore } from "../stores/useBoardStore";
 import { getColumnTotalPoints } from "../utils/boardUtils";
 
-import { useUpdateColumn, useDeleteColumn } from "../hooks/useBoardQueries";
+// 🚀 Đã import đủ 3 món để xử lý Cột và Project ID
+import { useUpdateColumn, useDeleteColumn, useGetBoardDetail } from "../hooks/useBoardQueries";
 import { ColumnProps } from "../types/index";
 
 import { useDroppable } from "@dnd-kit/core";
@@ -29,7 +30,6 @@ const ConfirmDeleteModal: React.FC<{
 }> = ({ isOpen, onClose, onConfirm, columnName }) => {
   if (!isOpen) return null;
 
-  // Render ra ngoài document.body bằng Portal
   return ReactDOM.createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in"
@@ -61,13 +61,19 @@ const ConfirmDeleteModal: React.FC<{
         </div>
       </div>
     </div>,
-    document.body // 🆕 Gắn vào body
+    document.body 
   );
 };
 
 const Column: React.FC<ExtendedColumnProps> = memo(
   ({ list, onOpenTaskDetail }) => {
+    // 🚀 1. LẤY ACTIVE BOARD ID (Phải nằm trong component)
     const { activeBoardId } = useBoardStore();
+    
+    // 🚀 2. LẤY BOARD DATA & PROJECT ID ĐỂ VƯỢT RBAC
+    const { data: board } = useGetBoardDetail(activeBoardId as string);
+    const safeProjectId = board?.project_id || board?.projectId || board?.project?._id || board?._id;
+
     const { mutateAsync: updateColumnApi } = useUpdateColumn();
     const { mutateAsync: deleteColumnApi } = useDeleteColumn();
 
@@ -98,6 +104,7 @@ const Column: React.FC<ExtendedColumnProps> = memo(
       }
     }, [isEditingName]);
 
+    // 🚀 HÀM LƯU TÊN CỘT ĐÃ CÓ PROJECT ID
     const handleSaveColName = async () => {
       setIsEditingName(false);
       if (
@@ -108,11 +115,19 @@ const Column: React.FC<ExtendedColumnProps> = memo(
         setEditColName(displayName);
         return;
       }
+
+      if (!safeProjectId) {
+         console.error("🚨 Không tìm thấy ID dự án!");
+         setEditColName(displayName);
+         return;
+      }
+
       try {
         await updateColumnApi({
           columnId: safeListId,
           list_name: editColName.trim(),
           boardId: activeBoardId,
+          projectId: String(safeProjectId) // Vé thông hành
         });
       } catch (error) {
         console.error("Lỗi khi sửa tên cột:", error);
@@ -131,12 +146,20 @@ const Column: React.FC<ExtendedColumnProps> = memo(
       setIsDeleteModalOpen(true);
     };
 
+    // 🚀 HÀM XÓA CỘT ĐÃ CÓ PROJECT ID
     const confirmDeleteColumn = async () => {
       setIsDeleteModalOpen(false);
+      
+      if (!safeProjectId) {
+         console.error("🚨 Không tìm thấy ID dự án để xóa!");
+         return;
+      }
+
       try {
         await deleteColumnApi({
           columnId: safeListId,
           boardId: activeBoardId,
+          projectId: String(safeProjectId) // Vé thông hành
         });
       } catch (error) {
         console.error("Lỗi khi xóa cột:", error);
@@ -266,7 +289,6 @@ const Column: React.FC<ExtendedColumnProps> = memo(
           columnName={displayName}
         />
 
-        {/* 🆕 Modal xóa được render qua Portal, luôn ở giữa màn hình */}
         <ConfirmDeleteModal
           isOpen={isDeleteModalOpen}
           onClose={() => setIsDeleteModalOpen(false)}

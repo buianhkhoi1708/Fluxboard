@@ -64,9 +64,9 @@ export const useGetBoardDetail = (boardId: string) => {
 export const useMoveTask = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: any) => boardApi.moveTask(data.taskId, data.columnId, data.order, data.boardId),
+    // 🚀 ĐÃ FIX: Truyền nguyên cục `data` (Object) thẳng vào boardApi
+    mutationFn: (data: any) => boardApi.moveTask(data), 
     onSuccess: (_, variables) => {
-      // Dùng hàm key chuẩn, không gõ tay ['board', ...] nữa
       queryClient.invalidateQueries({ queryKey: BOARD_QUERY_KEYS.boardDetail(variables.boardId) });
     }
   });
@@ -111,11 +111,12 @@ export const useCreateTask = () => {
   });
 };
 
+// Trong useBoardQueries.ts
 export const useUpdateTask = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    // 🚀 3. TƯƠNG TỰ CHO UPDATEDATA
-    mutationFn: ({ taskId, updateData, boardId }: { taskId: string; updateData: Partial<Task>; boardId: string }) => 
+    // Đảm bảo updateData là một object chứa các dữ liệu cập nhật
+    mutationFn: ({ taskId, updateData, boardId }: { taskId: string; updateData: any; boardId: string }) => 
       boardApi.updateTask(taskId, updateData),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: BOARD_QUERY_KEYS.boardDetail(variables.boardId) });
@@ -127,7 +128,9 @@ export const useUpdateTask = () => {
 export const useDeleteTask = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ taskId, boardId }: { taskId: string; boardId: string }) => boardApi.deleteTask(taskId),
+    // 🚀 THÊM projectId VÀO ĐÂY ĐỂ ĐÓN NÓ
+    mutationFn: ({ taskId, boardId, projectId }: { taskId: string; boardId: string; projectId: string }) => 
+      boardApi.deleteTask({ taskId, projectId }),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: BOARD_QUERY_KEYS.boardDetail(variables.boardId) });
     },
@@ -136,12 +139,14 @@ export const useDeleteTask = () => {
 
 // --- COLUMN MUTATIONS ---
 
+// --- COLUMN MUTATIONS ---
+
 export const useCreateColumn = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ list_name, project_id, order, boardId }: { list_name: string, project_id: string, order: number, boardId: string }) => 
-      // 🚀 FIX TẠI ĐÂY: Dịch list_name thành name, dùng boardId truyền vào board_id
-      boardApi.createColumn({ name: list_name, board_id: boardId, order }),
+      // 🚀 Bơm project_id vào chung với payload
+      boardApi.createColumn({ name: list_name, board_id: boardId, order, project_id }),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: BOARD_QUERY_KEYS.boardDetail(variables.boardId) });
     },
@@ -151,9 +156,10 @@ export const useCreateColumn = () => {
 export const useUpdateColumn = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ columnId, list_name, boardId }: { columnId: string, list_name: string, boardId: string }) => 
-      // 🚀 FIX TẠI ĐÂY: Dịch list_name thành name
-      boardApi.updateColumn(columnId, { name: list_name }),
+    // 🚀 Mở cổng đón projectId từ UI
+    mutationFn: ({ columnId, list_name, boardId, projectId }: { columnId: string, list_name: string, boardId: string, projectId: string }) => 
+      // Gửi project_id xuống API
+      boardApi.updateColumn(columnId, { name: list_name, project_id: projectId }),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: BOARD_QUERY_KEYS.boardDetail(variables.boardId) });
     },
@@ -163,8 +169,10 @@ export const useUpdateColumn = () => {
 export const useDeleteColumn = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ columnId, boardId }: { columnId: string, boardId: string }) => 
-      boardApi.deleteColumn(columnId),
+    // 🚀 Mở cổng đón projectId từ UI
+    mutationFn: ({ columnId, boardId, projectId }: { columnId: string, boardId: string, projectId: string }) => 
+      // Gọi qua API với cú pháp object
+      boardApi.deleteColumn({ columnId, projectId }),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: BOARD_QUERY_KEYS.boardDetail(variables.boardId) });
     },
@@ -233,10 +241,26 @@ export const useUploadFile = () => {
   });
 };
 
-export const useGetTaskAttachments = (taskId: string) => {
+// Trong useBoardQueries.ts
+export const useGetTaskAttachments = (taskId: string, projectId: string) => {
   return useQuery({
-    queryKey: ['task-attachments', taskId],
-    queryFn: () => boardApi.getTaskAttachments(taskId),
-    enabled: !!taskId, // Chỉ fetch khi có taskId
+    // 🚀 Đưa projectId vào key để React Query cache cho chuẩn
+    queryKey: ['task-attachments', taskId, projectId],
+    queryFn: () => boardApi.getTaskAttachments(taskId, projectId),
+    // 🚀 BẢO VỆ: Chỉ gọi API khi đã có CẢ HAI cái ID này
+    enabled: !!taskId && !!projectId && String(projectId) !== "undefined", 
+  });
+};
+
+// Trong useBoardQueries.ts
+export const useDeleteAttachment = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ taskId, attachmentId, boardId, projectId }: { taskId: string; attachmentId: string; boardId: string; projectId: string }) => 
+      boardApi.deleteAttachment({ taskId, attachmentId, projectId }),
+    onSuccess: (_, variables) => {
+      // 🚀 Xoá xong thì ép React Query tải lại danh sách file của Task này
+      queryClient.invalidateQueries({ queryKey: ['task-attachments', variables.taskId] }); 
+    }
   });
 };
