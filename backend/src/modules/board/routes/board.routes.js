@@ -11,14 +11,16 @@ router.use(requireAuth);
 // QUẢN LÝ BẢNG (BOARD)
 // ==========================================
 
-// Tạo bảng mới (Yêu cầu quyền UPDATE PROJECT)
-router.post('/', requirePermission('PROJECT', 'UPDATE', 'PROJECT'), boardController.createBoard);
+// 🚀 DÙNG QUYỀN BOARD CREATE
+router.post('/', requirePermission('BOARD', 'CREATE', 'PROJECT'), boardController.createBoard);
 
-// Lấy chi tiết bảng
+// 🚀 BỌC GIÁP LUÔN CHO ROUTE GET: Phải có quyền đọc bảng mới được xem
 router.get('/:id', boardController.getBoardDetail);
 
-// 🚀 BỔ SUNG 2 ROUTE SỬA VÀ XÓA BẢNG
-router.put('/:id', requirePermission('PROJECT', 'UPDATE', 'PROJECT'), boardController.updateBoard);
-router.delete('/:id', requirePermission('PROJECT', 'UPDATE', 'PROJECT'), boardController.deleteBoard);
+// 🚀 DÙNG ĐÚNG QUYỀN SỬA BẢNG
+router.put('/:id', requirePermission('BOARD', 'UPDATE', 'PROJECT'), boardController.updateBoard);
+
+// 🚀 DÙNG ĐÚNG QUYỀN XÓA BẢNG
+router.delete('/:id', requirePermission('BOARD', 'DELETE', 'PROJECT'), boardController.deleteBoard);
 
 module.exports = router;

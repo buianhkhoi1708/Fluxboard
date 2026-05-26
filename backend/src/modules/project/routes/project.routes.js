@@ -29,6 +29,7 @@ router.post('/:id/teams/assign', requirePermission('PROJECT', 'UPDATE', 'PROJECT
 
 // 🚀 FIX LỖI 404 NOT FOUND: Thêm API gán Member
 // (Sếp nhớ check trong projectController xem có hàm addMembers hay tên tương tự để đổi cho khớp nha)
-router.post('/:id/members', requirePermission('PROJECT', 'UPDATE', 'PROJECT'), projectController.addMemberToProject);
+// Dùng đúng quyền MANAGE_MEMBERS chuyên dụng cho việc thêm người
+router.post('/:id/members', requirePermission('PROJECT', 'MANAGE_MEMBERS', 'PROJECT'), projectController.addMemberToProject);
 
 module.exports = router;

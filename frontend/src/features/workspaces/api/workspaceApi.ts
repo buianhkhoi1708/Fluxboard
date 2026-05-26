@@ -37,10 +37,15 @@ export const workspaceApi = {
     return axiosClient.put(`/projects/${projectId}`, data);
   },
 
-  deleteProject: (projectId: string): Promise<ApiResponse<null>> => {
-    return axiosClient.delete(`/projects/${projectId}`);
+deleteBoard: async ({ boardId, projectId }: { boardId: string; projectId: string }): Promise<any> => {
+    const response: any = await axiosClient.delete(`/boards/${boardId}`, {
+      // BẮT BUỘC PHẢI CÓ ĐOẠN params NÀY
+      params: { 
+        project_id: projectId 
+      }
+    });
+    return response.data || response;
   },
-
   getProjectMembers: (projectId: string): Promise<ApiResponse<IncomingUser[] | any>> => {
     return axiosClient.get(`/projects/${projectId}/members`);
   },

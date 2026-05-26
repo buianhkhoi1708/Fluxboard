@@ -8,10 +8,13 @@ const requirePermission = require('../../rbac/middlewares/requirePermission.midd
 
 router.use(requireAuth);
 
-router.get('/', requirePermission('ORGANIZATION', 'READ'), departmentController.getAllDepartments);
+// 🚀 Sửa 'ORGANIZATION' -> 'DEPARTMENT' | Thêm scope 'SYSTEM' cho chắc chắn
+router.get('/', requirePermission('DEPARTMENT', 'READ', 'SYSTEM'), departmentController.getAllDepartments);
 
-router.post('/', requirePermission('ORGANIZATION', 'WRITE'), departmentController.createDepartment);
+// 🚀 Sửa 'WRITE' -> 'CREATE' cho khớp từ điển RBAC
+router.post('/', requirePermission('DEPARTMENT', 'CREATE', 'SYSTEM'), departmentController.createDepartment);
 
-router.get('/:departmentId/teams', requirePermission('ORGANIZATION', 'READ'), teamController.getTeamsByDepartment);
+// 🚀 Sửa 'ORGANIZATION' -> 'DEPARTMENT' (Lấy danh sách team trong phòng ban thì vẫn cần quyền đọc phòng ban)
+router.get('/:departmentId/teams', requirePermission('DEPARTMENT', 'READ', 'SYSTEM'), teamController.getTeamsByDepartment);
 
 module.exports = router;

@@ -28,8 +28,14 @@ export const boardApi = {
     return response.data || response;
   },
 
-  deleteBoard: async (boardId: string): Promise<any> => {
-    const response: any = await axiosClient.delete(`/boards/${boardId}`);
+  // 🚀 ĐÃ FIX: Mở cổng đón object chứa cả boardId và projectId, sau đó nhét vào params
+ deleteBoard: async ({ boardId, projectId }: { boardId: string; projectId: string }): Promise<any> => {
+    const response: any = await axiosClient.delete(`/boards/${boardId}`, {
+      // BẮT BUỘC PHẢI CÓ ĐOẠN params NÀY
+      params: { 
+        project_id: projectId 
+      }
+    });
     return response.data || response;
   },
 

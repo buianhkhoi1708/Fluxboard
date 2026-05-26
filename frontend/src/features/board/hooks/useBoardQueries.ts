@@ -219,7 +219,7 @@ export const useDeleteBoard = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ boardId, projectId }: { boardId: string, projectId: string }) => 
-      boardApi.deleteBoard(boardId),
+      boardApi.deleteBoard({ boardId, projectId }), // Truyền đủ Object xuống
     onSuccess: (_, variables) => {
       // Refresh lại danh sách board trong project đó
       queryClient.invalidateQueries({ queryKey: BOARD_QUERY_KEYS.boardsByProject(variables.projectId) });

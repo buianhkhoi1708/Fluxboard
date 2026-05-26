@@ -115,14 +115,16 @@ const seedRbac = async () => {
                 permission_ids: [
                     savedPermissions[`${Resources.PROJECT}_${Actions.CREATE}_${Scopes.SYSTEM}`],
                     ...getPerms(Resources.USER, [Actions.READ], Scopes.SYSTEM),
-                    ...getPerms(Resources.TEAM, [Actions.CREATE, Actions.READ, Actions.UPDATE], Scopes.SYSTEM)
+                    ...getPerms(Resources.TEAM, [Actions.CREATE, Actions.READ, Actions.UPDATE], Scopes.SYSTEM),
+                    ...getPerms(Resources.DEPARTMENT, [Actions.READ], Scopes.SYSTEM)
                 ]
             },
             {
                 name: 'EMPLOYEE', scope: Scopes.SYSTEM, description: 'Nhân viên công ty (Mặc định)',
                 permission_ids: [
                     ...getPerms(Resources.USER, [Actions.READ], Scopes.SYSTEM),
-                    ...getPerms(Resources.TEAM, [Actions.READ], Scopes.SYSTEM)
+                    ...getPerms(Resources.TEAM, [Actions.READ], Scopes.SYSTEM),
+                    ...getPerms(Resources.DEPARTMENT, [Actions.READ], Scopes.SYSTEM)
                 ]
             },
             
