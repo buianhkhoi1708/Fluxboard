@@ -7,6 +7,10 @@ import {
   CreateBoardPayload,
 } from '../types/workspaceTypes';
 
+// ============================================================================
+// HELPER FUNCTIONS (LOCAL UTILS)
+// ============================================================================
+
 const normalizeRoleName = (value?: string | null) => {
   if (!value) return '';
 
@@ -77,24 +81,15 @@ const getUserVisibilityParams = () => {
   };
 };
 
+
+// ============================================================================
+// API SERVICE: WORKSPACE
+// ============================================================================
+
 export const workspaceApi = {
-  getProjectOverviews: (
-    page: number = 0,
-    size: number = 50,
-  ): Promise<ApiResponse<any>> => {
-    return axiosClient.get('/projects/overviews', {
-      params: {
-        ...getUserVisibilityParams(),
-        page,
-        size,
-      },
-    });
-  },
-
-  createProject: (data: CreateProjectPayload): Promise<ApiResponse<any>> => {
-    return axiosClient.post('/projects', data);
-  },
-
+  // --------------------------------------------------------------------------
+  // 1. PROJECTS - READ (QUERIES)
+  // --------------------------------------------------------------------------
   getProjects: (params?: {
     page?: number;
     size?: number;
@@ -111,6 +106,19 @@ export const workspaceApi = {
   getProjectById: (projectId: string): Promise<ApiResponse<any>> => {
     return axiosClient.get(`/projects/${projectId}`, {
       params: getUserVisibilityParams(),
+    });
+  },
+
+  getProjectOverviews: (
+    page: number = 0,
+    size: number = 50,
+  ): Promise<ApiResponse<any>> => {
+    return axiosClient.get('/projects/overviews', {
+      params: {
+        ...getUserVisibilityParams(),
+        page,
+        size,
+      },
     });
   },
 
@@ -135,12 +143,36 @@ export const workspaceApi = {
     });
   },
 
+  // --------------------------------------------------------------------------
+  // 2. PROJECTS - WRITE (MUTATIONS)
+  // --------------------------------------------------------------------------
+  createProject: (data: CreateProjectPayload): Promise<ApiResponse<any>> => {
+    return axiosClient.post('/projects', data);
+  },
 
   updateProject: (
     projectId: string,
     data: UpdateProjectPayload,
   ): Promise<ApiResponse<any>> => {
     return axiosClient.put(`/projects/${projectId}`, data);
+  },
+
+  // --------------------------------------------------------------------------
+  // 3. PROJECT MEMBERS
+  // --------------------------------------------------------------------------
+  getProjectMembers: (
+    projectId: string,
+  ): Promise<ApiResponse<IncomingUser[] | any>> => {
+    return axiosClient.get(`/projects/${projectId}/members`, {
+      params: getUserVisibilityParams(),
+    });
+  },
+
+  // --------------------------------------------------------------------------
+  // 4. BOARDS
+  // --------------------------------------------------------------------------
+  createBoard: (data: CreateBoardPayload): Promise<ApiResponse<any>> => {
+    return axiosClient.post('/boards', data);
   },
 
   deleteBoard: async ({
@@ -152,25 +184,10 @@ export const workspaceApi = {
   }): Promise<any> => {
     const response: any = await axiosClient.delete(`/boards/${boardId}`, {
       params: {
-        project_id: projectId,
+        project_id: projectId, // Truyền project_id để Backend (RBAC) verify quyền
       },
     });
 
     return response.data || response;
-  },
-  
-  getProjectMembers: (projectId: string): Promise<ApiResponse<IncomingUser[] | any>> => {
-    return axiosClient.get(`/projects/${projectId}/members`);
-
-  getProjectMembers: (
-    projectId: string,
-  ): Promise<ApiResponse<IncomingUser[] | any>> => {
-    return axiosClient.get(`/projects/${projectId}/members`, {
-      params: getUserVisibilityParams(),
-    });
-  },
-
-  createBoard: (data: CreateBoardPayload): Promise<ApiResponse<any>> => {
-    return axiosClient.post('/boards', data);
   },
 };
