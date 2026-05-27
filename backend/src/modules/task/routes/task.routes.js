@@ -35,12 +35,10 @@ router.delete('/:id/subtasks/:subtaskId', requirePermission('TASK', 'UPDATE', 'P
 // ==========================================
 // 3. QUẢN LÝ BÌNH LUẬN (COMMENTS)
 // ==========================================
-// Ai trong dự án (có quyền VIEW TASK) cũng được xem comment
 router.get('/:id/comments', requirePermission('TASK', 'READ', 'PROJECT'), taskController.getTaskComments);
-
-// Nhưng để tạo/sửa/xóa comment thì cần quyền riêng
 router.post('/:id/comments', requirePermission('COMMENT', 'CREATE', 'PROJECT'), taskController.addComment);
 router.put('/:id/comments/:commentId', requirePermission('COMMENT', 'UPDATE', 'PROJECT'), taskController.updateComment);
+router.patch('/:id/comments/:commentId/resolve', requirePermission('COMMENT', 'UPDATE', 'PROJECT'), taskController.resolveComment);
 router.delete('/:id/comments/:commentId', requirePermission('COMMENT', 'DELETE', 'PROJECT'), taskController.deleteComment);
 
 // ==========================================

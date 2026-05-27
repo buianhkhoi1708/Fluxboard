@@ -9,6 +9,7 @@ import {
   Calendar,
   Clock,
   Check,
+  MessageSquareText,
 } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -23,10 +24,14 @@ import {
 
 import DeleteConfirmModal from "./DeleteConfirmModal";
 
-import { TaskItemProps as BaseTaskItemProps, Task } from "../types/index";
+import {
+  TaskItemProps as BaseTaskItemProps,
+  Task,
+  TaskModalInitialFocus,
+} from "../types/index";
 
 interface TaskItemProps extends BaseTaskItemProps {
-  onOpenTaskDetail?: (taskId: string) => void;
+  onOpenTaskDetail?: (taskId: string, mode?: TaskModalInitialFocus) => void;
 }
 
 const priorityColors: Record<string, string> = {
@@ -36,7 +41,6 @@ const priorityColors: Record<string, string> = {
   CRITICAL: "bg-red-100 text-red-700",
 };
 
-// 🚀 HÀM FORMAT NGÀY THÁNG CHUẨN VN
 const formatDateForDisplay = (dateString?: string | null) => {
   if (!dateString) return "";
   const date = new Date(dateString);
@@ -45,7 +49,7 @@ const formatDateForDisplay = (dateString?: string | null) => {
   return date.toLocaleDateString("vi-VN", {
     day: "2-digit",
     month: "2-digit",
-    year: "numeric"
+    year: "numeric",
   });
 };
 
@@ -84,25 +88,23 @@ const TaskItem: React.FC<TaskItemProps> = memo(
     };
 
     const handleDeleteTask = async () => {
-      // 🚀 BẢO VỆ 1: Kiểm tra có đủ data board chưa
       if (!activeBoardId || !board) return;
 
-      // 🚀 BẢO VỆ 2: Lấy Project ID an toàn
       const safeProjectId = board.project_id || board.projectId || board._id;
 
       if (!safeProjectId) {
-         console.error("🚨 Không tìm thấy ID dự án!");
-         alert("Lỗi: Không tìm thấy ID dự án để xóa!");
-         return;
+        console.error("🚨 Không tìm thấy ID dự án!");
+        alert("Lỗi: Không tìm thấy ID dự án để xóa!");
+        return;
       }
 
       try {
-        await deleteApiTask({ 
-            taskId: safeTaskId, 
-            boardId: activeBoardId,
-            // 🚀 BƠM VÉ THÔNG HÀNH VÀO ĐÂY LÀ HẾT BỊ 400
-            projectId: String(safeProjectId) 
+        await deleteApiTask({
+          taskId: safeTaskId,
+          boardId: activeBoardId,
+          projectId: String(safeProjectId),
         });
+
         setIsDeleteModalOpen(false);
       } catch (error) {
         console.error("Lỗi khi xóa Task:", error);
@@ -118,10 +120,9 @@ const TaskItem: React.FC<TaskItemProps> = memo(
       if (!subtask) return;
 
       const newStatus = subtask.status === "DONE" || subtask.is_done ? "TODO" : "DONE";
-
       const rawAssignees = subtask.assignees_user_id || subtask.assigneesUserId || subtask.assignees || subtask.assignee_id || [];
       const assigneeArray = Array.isArray(rawAssignees) ? rawAssignees : [rawAssignees];
-      
+
       const cleanAssignees = assigneeArray
         .map((item: any) => typeof item === "object" ? item.user_id || item.id || item._id : item)
         .filter((id: any) => id && String(id) !== "undefined" && !String(id).startsWith("temp-"))
@@ -149,6 +150,11 @@ const TaskItem: React.FC<TaskItemProps> = memo(
       }
     };
 
+    const openDetail = (e: React.MouseEvent, mode: TaskModalInitialFocus = "detail") => {
+      e.stopPropagation();
+      if (onOpenTaskDetail) onOpenTaskDetail(safeTaskId, mode);
+    };
+
     return (
       <>
         <div
@@ -158,14 +164,14 @@ const TaskItem: React.FC<TaskItemProps> = memo(
           {...listeners}
           onClick={() => {
             if (!isOverlay && onOpenTaskDetail) {
-              onOpenTaskDetail(safeTaskId);
+              onOpenTaskDetail(safeTaskId, "detail");
             }
           }}
           className={`group relative flex flex-col p-3.5 sm:p-4 rounded-xl shadow-sm border cursor-grab active:cursor-grabbing hover:shadow-md transition-all 
           ${isTaskDone ? "bg-slate-50/80 border-slate-200/60 opacity-85 hover:border-slate-300" : "bg-white border-slate-200 hover:border-indigo-300"} 
           ${isOverlay ? "rotate-3 scale-105 shadow-2xl border-indigo-500 ring-4 ring-indigo-50/80 z-50" : ""}`}
         >
-          <div className="flex justify-between items-start gap-2 pr-14">
+          <div className="flex justify-between items-start gap-2 pr-24">
             <h4 className={`text-sm font-semibold break-words leading-snug transition-all ${isTaskDone ? "line-through text-slate-400 font-medium" : "text-slate-800"}`}>
               {task.title}
             </h4>
@@ -185,19 +191,19 @@ const TaskItem: React.FC<TaskItemProps> = memo(
             </div>
           )}
 
-          {/* 🚀 FIX NGÀY THÁNG TẠI ĐÂY */}
           {(task.start_date || task.due_date || (task.estimated_days && task.estimated_days > 0)) && (
             <div className="mt-2.5 flex flex-wrap items-center gap-2 sm:gap-3 text-[10px] font-medium text-slate-500">
               {(task.start_date || task.due_date) && (
                 <div className="flex items-center gap-1 px-1.5 py-0.5 bg-slate-50 rounded border border-slate-100 whitespace-nowrap">
                   <Calendar size={10} className="text-slate-400" />
                   <span>
-                    {task.start_date ? formatDateForDisplay(task.start_date) : "?"} 
-                    {' - '} 
+                    {task.start_date ? formatDateForDisplay(task.start_date) : "?"}
+                    {" - "}
                     {task.due_date ? formatDateForDisplay(task.due_date) : "?"}
                   </span>
                 </div>
               )}
+
               {task.estimated_days && task.estimated_days > 0 ? (
                 <div className="flex items-center gap-1 px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded border border-amber-100 whitespace-nowrap">
                   <Clock size={10} />
@@ -240,7 +246,6 @@ const TaskItem: React.FC<TaskItemProps> = memo(
 
             <div className="flex items-center gap-2">
               {(() => {
-                // 🚀 FIX LỖI NGƯỜI THỰC HIỆN TẠI ĐÂY (Bao phủ mọi trường hợp API trả về)
                 const rawAssignees = task.assignees_user_id || task.assigneesUserId || task.assignees || task.assignee_id || task.assignee_ids;
                 const assigneeArray = Array.isArray(rawAssignees) ? rawAssignees : (rawAssignees ? [rawAssignees] : []);
 
@@ -280,6 +285,7 @@ const TaskItem: React.FC<TaskItemProps> = memo(
                     </div>
                   );
                 }
+
                 return null;
               })()}
             </div>
@@ -287,15 +293,26 @@ const TaskItem: React.FC<TaskItemProps> = memo(
 
           <div className="absolute top-2 right-2 flex gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 backdrop-blur-sm rounded-lg p-0.5 shadow-sm border border-slate-100">
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (onOpenTaskDetail) onOpenTaskDetail(safeTaskId);
-              }}
+              type="button"
+              title="Mở chi tiết"
+              onClick={(e) => openDetail(e, "detail")}
               className="p-2 md:p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors"
             >
               <Edit2 size={14} />
             </button>
+
             <button
+              type="button"
+              title="Bình luận nhanh"
+              onClick={(e) => openDetail(e, "comments")}
+              className="p-2 md:p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors"
+            >
+              <MessageSquareText size={14} />
+            </button>
+
+            <button
+              type="button"
+              title="Xóa công việc"
               onClick={(e) => {
                 e.stopPropagation();
                 setIsDeleteModalOpen(true);

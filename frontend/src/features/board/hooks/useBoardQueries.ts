@@ -8,6 +8,7 @@ export const BOARD_QUERY_KEYS = {
   boardsByProject: (projectId: string) => ['boards', 'project', projectId] as const,
   boardDetail: (boardId: string) => ['board', boardId] as const,
   projectMembers: (projectId: string) => ['members', 'project', projectId] as const,
+  taskComments: (taskId: string, projectId: string) => ['task-comments', taskId, projectId] as const,
 };
 
 const normalizeRoleName = (value?: string | null) => {
@@ -34,22 +35,15 @@ const getRoleName = (user: any) => {
     user?.role_code ||
     user?.roleCode;
 
-  if (directRole) {
-    return normalizeRoleName(directRole);
-  }
+  if (directRole) return normalizeRoleName(directRole);
 
   if (user?.role_id && typeof user.role_id === 'object') {
     return normalizeRoleName(user.role_id.name || user.role_id.code);
   }
 
   if (Array.isArray(user?.system_role_ids)) {
-    const roleName = user.system_role_ids.find((item: any) => {
-      return normalizeRoleName(item) === 'SYSTEM_ADMIN';
-    });
-
-    if (roleName) {
-      return 'SYSTEM_ADMIN';
-    }
+    const roleName = user.system_role_ids.find((item: any) => normalizeRoleName(item) === 'SYSTEM_ADMIN');
+    if (roleName) return 'SYSTEM_ADMIN';
   }
 
   return '';
@@ -65,13 +59,9 @@ const isCurrentUserSystemAdmin = () => {
 
 const shouldExposeUserInAssignableList = (candidate: any) => {
   if (!candidate) return false;
-
-  if (!isSystemAdminUser(candidate)) {
-    return true;
-  }
+  if (!isSystemAdminUser(candidate)) return true;
 
   const currentUser = useAuthStore.getState().user;
-
   return isCurrentUserSystemAdmin() && getUserId(currentUser) === getUserId(candidate);
 };
 
@@ -90,10 +80,6 @@ const extractList = (res: any) => {
 const filterAssignableUsers = (users: any[]) => {
   return users.filter(shouldExposeUserInAssignableList);
 };
-
-// ==========================================
-// QUERIES
-// ==========================================
 
 export const useGetBoardsByProject = (projectId: string) => {
   return useQuery({
@@ -149,10 +135,6 @@ export const useGetProjectMembers = (projectId: string) => {
     enabled: !!projectId,
   });
 };
-
-// ==========================================
-// TASK MUTATIONS
-// ==========================================
 
 export const useMoveTask = () => {
   const queryClient = useQueryClient();
@@ -242,9 +224,140 @@ export const useDeleteTask = () => {
   });
 };
 
-// ==========================================
-// COLUMN MUTATIONS
-// ==========================================
+export const useGetTaskComments = (taskId: string, projectId: string) => {
+  return useQuery({
+    queryKey: BOARD_QUERY_KEYS.taskComments(taskId, projectId),
+    queryFn: async () => {
+      const res: any = await boardApi.getTaskComments(taskId, projectId);
+      return extractList(res);
+    },
+    enabled: !!taskId && !!projectId && String(projectId) !== 'undefined',
+  });
+};
+
+export const useAddTaskComment = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      taskId,
+      projectId,
+      content,
+    }: {
+      taskId: string;
+      boardId: string;
+      projectId: string;
+      content: string;
+    }) =>
+      boardApi.addTaskComment(taskId, {
+        content,
+        project_id: projectId,
+      }),
+
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: BOARD_QUERY_KEYS.taskComments(variables.taskId, variables.projectId),
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: BOARD_QUERY_KEYS.boardDetail(variables.boardId),
+      });
+    },
+  });
+};
+
+export const useUpdateTaskComment = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      taskId,
+      commentId,
+      projectId,
+      content,
+    }: {
+      taskId: string;
+      commentId: string;
+      boardId: string;
+      projectId: string;
+      content: string;
+    }) =>
+      boardApi.updateTaskComment(taskId, commentId, {
+        content,
+        project_id: projectId,
+      }),
+
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: BOARD_QUERY_KEYS.taskComments(variables.taskId, variables.projectId),
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: BOARD_QUERY_KEYS.boardDetail(variables.boardId),
+      });
+    },
+  });
+};
+
+export const useResolveTaskComment = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      taskId,
+      commentId,
+      projectId,
+      is_resolved,
+    }: {
+      taskId: string;
+      commentId: string;
+      boardId: string;
+      projectId: string;
+      is_resolved: boolean;
+    }) =>
+      boardApi.resolveTaskComment(taskId, commentId, {
+        project_id: projectId,
+        is_resolved,
+      }),
+
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: BOARD_QUERY_KEYS.taskComments(variables.taskId, variables.projectId),
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: BOARD_QUERY_KEYS.boardDetail(variables.boardId),
+      });
+    },
+  });
+};
+
+export const useDeleteTaskComment = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      taskId,
+      commentId,
+      projectId,
+    }: {
+      taskId: string;
+      commentId: string;
+      boardId: string;
+      projectId: string;
+    }) => boardApi.deleteTaskComment({ taskId, commentId, projectId }),
+
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: BOARD_QUERY_KEYS.taskComments(variables.taskId, variables.projectId),
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: BOARD_QUERY_KEYS.boardDetail(variables.boardId),
+      });
+    },
+  });
+};
 
 export const useCreateColumn = () => {
   const queryClient = useQueryClient();
@@ -323,10 +436,6 @@ export const useDeleteColumn = () => {
     },
   });
 };
-
-// ==========================================
-// MEDIA / ATTACHMENTS
-// ==========================================
 
 export const getPresignedUrl = async (
   fileName: string,
