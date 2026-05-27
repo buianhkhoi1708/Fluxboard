@@ -20,7 +20,12 @@ app.use(compression());
 // 2. CẤU HÌNH CORS
 // =========================================================
 app.use(cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:5173' || 'https://fluxboard-g6yx.vercel.app',
+    origin: [
+        process.env.CLIENT_URL ,
+        'http://localhost:5173', 
+        'https://fluxboard-g6yx.vercel.app', 
+        'https://fluxboard-g6yx-git-develop-buianhkhoi1708s-projects.vercel.app'
+    ], 
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
     allowedHeaders: ['Authorization', 'Content-Type']
