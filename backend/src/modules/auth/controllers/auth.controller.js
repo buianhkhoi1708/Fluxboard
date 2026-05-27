@@ -25,7 +25,22 @@ exports.forgotPassword = async (req, res, next) => {
 
         res.status(200).json({
             success: true,
-            message: 'Password reset link sent to email',
+            message: 'Đã gửi liên kết đặt lại mật khẩu tới email của bạn.',
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+exports.verifyResetToken = async (req, res, next) => {
+    try {
+        const { token, email } = req.query;
+
+        await passwordService.verifyResetToken(email, token);
+
+        res.status(200).json({
+            success: true,
+            message: 'Liên kết đặt lại mật khẩu hợp lệ.',
         });
     } catch (error) {
         next(error);
@@ -34,13 +49,17 @@ exports.forgotPassword = async (req, res, next) => {
 
 exports.resetPassword = async (req, res, next) => {
     try {
-        const { token, new_password, newPassword } = req.body;
+        const { email, token, new_password, newPassword } = req.body;
 
-        await passwordService.resetPassword(token, new_password || newPassword);
+        await passwordService.resetPassword(
+            email,
+            token,
+            new_password || newPassword,
+        );
 
         res.status(200).json({
             success: true,
-            message: 'Password has been reset successfully',
+            message: 'Đặt lại mật khẩu thành công. Vui lòng đăng nhập lại.',
         });
     } catch (error) {
         next(error);
@@ -57,7 +76,7 @@ exports.refreshToken = async (req, res, next) => {
             return res.status(400).json({
                 success: false,
                 error: {
-                    message: 'Refresh token is required',
+                    message: 'Vui lòng cung cấp refresh token.',
                 },
             });
         }

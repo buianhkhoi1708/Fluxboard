@@ -3,12 +3,12 @@ const nodemailer = require('nodemailer');
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
-        user: process.env.EMAIL,         
-        pass: process.env.EMAIL_PASSWORD  
+        user: process.env.EMAIL,
+        pass: process.env.EMAIL_PASSWORD
     },
-    pool: true,             
-    maxConnections: 5,    
-    maxMessages: 100      
+    pool: true,
+    maxConnections: 5,
+    maxMessages: 100
 });
 
 /**
@@ -20,21 +20,21 @@ const transporter = nodemailer.createTransport({
 exports.sendEmail = async (to, subject, htmlContent) => {
     try {
         const mailOptions = {
-            from: `"FluxBoard System" <${process.env.EMAIL}>`, 
+            from: `"Hệ thống FluxBoard" <${process.env.EMAIL}>`,
             to,
             subject,
             html: htmlContent
         };
 
         const info = await transporter.sendMail(mailOptions);
-        // 🗑️ Đã tắt log: console.log('Email sent successfully:', info.messageId); 
         return info;
     } catch (error) {
-        console.error('SMTP Email Error details:', error);
-        throw { 
-            statusCode: 500, 
-            message: 'Failed to send email', 
-            details: error.message 
+        console.error('Lỗi SMTP khi gửi email:', error);
+
+        throw {
+            statusCode: 500,
+            message: 'Không thể gửi email. Vui lòng thử lại sau.',
+            details: error.message
         };
     }
 };

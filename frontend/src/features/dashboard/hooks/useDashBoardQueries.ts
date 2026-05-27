@@ -1,13 +1,22 @@
-// src/features/dashboard/hooks/useDashboardQueries.ts
 import { useQuery } from '@tanstack/react-query';
-import { dashboardApi } from '../api/dashboardApi';
+import { dashboardApi, DashboardFilters } from '../api/dashboardApi';
 
-export const useDashboardMetrics = (filters?: { time_range?: string; department_id?: string; team_id?: string }) => {
+export const useDashboardMetrics = (filters?: DashboardFilters) => {
   return useQuery({
-    // Sử dụng || {} để đảm bảo key luôn là object, không bao giờ là null/undefined
-    queryKey: ['dashboard', 'metrics', filters || {}], 
+    queryKey: ['dashboard', 'metrics', filters || {}],
     queryFn: () => dashboardApi.getMetrics(filters),
     staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
+  });
+};
+
+export const useAiDeviationInsights = (projectId?: string | null) => {
+  return useQuery({
+    queryKey: ['dashboard', 'ai-deviation', projectId],
+    queryFn: () => dashboardApi.getAiDeviationInsights(String(projectId)),
+    enabled: !!projectId && String(projectId) !== 'undefined' && String(projectId) !== 'null',
+    staleTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: false,
+    retry: 1,
   });
 };

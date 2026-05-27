@@ -136,19 +136,19 @@ const buildReminderEmailHtml = (user, task, deadline) => {
     return `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
             <div style="background-color: #f97316; padding: 24px; text-align: center;">
-                <h1 style="color: white; margin: 0; font-size: 24px;">Deadline Reminder</h1>
+                <h1 style="color: white; margin: 0; font-size: 24px;">Nhắc hạn công việc</h1>
             </div>
 
             <div style="padding: 30px; background-color: #ffffff;">
                 <h2 style="color: #111827;">Xin chào ${escapeHtml(user.full_name || user.email || 'bạn')},</h2>
 
-                <p style="color: #4b5563;">
-                    Công việc của bạn sắp đến hạn trong vòng ${REMINDER_WINDOW_HOURS} giờ tới.
+                <p style="color: #4b5563; line-height: 1.6;">
+                    Công việc của bạn sắp đến hạn trong vòng ${REMINDER_WINDOW_HOURS} giờ tới. Vui lòng kiểm tra và hoàn thành đúng thời gian.
                 </p>
 
                 <div style="background-color: #fff7ed; padding: 16px; border-left: 4px solid #f97316; margin: 20px 0; border-radius: 8px;">
                     <p style="margin: 0; color: #9a3412;">
-                        <strong>Task:</strong> ${escapeHtml(task.title || 'Không rõ task')}
+                        <strong>Công việc:</strong> ${escapeHtml(task.title || 'Không rõ công việc')}
                     </p>
 
                     <p style="margin: 10px 0 0 0; color: #c2410c;">
@@ -161,6 +161,10 @@ const buildReminderEmailHtml = (user, task, deadline) => {
                         Xem công việc
                     </a>
                 </div>
+            </div>
+
+            <div style="background-color: #f9fafb; padding: 18px; text-align: center; font-size: 13px; color: #6b7280; border-top: 1px solid #e5e7eb;">
+                Đây là email tự động từ hệ thống FluxBoard. Vui lòng không trả lời email này.
             </div>
         </div>
     `;

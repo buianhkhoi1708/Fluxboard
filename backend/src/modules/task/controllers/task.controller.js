@@ -353,7 +353,8 @@ exports.addComment = async (req, res, next) => {
 
         res.status(201).json({
             success: true,
-            data: comment
+            data: comment,
+            message: 'Đã thêm bình luận.'
         });
     } catch (error) {
         next(error);
@@ -384,7 +385,25 @@ exports.updateComment = async (req, res, next) => {
         res.status(200).json({
             success: true,
             data: comment,
-            message: 'Comment updated'
+            message: 'Đã cập nhật bình luận.'
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+exports.resolveComment = async (req, res, next) => {
+    try {
+        const comment = await taskCommentService.resolveComment(
+            req.params.commentId,
+            getAuthUserId(req),
+            req.body.is_resolved !== false
+        );
+
+        res.status(200).json({
+            success: true,
+            data: comment,
+            message: comment.is_resolved ? 'Đã đánh dấu bình luận là đã giải quyết.' : 'Đã bỏ đánh dấu đã giải quyết.'
         });
     } catch (error) {
         next(error);
@@ -393,11 +412,14 @@ exports.updateComment = async (req, res, next) => {
 
 exports.deleteComment = async (req, res, next) => {
     try {
-        await taskCommentService.deleteComment(req.params.commentId, getAuthUserId(req));
+        await taskCommentService.deleteComment(
+            req.params.commentId,
+            getAuthUserId(req)
+        );
 
         res.status(200).json({
             success: true,
-            message: 'Comment deleted successfully'
+            message: 'Đã xóa bình luận.'
         });
     } catch (error) {
         next(error);
