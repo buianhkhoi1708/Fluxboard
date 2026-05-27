@@ -6,9 +6,11 @@ import axios, {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL as string;
 
+// 🚀 BÍ KÍP: Khai báo 1 lần xài mãi mãi cho tất cả mọi nơi
+const FINAL_API_URL = API_BASE_URL ? `${API_BASE_URL}/api/v1` : 'http://localhost:8080/api/v1';
+
 const axiosClient = axios.create({
-  // BÍ KÍP: Ghép thêm /api/v1 vào đây để nó gọi đúng địa chỉ Backend
-  baseURL: API_BASE_URL ? `${API_BASE_URL}/api/v1` : 'http://localhost:8080/api/v1',
+  baseURL: FINAL_API_URL,
   timeout: 60000,
   headers: {
     'Content-Type': 'application/json',
@@ -184,7 +186,8 @@ axiosClient.interceptors.response.use(
     try {
       console.warn('🔄 Đang âm thầm gia hạn phiên đăng nhập...');
 
-      const refreshResponse = await axios.post(`${API_BASE_URL}/auth/refresh-token`, {
+      // 🚀 BÍ KÍP: Dùng FINAL_API_URL để không bao giờ bị lạc đường
+      const refreshResponse = await axios.post(`${FINAL_API_URL}/auth/refresh-token`, {
         refreshToken,
       });
 
