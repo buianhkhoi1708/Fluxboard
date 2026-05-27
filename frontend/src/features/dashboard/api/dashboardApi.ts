@@ -1,9 +1,30 @@
 import axiosClient from '../../../lib/axiosClient';
 
 export interface AdminDashboardData {
-  organization_kpi: { total_active_members: number; total_departments: number; total_teams: number };
-  company_deadline_health: { on_track: number; at_risk: number; overdue: number; total_extensions_this_week: number };
-  department_performance: Array<{ department_id: string; department_name: string; on_time_rate: number; overdue_tasks: number }>;
+  organization_kpi: {
+    total_active_members: number;
+    total_departments: number;
+    total_teams: number;
+  };
+  company_deadline_health: {
+    in_progress: number;
+    completed: number;
+    on_track: number;
+    at_risk: number;
+    overdue: number;
+    total_tasks: number;
+    total_extensions_this_week: number;
+  };
+  department_performance: Array<{
+    department_id: string;
+    department_name: string;
+    in_progress_tasks: number;
+    completed_tasks: number;
+    on_track_tasks?: number;
+    at_risk_tasks: number;
+    overdue_tasks: number;
+    total_tasks: number;
+  }>;
 }
 
 export interface DashboardAssignee {
@@ -24,7 +45,11 @@ export interface ManagerDashboardData {
     member_count: number;
     status: 'NO_DATA' | 'IN_PROGRESS' | 'DONE' | string;
   }>;
-  team_deadline_status?: { on_track: number; at_risk: number; overdue: number };
+  team_deadline_status?: {
+    on_track: number;
+    at_risk: number;
+    overdue: number;
+  };
   at_risk_tasks: Array<{
     task_id: string;
     title: string;
@@ -62,6 +87,7 @@ export interface AiDeviationInsight {
   comment: string;
   tasks_count: number;
   scanned_tasks_count?: number;
+  source?: string;
   tasks?: Array<{
     task_id: string;
     title: string;
@@ -74,7 +100,11 @@ export interface AiDeviationInsight {
 }
 
 export interface MemberDashboardData {
-  my_contribution: { tasks_completed_this_week: number; total_assigned: number; on_time_rate: number };
+  my_contribution: {
+    tasks_completed_this_week: number;
+    total_assigned: number;
+    on_time_rate: number;
+  };
   my_focus_board: Array<{
     task_id: string;
     title: string;
@@ -93,7 +123,10 @@ export interface DashboardFilters {
   team_id?: string;
 }
 
-export type DashboardResponse = Partial<AdminDashboardData> & Partial<ManagerDashboardData> & Partial<MemberDashboardData>;
+export type DashboardResponse =
+  Partial<AdminDashboardData> &
+  Partial<ManagerDashboardData> &
+  Partial<MemberDashboardData>;
 
 const unwrapResponse = <T = any>(res: any): T => {
   return res?.data ?? res ?? {};

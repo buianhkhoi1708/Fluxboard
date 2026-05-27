@@ -72,6 +72,7 @@ exports.getMetricsByRole = async (jwtUser, queryParams) => {
 
 const getSystemAdminMetrics = async (queryParams) => {
     const now = new Date();
+    const next24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
     let orgKpi;
 
     if (kpiCache.has('orgKpi') && kpiCache.get('orgKpi').expires > now.getTime()) {
@@ -82,85 +83,279 @@ const getSystemAdminMetrics = async (queryParams) => {
             Department.countDocuments({ is_deleted: false }),
             Team.countDocuments({ is_deleted: false })
         ]);
-        orgKpi = { total_active_members: totalUsers, total_departments: totalDepartments, total_teams: totalTeams };
-        kpiCache.set('orgKpi', { data: orgKpi, expires: now.getTime() + CACHE_TTL });
+        orgKpi = {
+            total_active_members: totalUsers,
+            total_departments: totalDepartments,
+            total_teams: totalTeams
+        };
+        kpiCache.set('orgKpi', {
+            data: orgKpi,
+            expires: now.getTime() + CACHE_TTL
+        });
     }
 
-    const deptPerformance = await Task.aggregate([
+    const taskStatusPipeline = [
         { $match: { is_deleted: false } },
-        { $lookup: { from: 'taskdeadlines', localField: '_id', foreignField: 'task_id', as: 'dl' } },
-        { $unwind: { path: '$dl', preserveNullAndEmptyArrays: true } },
-        { $lookup: { from: 'users', localField: 'assignee_id', foreignField: '_id', as: 'user' } },
-        { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
-        { $lookup: { from: 'departments', localField: 'user.department_id', foreignField: '_id', as: 'dept' } },
-        { $unwind: { path: '$dept', preserveNullAndEmptyArrays: true } },
         {
-            $group: {
-                _id: '$dept._id',
-                department_name: { $first: { $ifNull: ['$dept.name', 'Unassigned'] } },
-                total_tasks: { $sum: 1 },
-                completed_on_time: { $sum: { $cond: [{ $eq: ['$dl.completion_status', 'ON_TIME'] }, 1, 0] } },
-                overdue_tasks: { $sum: { $cond: [{ $eq: ['$dl.is_overdue', true] }, 1, 0] } },
-                at_risk_tasks: {
-                    $sum: {
-                        $cond: [
-                            { $and: [{ $eq: ['$is_done', false] }, { $eq: ['$dl.is_overdue', false] }, { $lt: ['$dl.due_date', new Date(now.getTime() + 24 * 60 * 60 * 1000)] }] },
-                            1,
-                            0
-                        ]
-                    }
-                },
-                on_track_tasks: {
-                    $sum: {
-                        $cond: [
-                            { $and: [{ $eq: ['$is_done', false] }, { $eq: ['$dl.is_overdue', false] }, { $gte: ['$dl.due_date', new Date(now.getTime() + 24 * 60 * 60 * 1000)] }] },
-                            1,
-                            0
-                        ]
-                    }
-                },
-                extensions_count: { $sum: { $ifNull: ['$dl.extension_count', 0] } }
+            $lookup: {
+                from: 'taskdeadlines',
+                localField: '_id',
+                foreignField: 'task_id',
+                as: 'deadline'
             }
         },
         {
-            $project: {
-                department_id: '$_id',
-                _id: 0,
-                department_name: 1,
-                overdue_tasks: 1,
-                on_time_rate: {
-                    $cond: [
-                        { $eq: ['$total_tasks', 0] },
-                        0,
-                        { $round: [{ $multiply: [{ $divide: ['$completed_on_time', '$total_tasks'] }, 100] }, 1] }
+            $unwind: {
+                path: '$deadline',
+                preserveNullAndEmptyArrays: true
+            }
+        },
+        {
+            $addFields: {
+                is_completed_task: {
+                    $or: [
+                        { $eq: ['$is_done', true] },
+                        { $eq: ['$status', 'DONE'] }
                     ]
                 },
-                at_risk_tasks: 1,
-                on_track_tasks: 1,
-                extensions_count: 1
+                is_overdue_task: {
+                    $and: [
+                        { $ne: ['$is_done', true] },
+                        { $ne: ['$status', 'DONE'] },
+                        {
+                            $or: [
+                                { $eq: ['$deadline.is_overdue', true] },
+                                {
+                                    $and: [
+                                        { $ne: ['$deadline.due_date', null] },
+                                        { $lt: ['$deadline.due_date', now] }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                },
+                is_at_risk_task: {
+                    $and: [
+                        { $ne: ['$is_done', true] },
+                        { $ne: ['$status', 'DONE'] },
+                        { $ne: ['$deadline.due_date', null] },
+                        { $gte: ['$deadline.due_date', now] },
+                        { $lte: ['$deadline.due_date', next24h] },
+                        { $ne: ['$deadline.is_overdue', true] }
+                    ]
+                },
+                extension_count_safe: {
+                    $ifNull: ['$deadline.extension_count', 0]
+                }
+            }
+        },
+        {
+            $addFields: {
+                task_status_bucket: {
+                    $switch: {
+                        branches: [
+                            {
+                                case: '$is_completed_task',
+                                then: 'COMPLETED'
+                            },
+                            {
+                                case: '$is_overdue_task',
+                                then: 'OVERDUE'
+                            },
+                            {
+                                case: '$is_at_risk_task',
+                                then: 'AT_RISK'
+                            }
+                        ],
+                        default: 'IN_PROGRESS'
+                    }
+                }
+            }
+        }
+    ];
+
+    const companyStatsRaw = await Task.aggregate([
+        ...taskStatusPipeline,
+        {
+            $group: {
+                _id: null,
+                total_tasks: { $sum: 1 },
+                in_progress: {
+                    $sum: {
+                        $cond: [{ $eq: ['$task_status_bucket', 'IN_PROGRESS'] }, 1, 0]
+                    }
+                },
+                completed: {
+                    $sum: {
+                        $cond: [{ $eq: ['$task_status_bucket', 'COMPLETED'] }, 1, 0]
+                    }
+                },
+                at_risk: {
+                    $sum: {
+                        $cond: [{ $eq: ['$task_status_bucket', 'AT_RISK'] }, 1, 0]
+                    }
+                },
+                overdue: {
+                    $sum: {
+                        $cond: [{ $eq: ['$task_status_bucket', 'OVERDUE'] }, 1, 0]
+                    }
+                },
+                total_extensions_this_week: {
+                    $sum: '$extension_count_safe'
+                }
             }
         }
     ]);
 
-    let onTrack = 0, atRisk = 0, overdue = 0, totalExtensions = 0;
-    const departmentResult = deptPerformance.map((dept) => {
-        onTrack += dept.on_track_tasks || 0;
-        atRisk += dept.at_risk_tasks || 0;
-        overdue += dept.overdue_tasks || 0;
-        totalExtensions += dept.extensions_count || 0;
-        return {
-            department_id: dept.department_id || 'unassigned',
-            department_name: dept.department_name,
-            on_time_rate: dept.on_time_rate,
-            overdue_tasks: dept.overdue_tasks
-        };
-    });
+    const companyStats = companyStatsRaw[0] || {
+        total_tasks: 0,
+        in_progress: 0,
+        completed: 0,
+        at_risk: 0,
+        overdue: 0,
+        total_extensions_this_week: 0
+    };
+
+    const deptPerformance = await Task.aggregate([
+        ...taskStatusPipeline,
+        {
+            $addFields: {
+                assignment_user_ids: {
+                    $setUnion: [
+                        {
+                            $cond: [
+                                { $ne: ['$assignee_id', null] },
+                                ['$assignee_id'],
+                                []
+                            ]
+                        },
+                        {
+                            $ifNull: ['$assignees_user_id', []]
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            $lookup: {
+                from: 'users',
+                localField: 'assignment_user_ids',
+                foreignField: '_id',
+                as: 'assignees'
+            }
+        },
+        {
+            $unwind: {
+                path: '$assignees',
+                preserveNullAndEmptyArrays: true
+            }
+        },
+        {
+            $lookup: {
+                from: 'departments',
+                localField: 'assignees.department_id',
+                foreignField: '_id',
+                as: 'dept'
+            }
+        },
+        {
+            $unwind: {
+                path: '$dept',
+                preserveNullAndEmptyArrays: false
+            }
+        },
+        {
+            $match: {
+                'dept._id': { $ne: null },
+                'dept.is_deleted': { $ne: true }
+            }
+        },
+        {
+            $group: {
+                _id: {
+                    task_id: '$_id',
+                    department_id: '$dept._id'
+                },
+                department_name: {
+                    $first: '$dept.name'
+                },
+                task_status_bucket: {
+                    $first: '$task_status_bucket'
+                }
+            }
+        },
+        {
+            $group: {
+                _id: '$_id.department_id',
+                department_name: {
+                    $first: '$department_name'
+                },
+                total_tasks: {
+                    $sum: 1
+                },
+                in_progress_tasks: {
+                    $sum: {
+                        $cond: [{ $eq: ['$task_status_bucket', 'IN_PROGRESS'] }, 1, 0]
+                    }
+                },
+                completed_tasks: {
+                    $sum: {
+                        $cond: [{ $eq: ['$task_status_bucket', 'COMPLETED'] }, 1, 0]
+                    }
+                },
+                at_risk_tasks: {
+                    $sum: {
+                        $cond: [{ $eq: ['$task_status_bucket', 'AT_RISK'] }, 1, 0]
+                    }
+                },
+                overdue_tasks: {
+                    $sum: {
+                        $cond: [{ $eq: ['$task_status_bucket', 'OVERDUE'] }, 1, 0]
+                    }
+                }
+            }
+        },
+        {
+            $project: {
+                _id: 0,
+                department_id: '$_id',
+                department_name: 1,
+                total_tasks: 1,
+                in_progress_tasks: 1,
+                completed_tasks: 1,
+                on_track_tasks: '$completed_tasks',
+                at_risk_tasks: 1,
+                overdue_tasks: 1
+            }
+        },
+        {
+            $sort: {
+                department_name: 1
+            }
+        }
+    ]);
 
     return {
         organization_kpi: orgKpi,
-        company_deadline_health: { on_track: onTrack, at_risk: atRisk, overdue, total_extensions_this_week: totalExtensions },
-        department_performance: departmentResult,
-        critical_audit_logs: [{ id: 'act-001', actor: 'System', message: 'System is operating normally', created_at: now.toISOString() }]
+        company_deadline_health: {
+            in_progress: companyStats.in_progress,
+            completed: companyStats.completed,
+            on_track: companyStats.completed,
+            at_risk: companyStats.at_risk,
+            overdue: companyStats.overdue,
+            total_tasks: companyStats.total_tasks,
+            total_extensions_this_week: companyStats.total_extensions_this_week
+        },
+        department_performance: deptPerformance,
+        critical_audit_logs: [
+            {
+                id: 'act-001',
+                actor: 'System',
+                message: 'System is operating normally',
+                created_at: now.toISOString()
+            }
+        ]
     };
 };
 
