@@ -42,8 +42,8 @@ import {
 import { useBoardStore } from "../stores/useBoardStore";
 import { useUserStore } from "../../user/store/useUserStore";
 import { notificationApi } from "../../notification/api/notificationApi";
-
 import { TaskDetailModalProps } from "../types/index";
+import TaskCommentsPanel from "./TaskCommentsPanel";
 
 import DatePicker, { registerLocale } from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -56,8 +56,6 @@ interface CustomDateInputProps {
   onClick?: () => void;
   placeholder?: string;
 }
-
-
 
 type ConfirmActionType = "request-extension" | "delete-task" | null;
 
@@ -79,22 +77,10 @@ const CustomDateInput = forwardRef<HTMLButtonElement, CustomDateInputProps>(
       className="w-full text-sm border border-slate-200/80 rounded-xl px-3.5 py-2.5 outline-none hover:border-indigo-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100/50 transition-all bg-white flex items-center justify-between shadow-sm group"
     >
       <div className="flex items-center gap-2">
-        <Calendar
-          size={15}
-          className={
-            value
-              ? "text-indigo-500"
-              : "text-slate-400 group-hover:text-indigo-400 transition-colors"
-          }
-        />
-        <span className={value ? "font-bold text-slate-800" : "text-slate-400 font-medium"}>
-          {value || placeholder}
-        </span>
+        <Calendar size={15} className={value ? "text-indigo-500" : "text-slate-400 group-hover:text-indigo-400 transition-colors"} />
+        <span className={value ? "font-bold text-slate-800" : "text-slate-400 font-medium"}>{value || placeholder}</span>
       </div>
-      <ChevronDown
-        size={14}
-        className="text-slate-300 group-hover:text-indigo-500 transition-colors"
-      />
+      <ChevronDown size={14} className="text-slate-300 group-hover:text-indigo-500 transition-colors" />
     </button>
   ),
 );
@@ -103,20 +89,9 @@ CustomDateInput.displayName = "CustomDateInput";
 
 const formatDateTime = (value?: Date | string | null) => {
   if (!value) return "Chưa có deadline";
-
   const date = value instanceof Date ? value : new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "Không rõ";
-  }
-
-  return date.toLocaleString("vi-VN", {
-    hour: "2-digit",
-    minute: "2-digit",
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
+  if (Number.isNaN(date.getTime())) return "Không rõ";
+  return date.toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit", year: "numeric" });
 };
 
 const ConfirmActionModal: React.FC<ConfirmActionModalProps> = ({
@@ -133,31 +108,18 @@ const ConfirmActionModal: React.FC<ConfirmActionModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[250] flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
-        onClick={isSubmitting ? undefined : onClose}
-      />
+      <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={isSubmitting ? undefined : onClose} />
 
       <div className="relative w-full max-w-md overflow-hidden rounded-[2rem] bg-white shadow-2xl border border-white/70 animate-in zoom-in-95 fade-in duration-200">
-        <div
-          className={`px-6 py-5 text-white ${
-            isRequestExtension
-              ? "bg-gradient-to-br from-amber-500 to-orange-500"
-              : "bg-gradient-to-br from-rose-500 to-red-600"
-          }`}
-        >
+        <div className={`px-6 py-5 text-white ${isRequestExtension ? "bg-gradient-to-br from-amber-500 to-orange-500" : "bg-gradient-to-br from-rose-500 to-red-600"}`}>
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center">
               {isRequestExtension ? <Send size={25} /> : <AlertTriangle size={25} />}
             </div>
 
             <div>
-              <p className="text-xs font-black uppercase tracking-widest text-white/75">
-                Xác nhận thao tác
-              </p>
-              <h3 className="text-xl font-black mt-1">
-                {isRequestExtension ? "Gửi yêu cầu dời hạn?" : "Xóa công việc?"}
-              </h3>
+              <p className="text-xs font-black uppercase tracking-widest text-white/75">Xác nhận thao tác</p>
+              <h3 className="text-xl font-black mt-1">{isRequestExtension ? "Gửi yêu cầu dời hạn?" : "Xóa công việc?"}</h3>
             </div>
           </div>
         </div>
@@ -169,10 +131,7 @@ const ConfirmActionModal: React.FC<ConfirmActionModalProps> = ({
                 ? "Bạn chắc chắn muốn gửi đơn xin dời hạn task này tới quản lý? Sau khi gửi, bạn cần chờ quản lý chấp nhận hoặc từ chối."
                 : "Bạn chắc chắn muốn xóa task này? Thao tác này có thể ảnh hưởng đến bảng công việc và các tài liệu liên quan."}
             </p>
-
-            <p className="mt-3 text-sm font-black text-slate-800">
-              Task: {taskTitle || "Không rõ"}
-            </p>
+            <p className="mt-3 text-sm font-black text-slate-800">Task: {taskTitle || "Không rõ"}</p>
           </div>
 
           <div className="flex gap-3">
@@ -189,19 +148,9 @@ const ConfirmActionModal: React.FC<ConfirmActionModalProps> = ({
               type="button"
               disabled={isSubmitting}
               onClick={onConfirm}
-              className={`flex-1 rounded-2xl px-4 py-3 text-sm font-black text-white transition shadow-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
-                isRequestExtension
-                  ? "bg-amber-500 hover:bg-amber-600 shadow-amber-200"
-                  : "bg-rose-600 hover:bg-rose-700 shadow-rose-200"
-              }`}
+              className={`flex-1 rounded-2xl px-4 py-3 text-sm font-black text-white transition shadow-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${isRequestExtension ? "bg-amber-500 hover:bg-amber-600 shadow-amber-200" : "bg-rose-600 hover:bg-rose-700 shadow-rose-200"}`}
             >
-              {isSubmitting ? (
-                <Loader2 size={17} className="animate-spin" />
-              ) : isRequestExtension ? (
-                <ShieldCheck size={17} />
-              ) : (
-                <Trash2 size={17} />
-              )}
+              {isSubmitting ? <Loader2 size={17} className="animate-spin" /> : isRequestExtension ? <ShieldCheck size={17} /> : <Trash2 size={17} />}
               {isRequestExtension ? "Xác nhận gửi" : "Xác nhận xóa"}
             </button>
           </div>
@@ -216,21 +165,22 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   onClose,
   task,
   listId,
+  initialFocus = "detail",
 }) => {
   const queryClient = useQueryClient();
-
   const { activeBoardId } = useBoardStore();
   const { data: board } = useGetBoardDetail(activeBoardId as string);
   const getUser = useUserStore((state) => state.getUser);
 
   const projectId = board?.projectId || board?.project_id;
-  const { data: apiMembers, isLoading: isMembersLoading } = useGetProjectMembers(
-    projectId as string,
-  );
+  const { data: apiMembers, isLoading: isMembersLoading } = useGetProjectMembers(projectId as string);
 
   const { mutateAsync: updateApiTask } = useUpdateTask();
   const { mutateAsync: deleteApiTask } = useDeleteTask();
   const { mutateAsync: moveApiTask } = useMoveTask();
+  const { mutateAsync: addAttachment } = useAddAttachmentToTask();
+  const { mutateAsync: uploadFile } = useUploadFile();
+  const { mutateAsync: deleteAttachmentApi } = useDeleteAttachment();
 
   const [editTitle, setEditTitle] = useState("");
   const [editDesc, setEditDesc] = useState("");
@@ -240,21 +190,13 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const [editStartDate, setEditStartDate] = useState<Date | null>(null);
   const [editDueDate, setEditDueDate] = useState<Date | null>(null);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
-
   const [localSubtasks, setLocalSubtasks] = useState<any[]>([]);
   const [localAttachments, setLocalAttachments] = useState<any[]>([]);
-
   const [isDone, setIsDone] = useState(false);
-
   const [editAssignees, setEditAssignees] = useState<string[]>([]);
   const [isAssigneePopupOpen, setIsAssigneePopupOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
-
-  const { mutateAsync: addAttachment } = useAddAttachmentToTask();
-  const { mutateAsync: uploadFile } = useUploadFile();
 
   const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false);
   const [extensionDate, setExtensionDate] = useState<Date | null>(null);
@@ -266,47 +208,18 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const [confirmAction, setConfirmAction] = useState<ConfirmActionType>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const commentPanelRef = useRef<HTMLDivElement>(null);
+
   const currentTaskId = String(task?.id || task?._id || "");
-const safeProjectIdForHook = board?.project_id || board?.projectId || board?.project?._id || board?._id;
+  const safeProjectIdForHook = board?.project_id || board?.projectId || board?.project?._id || board?._id;
   const { data: fetchedAttachments } = useGetTaskAttachments(currentTaskId, String(safeProjectIdForHook));
-
-  const { mutateAsync: deleteAttachmentApi } = useDeleteAttachment();
-
-  // 🚀 Hàm xử lý khi bấm nút xoá file
-  const handleDeleteAttachment = async (e: React.MouseEvent, attachmentId: string) => {
-    e.stopPropagation(); // Chặn không cho click lan ra ngoài (gây mở tab mới)
-    
-    if (!window.confirm("Bạn có chắc chắn muốn xóa tài liệu này?")) return;
-
-    if (!activeBoardId || !board) return;
-    const safeProjectId = board?.project_id || board?.projectId || board?.project?._id || board?._id;
-
-    if (!safeProjectId) {
-      alert("Lỗi: Không tìm thấy ID dự án!");
-      return;
-    }
-
-    try {
-      await deleteAttachmentApi({
-        taskId: currentTaskId,
-        attachmentId: attachmentId,
-        boardId: activeBoardId,
-        projectId: String(safeProjectId)
-      });
-
-      // Cập nhật luôn UI cho nhanh mượt
-      setLocalAttachments(prev => prev.filter(a => (a._id || a.id) !== attachmentId));
-    } catch (error) {
-      console.error("Lỗi khi xóa file:", error);
-      alert("Xóa tài liệu thất bại. Vui lòng thử lại!");
-    }
-  };
 
   const projectMembers = useMemo(() => {
     if (!apiMembers) return [];
     if (Array.isArray(apiMembers)) return apiMembers;
-    if (apiMembers.data && Array.isArray(apiMembers.data)) return apiMembers.data;
-    return apiMembers.content || [];
+    if ((apiMembers as any).data && Array.isArray((apiMembers as any).data)) return (apiMembers as any).data;
+    return (apiMembers as any).content || [];
   }, [apiMembers]);
 
   const calculatedDays = useMemo(() => {
@@ -316,7 +229,6 @@ const safeProjectIdForHook = board?.project_id || board?.projectId || board?.pro
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         return diffDays === 0 ? 1 : diffDays;
       }
-
       return 0;
     }
 
@@ -330,57 +242,30 @@ const safeProjectIdForHook = board?.project_id || board?.projectId || board?.pro
       setEditTitle(task.title || "");
       setEditDesc(task.description || "");
       setLocalSubtasks(task.subtasks || []);
-
-      const rawPriority = task.priority ? String(task.priority).toUpperCase() : "MEDIUM";
-      setEditPriority(rawPriority);
-
+      setEditPriority(task.priority ? String(task.priority).toUpperCase() : "MEDIUM");
       setEditColumnId(task.column_id || listId);
       setEditStoryPoints(taskAny.story_points || taskAny.story_point || 0);
-
       setEditStartDate(taskAny.start_date ? new Date(taskAny.start_date) : null);
       setEditDueDate(taskAny.due_date ? new Date(taskAny.due_date) : null);
-
       setIsDone(task.status === "DONE" || task.is_done === true);
 
-      const rawAssignees =
-        taskAny.assignees_user_id ||
-        taskAny.assigneesUserId ||
-        taskAny.assignees ||
-        taskAny.assignee_id ||
-        taskAny.assignee_ids;
-
-      const assigneesList = Array.isArray(rawAssignees)
-        ? rawAssignees
-        : rawAssignees
-          ? [rawAssignees]
-          : [];
+      const rawAssignees = taskAny.assignees_user_id || taskAny.assigneesUserId || taskAny.assignees || taskAny.assignee_id || taskAny.assignee_ids;
+      const assigneesList = Array.isArray(rawAssignees) ? rawAssignees : rawAssignees ? [rawAssignees] : [];
 
       const normalizedIds = assigneesList
-        .map((item: any) =>
-          typeof item === "object" ? item.user_id || item.id || item._id : item,
-        )
-        .filter(
-          (id: any) =>
-            id !== undefined &&
-            id !== null &&
-            String(id) !== "undefined" &&
-            String(id) !== "" &&
-            !String(id).startsWith("temp-"),
-        )
+        .map((item: any) => (typeof item === "object" ? item.user_id || item.id || item._id : item))
+        .filter((id: any) => id !== undefined && id !== null && String(id) !== "undefined" && String(id) !== "" && !String(id).startsWith("temp-"))
         .map((id: any) => String(id));
 
       setEditAssignees(normalizedIds);
-
       setIsSaving(false);
       setIsAssigneePopupOpen(false);
-
       setIsExtensionModalOpen(false);
       setExtensionDate(null);
       setExtensionReason("");
       setIsRequestingExtension(false);
       setExtensionError("");
       setExtensionSuccess("");
-
       setConfirmAction(null);
       setIsDeleting(false);
     }
@@ -388,13 +273,20 @@ const safeProjectIdForHook = board?.project_id || board?.projectId || board?.pro
 
   useEffect(() => {
     if (fetchedAttachments) {
-      const arr = Array.isArray(fetchedAttachments)
-        ? fetchedAttachments
-        : fetchedAttachments.data || [];
-
+      const arr = Array.isArray(fetchedAttachments) ? fetchedAttachments : (fetchedAttachments as any).data || [];
       setLocalAttachments(arr);
     }
   }, [fetchedAttachments]);
+
+  useEffect(() => {
+    if (!isOpen || initialFocus !== "comments") return;
+
+    const timer = window.setTimeout(() => {
+      commentPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 120);
+
+    return () => window.clearTimeout(timer);
+  }, [isOpen, initialFocus, currentTaskId]);
 
   if (!isOpen || !task) return null;
 
@@ -402,40 +294,58 @@ const safeProjectIdForHook = board?.project_id || board?.projectId || board?.pro
 
   const toggleAssignee = (userId: string) => {
     if (!userId || userId.startsWith("temp-") || userId === "undefined") return;
+    setEditAssignees((prev) => (prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]));
+  };
 
-    setEditAssignees((prev) =>
-      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId],
-    );
+  const handleDeleteAttachment = async (e: React.MouseEvent, attachmentId: string) => {
+    e.stopPropagation();
+
+    if (!window.confirm("Bạn có chắc chắn muốn xóa tài liệu này?")) return;
+    if (!activeBoardId || !board) return;
+
+    const safeProjectId = board?.project_id || board?.projectId || board?.project?._id || board?._id;
+
+    if (!safeProjectId) {
+      alert("Lỗi: Không tìm thấy ID dự án!");
+      return;
+    }
+
+    try {
+      await deleteAttachmentApi({
+        taskId: currentTaskId,
+        attachmentId,
+        boardId: activeBoardId,
+        projectId: String(safeProjectId),
+      });
+
+      setLocalAttachments((prev) => prev.filter((a) => String(a._id || a.id) !== String(attachmentId)));
+    } catch (error) {
+      console.error("Lỗi khi xóa file:", error);
+      alert("Xóa tài liệu thất bại. Vui lòng thử lại!");
+    }
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
 
-    // 🚀 BẢO VỆ 1: Phải có file, boardId và data board
     if (!file || !activeBoardId || !board) return;
 
     setIsUploading(true);
 
-    // 🚀 BẢO VỆ 2: Lấy Project ID an toàn
     const safeProjectId = board?.project_id || board?.projectId || board?.project?._id || board?._id;
 
     if (!safeProjectId) {
-      console.error("🚨 Không tìm thấy ID dự án từ board!");
       alert("Lỗi dữ liệu: Không tìm thấy ID dự án để tải file lên!");
       setIsUploading(false);
       return;
     }
 
     try {
-      // 1. Gửi file lên server / cloud để lấy URL về
       const uploadResult = await uploadFile(file);
       const finalUrl = uploadResult?.url || uploadResult?.data?.url;
 
-      if (!finalUrl) {
-        throw new Error("Không lấy được URL từ server!");
-      }
+      if (!finalUrl) throw new Error("Không lấy được URL từ server!");
 
-      // 2. Gửi URL và thông tin file vào Task (CÓ NHÉT THÊM VÉ THÔNG HÀNH)
       const response = await addAttachment({
         taskId: String(task.id || task._id),
         boardId: activeBoardId,
@@ -443,9 +353,7 @@ const safeProjectIdForHook = board?.project_id || board?.projectId || board?.pro
           fileName: file.name,
           fileUrl: finalUrl,
           mimeType: file.type,
-          
-          // 🚀 NHÉT VÉ THÔNG HÀNH VÀO ĐÂY LÀ QUA CỬA RBAC CÁI VÈO
-          project_id: String(safeProjectId)
+          project_id: String(safeProjectId),
         },
       });
 
@@ -476,9 +384,8 @@ const safeProjectIdForHook = board?.project_id || board?.projectId || board?.pro
   const handleSave = async () => {
     if (!activeBoardId || !board) return;
 
-    // 🚀 LẤY PROJECT ID AN TOÀN TRƯỚC KHI LƯU
     const safeProjectId = board?.project_id || board?.projectId || board?.project?._id || board?._id;
-    
+
     if (!safeProjectId) {
       alert("Lỗi dữ liệu: Không tìm thấy ID dự án!");
       return;
@@ -486,18 +393,10 @@ const safeProjectIdForHook = board?.project_id || board?.projectId || board?.pro
 
     setIsSaving(true);
 
-    const cleanAssignees = editAssignees.filter(
-      (id) => id && id !== "undefined" && !id.startsWith("temp-"),
-    );
-
+    const cleanAssignees = editAssignees.filter((id) => id && id !== "undefined" && !id.startsWith("temp-"));
     const finalPriority = editPriority ? editPriority.toUpperCase() : "MEDIUM";
 
-    // 🚀 ĐOẠN NÀY ĐÃ ĐƯỢC FIX LẠI CỰC KỲ AN TOÀN
-    // Ép kiểu ID về String và lọc bỏ mọi trường hợp null/undefined/trống
-    const currentAttachmentIds = localAttachments
-      
     try {
-      // 🚀 1. GỌI LỆNH UPDATE CÓ KẸP VÉ THÔNG HÀNH
       await updateApiTask({
         taskId: String(task.id || task._id),
         boardId: activeBoardId,
@@ -514,16 +413,12 @@ const safeProjectIdForHook = board?.project_id || board?.projectId || board?.pro
           assignee_id: cleanAssignees.length > 0 ? cleanAssignees[0] : null,
           parent_task_id: taskAny.parent_task_id,
           subtasks: localSubtasks,
-          project_id: String(safeProjectId)
+          project_id: String(safeProjectId),
         } as any,
       });
 
-      // 2. NẾU CÓ ĐỔI CỘT THÌ GỌI MOVE TASK
       if (String(editColumnId) !== String(listId)) {
-        const destCol = board?.columns?.find(
-          (c: any) => String(c.id || c._id) === String(editColumnId),
-        );
-
+        const destCol = board?.columns?.find((c: any) => String(c.id || c._id) === String(editColumnId));
         const newOrder = destCol && destCol.tasks ? destCol.tasks.length : 0;
 
         await moveApiTask({
@@ -531,8 +426,7 @@ const safeProjectIdForHook = board?.project_id || board?.projectId || board?.pro
           columnId: String(editColumnId),
           order: newOrder,
           boardId: activeBoardId,
-          // Lệnh move nãy Sếp sửa rồi nhưng tui nhắc lại cho chắc
-          projectId: String(safeProjectId) 
+          projectId: String(safeProjectId),
         });
       }
 
@@ -545,22 +439,20 @@ const safeProjectIdForHook = board?.project_id || board?.projectId || board?.pro
       setIsSaving(false);
     }
   };
+
   const handleDelete = () => {
     if (!activeBoardId) return;
     setConfirmAction("delete-task");
   };
 
   const executeDeleteTask = async () => {
-    // 🚀 BẢO VỆ 1: Phải có board mới cho chạy
-    if (!activeBoardId || !board) return; 
+    if (!activeBoardId || !board) return;
 
     setIsDeleting(true);
 
-    // 🚀 BẢO VỆ 2: Quét mọi ngóc ngách để tìm bằng được Project ID
     const safeProjectId = board?.project_id || board?.projectId || board?.project?._id || board?._id;
 
     if (!safeProjectId) {
-      console.error("🚨 Không tìm thấy ID dự án từ board!", board);
       alert("Lỗi dữ liệu: Không tìm thấy ID dự án để xóa!");
       setIsDeleting(false);
       return;
@@ -570,7 +462,7 @@ const safeProjectIdForHook = board?.project_id || board?.projectId || board?.pro
       await deleteApiTask({
         taskId: String(task.id || task._id),
         boardId: activeBoardId,
-        projectId: String(safeProjectId) // Truyền cái ID đã được "bảo kê" xuống
+        projectId: String(safeProjectId),
       });
 
       await queryClient.invalidateQueries({ queryKey: ["board", activeBoardId] });
@@ -652,28 +544,15 @@ const safeProjectIdForHook = board?.project_id || board?.projectId || board?.pro
     }
   };
 
-  const currentColumn = board?.columns?.find(
-    (c: any) => String(c.id || c._id) === String(editColumnId),
-  );
-
-  const currentColumnName =
-    (currentColumn as any)?.name ||
-    (currentColumn as any)?.list_name ||
-    (currentColumn as any)?.title ||
-    "Không rõ";
-
+  const currentColumn = board?.columns?.find((c: any) => String(c.id || c._id) === String(editColumnId));
+  const currentColumnName = (currentColumn as any)?.name || (currentColumn as any)?.list_name || (currentColumn as any)?.title || "Không rõ";
   const isConfirmSubmitting = isRequestingExtension || isDeleting;
 
   const modalContent = (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 md:p-12">
-      <div
-        className="absolute inset-0 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-300"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-300" onClick={onClose} />
 
-      <div className="relative w-full max-w-[1100px] bg-slate-50/95 backdrop-blur-xl rounded-[2rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] flex flex-col max-h-[95vh] overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 border border-white/50">
-
-        {/* Header */}
+      <div className="relative w-full max-w-[1380px] bg-slate-50/95 backdrop-blur-xl rounded-[2rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] flex flex-col max-h-[95vh] overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 border border-white/50">
         <div className="bg-white/80 backdrop-blur-sm px-6 py-5 border-b border-slate-200/60 flex justify-between items-start gap-6 sticky top-0 z-10">
           <div className="flex-1">
             <input
@@ -685,9 +564,7 @@ const safeProjectIdForHook = board?.project_id || board?.projectId || board?.pro
 
             <p className="text-[13px] text-slate-500 px-3 mt-1.5 font-medium flex items-center gap-1.5">
               Vị trí hiện tại:
-              <span className="font-bold px-2 py-0.5 rounded-md border border-slate-200/60 bg-indigo-50 text-indigo-700">
-                {currentColumnName}
-              </span>
+              <span className="font-bold px-2 py-0.5 rounded-md border border-slate-200/60 bg-indigo-50 text-indigo-700">{currentColumnName}</span>
             </p>
           </div>
 
@@ -695,16 +572,9 @@ const safeProjectIdForHook = board?.project_id || board?.projectId || board?.pro
             <button
               type="button"
               onClick={() => setIsDone(!isDone)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all border ${
-                isDone
-                  ? "bg-emerald-50 text-emerald-600 border-emerald-200 shadow-sm ring-2 ring-emerald-100 ring-offset-1"
-                  : "bg-white text-slate-400 border-slate-200 hover:border-emerald-300 hover:text-emerald-500"
-              }`}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all border ${isDone ? "bg-emerald-50 text-emerald-600 border-emerald-200 shadow-sm ring-2 ring-emerald-100 ring-offset-1" : "bg-white text-slate-400 border-slate-200 hover:border-emerald-300 hover:text-emerald-500"}`}
             >
-              <CheckSquare
-                size={18}
-                className={isDone ? "text-emerald-500" : "text-slate-300"}
-              />
+              <CheckSquare size={18} className={isDone ? "text-emerald-500" : "text-slate-300"} />
               {isDone ? "Đã hoàn thành" : "Đánh dấu xong"}
             </button>
 
@@ -718,14 +588,9 @@ const safeProjectIdForHook = board?.project_id || board?.projectId || board?.pro
           </div>
         </div>
 
-        {/* Nội dung cuộn */}
         <div className="flex-1 overflow-y-auto custom-scrollbar p-6 lg:p-8">
-          <div className="flex flex-col md:flex-row gap-8 lg:gap-10">
-
-            {/* CỘT TRÁI */}
+          <div className="flex flex-col xl:flex-row gap-8 lg:gap-10">
             <div className="flex-1 flex flex-col gap-8">
-
-              {/* Mô tả */}
               <div>
                 <div className="flex items-center gap-2.5 text-slate-800 mb-4 font-bold text-lg">
                   <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
@@ -742,7 +607,6 @@ const safeProjectIdForHook = board?.project_id || board?.projectId || board?.pro
                 />
               </div>
 
-              {/* Tài liệu đính kèm */}
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2.5 text-slate-800 font-bold text-lg">
@@ -750,18 +614,11 @@ const safeProjectIdForHook = board?.project_id || board?.projectId || board?.pro
                       <Paperclip size={18} />
                     </div>
                     <h3>Tài liệu đính kèm</h3>
-                    <span className="ml-1.5 text-xs font-black bg-slate-200 text-slate-600 px-2.5 py-1 rounded-full">
-                      {localAttachments.length}
-                    </span>
+                    <span className="ml-1.5 text-xs font-black bg-slate-200 text-slate-600 px-2.5 py-1 rounded-full">{localAttachments.length}</span>
                   </div>
 
                   <div>
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      onChange={handleFileUpload}
-                      className="hidden"
-                    />
+                    <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
 
                     <button
                       type="button"
@@ -769,11 +626,7 @@ const safeProjectIdForHook = board?.project_id || board?.projectId || board?.pro
                       disabled={isUploading}
                       className="flex items-center gap-2 px-3 py-2 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 rounded-xl text-sm font-bold transition-all shadow-sm disabled:opacity-50"
                     >
-                      {isUploading ? (
-                        <Loader2 size={16} className="animate-spin text-indigo-500" />
-                      ) : (
-                        <Plus size={16} />
-                      )}
+                      {isUploading ? <Loader2 size={16} className="animate-spin text-indigo-500" /> : <Plus size={16} />}
                       {isUploading ? "Đang tải..." : "Thêm file"}
                     </button>
                   </div>
@@ -796,26 +649,14 @@ const safeProjectIdForHook = board?.project_id || board?.projectId || board?.pro
                         </div>
 
                         <div className="flex-1 min-w-0">
-                          <p
-                            className="text-[13px] font-bold text-slate-700 truncate group-hover:text-indigo-600 transition-colors"
-                            title={file.file_name || file.fileName}
-                          >
+                          <p className="text-[13px] font-bold text-slate-700 truncate group-hover:text-indigo-600 transition-colors" title={file.file_name || file.fileName}>
                             {file.file_name || file.fileName}
                           </p>
                           <p className="text-[11px] font-medium text-slate-400 mt-0.5 uppercase tracking-tighter">
-                            {(file.mime_type || file.mimeType || file.content_type || "")
-                              .split("/")[1] || "FILE"}{" "}
-                            •{" "}
-                            {(
-                              (file.file_size || file.fileSize || file.size || 0) /
-                              1024 /
-                              1024
-                            ).toFixed(2)}{" "}
-                            MB
+                            {(file.mime_type || file.mimeType || file.content_type || "").split("/")[1] || "FILE"} • {(((file.file_size || file.fileSize || file.size || 0) / 1024 / 1024)).toFixed(2)} MB
                           </p>
                         </div>
 
-                        {/* 🚀 ĐÃ BỔ SUNG CỤM NÚT TẢI XUỐNG VÀ XÓA TẠI ĐÂY */}
                         <div className="flex items-center gap-1 shrink-0 z-10">
                           <button
                             type="button"
@@ -828,7 +669,7 @@ const safeProjectIdForHook = board?.project_id || board?.projectId || board?.pro
                           >
                             <Download size={16} />
                           </button>
-                          
+
                           <button
                             type="button"
                             onClick={(e) => handleDeleteAttachment(e, String(file._id || file.id))}
@@ -844,25 +685,19 @@ const safeProjectIdForHook = board?.project_id || board?.projectId || board?.pro
                 </div>
               </div>
 
-              {/* Checklist */}
               <div>
                 <div className="flex items-center gap-2.5 text-slate-800 mb-4 font-bold text-lg">
                   <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
                     <CheckSquare size={18} />
                   </div>
                   <h3>Checklist Việc Con</h3>
-                  <span className="ml-1.5 text-xs font-black bg-slate-200 text-slate-600 px-2.5 py-1 rounded-full">
-                    {localSubtasks.length}
-                  </span>
+                  <span className="ml-1.5 text-xs font-black bg-slate-200 text-slate-600 px-2.5 py-1 rounded-full">{localSubtasks.length}</span>
                 </div>
 
                 <div className="bg-white border border-slate-200/80 rounded-2xl p-2.5 shadow-sm">
                   <div className="flex flex-col gap-1 max-h-64 overflow-y-auto custom-scrollbar pr-1">
                     {localSubtasks.map((st: any, idx: number) => (
-                      <div
-                        key={idx}
-                        className="group/st flex items-center gap-3 p-2.5 hover:bg-slate-50/80 rounded-xl transition-all border border-transparent hover:border-slate-100"
-                      >
+                      <div key={idx} className="group/st flex items-center gap-3 p-2.5 hover:bg-slate-50/80 rounded-xl transition-all border border-transparent hover:border-slate-100">
                         <button
                           type="button"
                           onClick={() => {
@@ -872,31 +707,16 @@ const safeProjectIdForHook = board?.project_id || board?.projectId || board?.pro
                           }}
                           className="shrink-0 transition-transform active:scale-90"
                         >
-                          {st.is_done ? (
-                            <CheckSquare size={18} className="text-emerald-500" />
-                          ) : (
-                            <Square
-                              size={18}
-                              className="text-slate-300 hover:text-indigo-400 transition-colors"
-                            />
-                          )}
+                          {st.is_done ? <CheckSquare size={18} className="text-emerald-500" /> : <Square size={18} className="text-slate-300 hover:text-indigo-400 transition-colors" />}
                         </button>
 
-                        <span
-                          className={`text-[15px] flex-1 truncate ${
-                            st.is_done
-                              ? "line-through text-slate-400"
-                              : "text-slate-700 font-medium"
-                          }`}
-                        >
+                        <span className={`text-[15px] flex-1 truncate ${st.is_done ? "line-through text-slate-400" : "text-slate-700 font-medium"}`}>
                           {st.title}
                         </span>
 
                         <button
                           type="button"
-                          onClick={() =>
-                            setLocalSubtasks(localSubtasks.filter((_, i) => i !== idx))
-                          }
+                          onClick={() => setLocalSubtasks(localSubtasks.filter((_, i) => i !== idx))}
                           className="opacity-0 group-hover/st:opacity-100 p-1.5 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
                         >
                           <X size={16} />
@@ -916,13 +736,7 @@ const safeProjectIdForHook = board?.project_id || board?.projectId || board?.pro
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && newSubtaskTitle.trim()) {
                           e.preventDefault();
-                          setLocalSubtasks([
-                            ...localSubtasks,
-                            {
-                              title: newSubtaskTitle.trim(),
-                              is_done: false,
-                            },
-                          ]);
+                          setLocalSubtasks([...localSubtasks, { title: newSubtaskTitle.trim(), is_done: false }]);
                           setNewSubtaskTitle("");
                         }
                       }}
@@ -934,14 +748,12 @@ const safeProjectIdForHook = board?.project_id || board?.projectId || board?.pro
               </div>
             </div>
 
-            {/* CỘT PHẢI */}
-            <div className="w-full md:w-[280px] flex flex-col gap-6 shrink-0">
+            <div className="w-full xl:w-[320px] flex flex-col gap-6 shrink-0">
               <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col gap-5">
                 <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-indigo-500" /> Thông số
                 </h4>
 
-                {/* Column */}
                 <div className="flex flex-col gap-2">
                   <label className="text-[13px] font-bold text-slate-600 flex items-center gap-2">
                     <KanbanSquare size={15} className="text-slate-400" /> Cột / Giai đoạn
@@ -970,7 +782,6 @@ const safeProjectIdForHook = board?.project_id || board?.projectId || board?.pro
                   </div>
                 </div>
 
-                {/* Assignees */}
                 <div className="flex flex-col gap-3 mt-2">
                   <label className="text-[13px] font-bold text-slate-600 flex items-center gap-2">
                     <User size={15} className="text-slate-400" /> Người thực hiện
@@ -980,32 +791,19 @@ const safeProjectIdForHook = board?.project_id || board?.projectId || board?.pro
                     {editAssignees.length > 0 ? (
                       editAssignees.map((userId: string, idx: number) => {
                         const member = getUser(userId, projectId);
-                        const displayName =
-                          member?.full_name || (member as any)?.name || "Thành viên";
-                        const avatarUrl =
-                          member?.avatar_url || (member as any)?.avatarUrl;
+                        const displayName = member?.full_name || (member as any)?.name || "Thành viên";
+                        const avatarUrl = member?.avatar_url || (member as any)?.avatarUrl;
                         const initial = String(displayName).charAt(0).toUpperCase();
 
                         return (
-                          <div
-                            key={`assignee-${userId || idx}`}
-                            className="flex items-center gap-2 px-2 py-1.5 bg-indigo-50 border border-indigo-100 rounded-xl shadow-sm group/name"
-                          >
+                          <div key={`assignee-${userId || idx}`} className="flex items-center gap-2 px-2 py-1.5 bg-indigo-50 border border-indigo-100 rounded-xl shadow-sm group/name">
                             {avatarUrl ? (
-                              <img
-                                src={avatarUrl}
-                                alt={displayName}
-                                className="w-6 h-6 rounded-full object-cover border border-indigo-200 shadow-sm"
-                              />
+                              <img src={avatarUrl} alt={displayName} className="w-6 h-6 rounded-full object-cover border border-indigo-200 shadow-sm" />
                             ) : (
-                              <div className="w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center text-[10px] font-black text-white shadow-sm">
-                                {initial}
-                              </div>
+                              <div className="w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center text-[10px] font-black text-white shadow-sm">{initial}</div>
                             )}
 
-                            <span className="text-[12px] font-bold text-indigo-700 pr-1 truncate max-w-[120px]">
-                              {displayName}
-                            </span>
+                            <span className="text-[12px] font-bold text-indigo-700 pr-1 truncate max-w-[120px]">{displayName}</span>
 
                             <button
                               type="button"
@@ -1033,20 +831,13 @@ const safeProjectIdForHook = board?.project_id || board?.projectId || board?.pro
 
                     {isAssigneePopupOpen && (
                       <>
-                        <div
-                          className="fixed inset-0 z-40"
-                          onClick={() => setIsAssigneePopupOpen(false)}
-                        />
+                        <div className="fixed inset-0 z-40" onClick={() => setIsAssigneePopupOpen(false)} />
 
                         <div className="absolute top-full mt-2 right-0 w-64 bg-white border border-slate-200 shadow-xl rounded-xl z-50 p-2 max-h-60 overflow-y-auto custom-scrollbar">
-                          <h5 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">
-                            Thành viên dự án
-                          </h5>
+                          <h5 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Thành viên dự án</h5>
 
                           {isMembersLoading ? (
-                            <div className="text-xs text-center text-slate-400 p-3 italic">
-                              Đang tải danh sách...
-                            </div>
+                            <div className="text-xs text-center text-slate-400 p-3 italic">Đang tải danh sách...</div>
                           ) : projectMembers.length > 0 ? (
                             projectMembers.map((member: any, idx: number) => {
                               const rawId = member.user_id || member.id || member._id;
@@ -1061,32 +852,16 @@ const safeProjectIdForHook = board?.project_id || board?.projectId || board?.pro
                                 <div
                                   key={`member-${safeMemberId || idx}`}
                                   onClick={() => toggleAssignee(safeMemberId)}
-                                  className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors ${
-                                    isSelected
-                                      ? "bg-indigo-50 hover:bg-indigo-100"
-                                      : "hover:bg-slate-50"
-                                  }`}
+                                  className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors ${isSelected ? "bg-indigo-50 hover:bg-indigo-100" : "hover:bg-slate-50"}`}
                                 >
                                   <div className="flex items-center gap-2">
                                     {member.avatar_url ? (
-                                      <img
-                                        src={member.avatar_url}
-                                        className="w-7 h-7 rounded-full object-cover"
-                                        alt={displayName}
-                                      />
+                                      <img src={member.avatar_url} className="w-7 h-7 rounded-full object-cover" alt={displayName} />
                                     ) : (
-                                      <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600">
-                                        {initial}
-                                      </div>
+                                      <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600">{initial}</div>
                                     )}
 
-                                    <span
-                                      className={`text-[13px] ${
-                                        isSelected
-                                          ? "font-bold text-indigo-700"
-                                          : "font-medium text-slate-700"
-                                      }`}
-                                    >
+                                    <span className={`text-[13px] ${isSelected ? "font-bold text-indigo-700" : "font-medium text-slate-700"}`}>
                                       {displayName}
                                     </span>
                                   </div>
@@ -1096,9 +871,7 @@ const safeProjectIdForHook = board?.project_id || board?.projectId || board?.pro
                               );
                             })
                           ) : (
-                            <div className="text-xs text-center text-slate-400 p-3 italic">
-                              Dự án chưa có thành viên nào.
-                            </div>
+                            <div className="text-xs text-center text-slate-400 p-3 italic">Dự án chưa có thành viên nào.</div>
                           )}
                         </div>
                       </>
@@ -1106,7 +879,6 @@ const safeProjectIdForHook = board?.project_id || board?.projectId || board?.pro
                   </div>
                 </div>
 
-                {/* Priority */}
                 <div className="flex flex-col gap-2">
                   <label className="text-[13px] font-bold text-slate-600 flex items-center gap-2">
                     <Flag size={15} className="text-slate-400" /> Mức Ưu tiên
@@ -1130,7 +902,6 @@ const safeProjectIdForHook = board?.project_id || board?.projectId || board?.pro
                   </div>
                 </div>
 
-                {/* Story Points */}
                 <div className="flex flex-col gap-2">
                   <label className="text-[13px] font-bold text-slate-600 flex items-center gap-2">
                     <Target size={15} className="text-slate-400" /> Story Points
@@ -1146,7 +917,6 @@ const safeProjectIdForHook = board?.project_id || board?.projectId || board?.pro
                 </div>
               </div>
 
-              {/* Time box */}
               <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col gap-5">
                 <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-emerald-500" /> Thời gian
@@ -1224,11 +994,19 @@ const safeProjectIdForHook = board?.project_id || board?.projectId || board?.pro
                   Xin dời hạn
                 </button>
               </div>
+
+              <div ref={commentPanelRef}>
+                <TaskCommentsPanel
+                  taskId={currentTaskId}
+                  boardId={String(activeBoardId || "")}
+                  projectId={String(safeProjectIdForHook || "")}
+                  autoFocus={initialFocus === "comments"}
+                />
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Extension request modal */}
         {isExtensionModalOpen && (
           <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
             <div
@@ -1255,9 +1033,7 @@ const safeProjectIdForHook = board?.project_id || board?.projectId || board?.pro
                   </div>
 
                   <div>
-                    <p className="text-sm font-bold text-amber-100">
-                      Đơn xin dời deadline
-                    </p>
+                    <p className="text-sm font-bold text-amber-100">Đơn xin dời deadline</p>
                     <h2 className="text-2xl font-black">Xin thêm thời gian</h2>
                   </div>
                 </div>
@@ -1277,25 +1053,17 @@ const safeProjectIdForHook = board?.project_id || board?.projectId || board?.pro
                 )}
 
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs font-black uppercase text-slate-400 mb-1">
-                    Task
-                  </p>
+                  <p className="text-xs font-black uppercase text-slate-400 mb-1">Task</p>
                   <p className="font-extrabold text-slate-800">{editTitle}</p>
                 </div>
 
                 <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4">
-                  <p className="text-xs font-black uppercase text-rose-500 mb-1">
-                    Deadline hiện tại
-                  </p>
-                  <p className="font-extrabold text-rose-700">
-                    {formatDateTime(editDueDate)}
-                  </p>
+                  <p className="text-xs font-black uppercase text-rose-500 mb-1">Deadline hiện tại</p>
+                  <p className="font-extrabold text-rose-700">{formatDateTime(editDueDate)}</p>
                 </div>
 
                 <div>
-                  <label className="text-sm font-bold text-slate-700 mb-2 block">
-                    Deadline mới muốn xin
-                  </label>
+                  <label className="text-sm font-bold text-slate-700 mb-2 block">Deadline mới muốn xin</label>
 
                   <DatePicker
                     selected={extensionDate}
@@ -1337,11 +1105,7 @@ const safeProjectIdForHook = board?.project_id || board?.projectId || board?.pro
                     disabled={isRequestingExtension}
                     className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-amber-500 text-white font-extrabold hover:bg-amber-600 transition shadow-lg shadow-amber-200 disabled:opacity-60"
                   >
-                    {isRequestingExtension ? (
-                      <Loader2 size={18} className="animate-spin" />
-                    ) : (
-                      <Send size={18} />
-                    )}
+                    {isRequestingExtension ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
                     Gửi yêu cầu
                   </button>
                 </div>
@@ -1350,7 +1114,6 @@ const safeProjectIdForHook = board?.project_id || board?.projectId || board?.pro
           </div>
         )}
 
-        {/* Footer */}
         <div className="bg-white/80 backdrop-blur-sm px-6 py-4 border-t border-slate-200/60 flex flex-col-reverse sm:flex-row justify-between items-center gap-4 z-10">
           <button
             type="button"

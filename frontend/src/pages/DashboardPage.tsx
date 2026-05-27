@@ -9,8 +9,7 @@ import MemberDashboard from '../features/dashboard/components/MemberDashboard';
 
 import { LayoutDashboard, RefreshCw, AlertTriangle, Loader2 } from 'lucide-react';
 
-// Giao diện chờ – hiển thị chung cho cả việc load quyền và load dữ liệu
-const LoadingScreen = ({ message = "Đang tải dữ liệu..." }: { message?: string }) => (
+const LoadingScreen = ({ message = 'Đang tải dữ liệu...' }: { message?: string }) => (
   <div className="flex flex-col items-center justify-center h-[400px] gap-4">
     <div className="relative">
       <div className="absolute inset-0 bg-indigo-200/30 blur-2xl rounded-full"></div>
@@ -22,58 +21,75 @@ const LoadingScreen = ({ message = "Đang tải dữ liệu..." }: { message?: s
   </div>
 );
 
+const normalizeRoleName = (value?: any) => {
+  if (!value) return '';
+  return String(value).trim().toUpperCase().replace(/\s+/g, '_').replace(/-/g, '_');
+};
+
+const getRoleId = (value: any) => {
+  if (!value) return '';
+  if (typeof value === 'object') return String(value._id || value.id || '');
+  return String(value);
+};
+
+const SYSTEM_ADMIN_ROLES = new Set(['SYSTEM_ADMIN', 'ADMIN']);
+const MANAGER_ROLES = new Set(['MANAGER', 'PM', 'LEAD', 'PROJECT_ADMIN', 'PROJECT_MANAGER', 'TEAM_LEAD']);
+
 const DashboardPage = () => {
   const { user } = useAuthStore();
   const { data, isLoading: isDashboardLoading, isError, error, refetch } = useDashboardMetrics();
   const { data: rolesList, isLoading: isRolesLoading } = useRolesDictionary();
 
-  // Xác định role sau khi từ điển đã tải
   const currentRoleName = useMemo(() => {
-    if (!user) return "MEMBER";
+    if (!user) return 'MEMBER';
 
-    // 1. Lấy tên role từ Object (đã populate từ Backend)
-    const roleFromObject = user.role_id && typeof user.role_id === 'object' 
-                           ? user.role_id.name 
-                           : null;
+    const roles = Array.isArray(rolesList) ? rolesList : [];
+    const roleFromObject = user.role_id && typeof user.role_id === 'object' ? user.role_id.name : null;
 
-    // 2. Dự phòng các trường hợp khác
-    const rawRole = roleFromObject || user.system_role || user.role_id || "MEMBER";
-    const roleString = String(rawRole).toUpperCase().trim();
+    const directRole =
+      roleFromObject ||
+      user.system_role ||
+      user.systemRole ||
+      user.role_name ||
+      user.roleName ||
+      user.role;
 
-    // 3. So khớp với từ điển rolesList
-    if (rolesList && Array.isArray(rolesList)) {
-      const matchedRole = rolesList.find(r => {
-        // Kiểm tra an toàn: so sánh với _id (dữ liệu DB) hoặc name
-        const matchById = r._id && r._id.toUpperCase() === roleString;
-        const matchByName = r.name && r.name.toUpperCase() === roleString;
-        return matchById || matchByName;
+    if (directRole) return normalizeRoleName(directRole);
+
+    const userRoleId = getRoleId(user.role_id);
+    if (userRoleId && roles.length > 0) {
+      const matchedRole = roles.find((role: any) => {
+        const roleId = getRoleId(role);
+        return roleId && String(roleId) === String(userRoleId);
       });
-      
-      if (matchedRole && matchedRole.name) {
-        return matchedRole.name.toUpperCase();
-      }
+
+      if (matchedRole?.name) return normalizeRoleName(matchedRole.name);
     }
-    
-    return roleString;
+
+    return 'MEMBER';
   }, [user, rolesList]);
 
-const renderDashboardByRole = () => {
-    // Vì dashboardApi đã bóc vỏ sạch sẽ, 'data' của useQuery chính là dữ liệu ta cần!
+  const renderDashboardByRole = () => {
     const dashboardData = data || null;
 
-    if (currentRoleName.includes('ADMIN') || currentRoleName === 'SYSTEM_ADMIN' || currentRoleName === 'PROJECT_ADMIN') {
-      return <AdminDashboard data={dashboardData} />;
+    if (SYSTEM_ADMIN_ROLES.has(currentRoleName)) {
+      return <AdminDashboard data={dashboardData as any} />;
     }
-    if (currentRoleName.includes('MANAGER') || currentRoleName.includes('PM') || currentRoleName.includes('LEAD')) {
-      return <ManagerDashboard data={dashboardData} />;
+
+    if (
+      MANAGER_ROLES.has(currentRoleName) ||
+      currentRoleName.includes('MANAGER') ||
+      currentRoleName.includes('LEAD')
+    ) {
+      return <ManagerDashboard data={dashboardData as any} />;
     }
-    return <MemberDashboard data={dashboardData} />;
+
+    return <MemberDashboard data={dashboardData as any} />;
   };
 
   return (
     <div className="flex-1 bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 h-full overflow-y-auto no-scrollbar p-4 md:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
-        {/* HEADER */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div className="space-y-1">
             <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight flex items-center gap-3 text-slate-800">
@@ -83,19 +99,17 @@ const renderDashboardByRole = () => {
               Bảng điều khiển
             </h1>
             <p className="text-sm font-medium text-slate-500 pl-12">
-              Chào mừng trở lại, <span className="text-indigo-600 font-bold">{user?.full_name || 'Khách'}</span>.
+              Chào mừng trở lại, <span className="text-indigo-600 font-bold">{user?.full_name || user?.fullName || 'Khách'}</span>.
             </p>
           </div>
         </div>
 
-        {/* 1. ĐANG TẢI QUYỀN HOẶC TẢI DỮ LIỆU DASHBOARD */}
         {(isRolesLoading || isDashboardLoading) && (
-          <LoadingScreen 
-            message={isRolesLoading ? "Đang xác thực quyền truy cập..." : "Đang tải dữ liệu bảng điều khiển..."} 
+          <LoadingScreen
+            message={isRolesLoading ? 'Đang xác thực quyền truy cập...' : 'Đang tải dữ liệu bảng điều khiển...'}
           />
         )}
 
-        {/* 2. CÓ QUYỀN NHƯNG LỖI DỮ LIỆU DASHBOARD */}
         {!isRolesLoading && !isDashboardLoading && isError && (
           <div className="bg-white/80 backdrop-blur-sm border border-dashed border-rose-200 rounded-2xl p-16 flex flex-col items-center justify-center text-center shadow-sm">
             <div className="p-5 bg-rose-50 rounded-full mb-5">
@@ -103,7 +117,7 @@ const renderDashboardByRole = () => {
             </div>
             <h3 className="text-xl font-bold text-slate-800 mb-2">Hệ thống đang bận</h3>
             <p className="text-slate-500 text-sm mb-6 max-w-md">
-              {(error as any)?.response?.data?.message || (error as Error)?.message || "Không thể lấy dữ liệu Bảng điều khiển."}
+              {(error as any)?.response?.data?.message || (error as Error)?.message || 'Không thể lấy dữ liệu Bảng điều khiển.'}
             </p>
             <button
               onClick={() => refetch()}
@@ -115,7 +129,6 @@ const renderDashboardByRole = () => {
           </div>
         )}
 
-        {/* 3. ĐÃ CÓ QUYỀN, ĐÃ TẢI XONG & KHÔNG LỖI -> Render dashboard thật */}
         {!isRolesLoading && !isDashboardLoading && !isError && (
           <div className="animate-in fade-in slide-in-from-bottom-6 duration-700">
             {renderDashboardByRole()}

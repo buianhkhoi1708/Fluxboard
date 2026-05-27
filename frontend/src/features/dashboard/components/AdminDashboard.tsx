@@ -1,5 +1,5 @@
-import React, { memo } from "react";
-import type { ReactNode } from "react";
+import React, { memo } from 'react';
+import type { ReactNode } from 'react';
 import {
   BarChart,
   Bar,
@@ -9,7 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
   Legend,
-} from "recharts";
+} from 'recharts';
 import {
   MoreVertical,
   Users,
@@ -19,22 +19,16 @@ import {
   CheckCircle2,
   Clock,
   AlertTriangle,
-} from "lucide-react";
-import type { AdminDashboardData } from "../api/dashboardApi";
-import { useGetOrgTree } from "../../organization/hooks/useOrgQueries";
+  PlayCircle,
+} from 'lucide-react';
+import type { AdminDashboardData } from '../api/dashboardApi';
+import { useGetOrgTree } from '../../organization/hooks/useOrgQueries';
 
-// ==========================================
-// SKELETON LOADING
-// ==========================================
 export const AdminDashboardSkeleton = () => (
   <div className="space-y-5 lg:space-y-6 animate-pulse pb-8">
-    {/* 3 StatCard skeletons */}
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 lg:gap-6">
       {[...Array(3)].map((_, i) => (
-        <div
-          key={i}
-          className="bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/80 p-5 lg:p-6 shadow-sm"
-        >
+        <div key={i} className="bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/80 p-5 lg:p-6 shadow-sm">
           <div className="flex justify-between items-start mb-3">
             <div className="h-4 w-24 bg-slate-200 rounded-md" />
             <div className="h-8 w-8 bg-slate-200 rounded-xl" />
@@ -45,16 +39,12 @@ export const AdminDashboardSkeleton = () => (
       ))}
     </div>
 
-    {/* Deadline health + BarChart skeletons */}
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-6">
       <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/80 p-6 shadow-sm min-h-[400px] space-y-4">
         <div className="h-5 w-48 bg-slate-200 rounded-md" />
         <div className="space-y-3">
-          {[...Array(3)].map((_, i) => (
-            <div
-              key={i}
-              className="flex items-center justify-between p-4 rounded-2xl bg-slate-100"
-            >
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="flex items-center justify-between p-4 rounded-2xl bg-slate-100">
               <div className="flex items-center gap-3.5">
                 <div className="w-10 h-10 rounded-xl bg-slate-200" />
                 <div className="space-y-2">
@@ -66,7 +56,6 @@ export const AdminDashboardSkeleton = () => (
             </div>
           ))}
         </div>
-        <div className="h-8 bg-slate-200 rounded-xl w-3/4 mx-auto mt-4" />
       </div>
 
       <div className="lg:col-span-2 bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/80 p-6 shadow-sm min-h-[400px] space-y-4">
@@ -77,9 +66,6 @@ export const AdminDashboardSkeleton = () => (
   </div>
 );
 
-// ==========================================
-// STAT CARD
-// ==========================================
 interface StatCardProps {
   title: string;
   value?: string | number;
@@ -93,11 +79,9 @@ const StatCard = ({
   value,
   icon,
   subtitle,
-  className = "",
+  className = '',
 }: StatCardProps) => (
-  <div
-    className={`bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/80 shadow-lg shadow-slate-200/20 p-5 lg:p-6 flex flex-col transition-all duration-300 hover:shadow-xl hover:shadow-indigo-100/20 hover:-translate-y-0.5 ${className}`}
-  >
+  <div className={`bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/80 shadow-lg shadow-slate-200/20 p-5 lg:p-6 flex flex-col transition-all duration-300 hover:shadow-xl hover:shadow-indigo-100/20 hover:-translate-y-0.5 ${className}`}>
     <div className="flex justify-between items-start mb-3">
       <div className="flex items-center gap-2.5">
         {icon && (
@@ -129,9 +113,39 @@ const StatCard = ({
   </div>
 );
 
-// ==========================================
-// MAIN COMPONENT
-// ==========================================
+interface DeadlineRowProps {
+  label: string;
+  subtitle: string;
+  value: number;
+  icon: ReactNode;
+  className: string;
+  iconClassName: string;
+  valueClassName: string;
+}
+
+const DeadlineRow = ({
+  label,
+  subtitle,
+  value,
+  icon,
+  className,
+  iconClassName,
+  valueClassName,
+}: DeadlineRowProps) => (
+  <div className={`flex items-center justify-between p-4 rounded-2xl border transition-colors ${className}`}>
+    <div className="flex items-center gap-3.5">
+      <div className={`w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm border ${iconClassName}`}>
+        {icon}
+      </div>
+      <div>
+        <div className="font-bold text-sm leading-tight">{label}</div>
+        <div className="text-[10px] font-black uppercase tracking-widest mt-1 opacity-80">{subtitle}</div>
+      </div>
+    </div>
+    <span className={`text-2xl font-black ${valueClassName}`}>{value}</span>
+  </div>
+);
+
 interface AdminDashboardProps {
   data: AdminDashboardData | null;
 }
@@ -139,50 +153,58 @@ interface AdminDashboardProps {
 const AdminDashboard = ({ data }: AdminDashboardProps) => {
   const { data: orgDepartments } = useGetOrgTree();
 
-  // QUAN TRỌNG: Chỉ check !data, không check isOrgLoading để tránh bị kẹt Skeleton
-  if (!data) {
-    return <AdminDashboardSkeleton />;
-  }
+  if (!data) return <AdminDashboardSkeleton />;
 
   const kpi = data.organization_kpi || {
     total_active_members: 0,
     total_departments: 0,
     total_teams: 0,
   };
-  
+
   const health = data.company_deadline_health || {
+    in_progress: 0,
+    completed: 0,
     on_track: 0,
     at_risk: 0,
     overdue: 0,
+    total_tasks: 0,
     total_extensions_this_week: 0,
   };
 
-  const chartData = (data.department_performance || []).map((dept) => {
-    // Ưu tiên lấy tên từ API trả về sẵn
-    let deptName = dept.department_name || "Chưa gán";
+  const chartData = (data.department_performance || [])
+    .filter((dept) => {
+      const deptId = String(dept.department_id || '').toLowerCase();
+      const deptName = String(dept.department_name || '').trim().toLowerCase();
+      return Boolean(deptId) && deptId !== 'unassigned' && deptName !== 'unassigned' && deptName !== 'chưa gán';
+    })
+    .map((dept) => {
+      let deptName = dept.department_name || 'Chưa gán';
 
-    // Nếu muốn chính xác hơn thì map với orgDepartments (nếu đã tải xong)
-    if (orgDepartments && dept.department_id && dept.department_id !== "unassigned") {
-      const foundDept = orgDepartments.find(
-        (d: any) => String(d.id) === String(dept.department_id)
-      );
-      if (foundDept) {
-        deptName = foundDept.name || foundDept.department_name || foundDept.list_name || deptName;
+      if (orgDepartments && dept.department_id && dept.department_id !== 'unassigned') {
+        const foundDept = orgDepartments.find((d: any) => String(d.id || d._id) === String(dept.department_id));
+        if (foundDept) {
+          deptName = foundDept.name || foundDept.department_name || foundDept.list_name || deptName;
+        }
       }
-    }
 
-    return {
-      name: deptName,
-      // API trả về on_time_rate là %, ta lấy đó làm giá trị hoàn thành
-      completed: dept.on_time_rate || 0,
-      // Phần còn lại để đạt 100%
-      remaining: Math.max(0, 100 - (dept.on_time_rate || 0)),
-    };
-  });
+      const inProgress = Number(dept.in_progress_tasks || 0);
+      const atRisk = Number(dept.at_risk_tasks || 0);
+      const completed = Number(dept.completed_tasks || dept.on_track_tasks || 0);
+      const overdue = Number(dept.overdue_tasks || 0);
+
+      return {
+        name: deptName,
+        in_progress: inProgress + atRisk,
+        completed,
+        overdue,
+        raw_in_progress: inProgress,
+        at_risk: atRisk,
+        total: Number(dept.total_tasks || inProgress + atRisk + completed + overdue),
+      };
+    });
 
   return (
     <div className="space-y-5 lg:space-y-6 pb-8 animate-in fade-in zoom-in-95 duration-500">
-      {/* ROW 1: KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 lg:gap-6">
         <StatCard
           title="Tổng Nhân Sự"
@@ -195,114 +217,87 @@ const AdminDashboard = ({ data }: AdminDashboardProps) => {
           title="Phòng Ban"
           value={kpi.total_departments.toLocaleString()}
           icon={<Building2 size={18} />}
-          subtitle="Đang vận hành"
+          subtitle="Tổng toàn hệ thống"
           className="border-l-4 border-l-emerald-500"
         />
         <StatCard
           title="Đội Nhóm (Teams)"
           value={kpi.total_teams.toLocaleString()}
           icon={<Network size={18} />}
-          subtitle="Các dự án nhỏ"
+          subtitle="Tổng toàn hệ thống"
           className="border-l-4 border-l-amber-500"
         />
       </div>
 
-      {/* ROW 2: Deadline Health & Biểu đồ */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-6">
-        {/* Deadline Health */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/80 shadow-lg shadow-slate-200/20 p-6 flex flex-col min-h-[400px] transition-all hover:shadow-xl hover:shadow-indigo-100/20">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/80 shadow-lg shadow-slate-200/20 p-6 flex flex-col min-h-[430px] transition-all hover:shadow-xl hover:shadow-indigo-100/20">
           <div className="flex justify-between items-start mb-5 shrink-0">
             <div>
-              <h3 className="font-black text-lg text-slate-800 tracking-tight">
-                Cảnh Báo Deadline
-              </h3>
-              <p className="text-xs text-slate-500 font-medium mt-1">
-                Sức khỏe toàn công ty
-              </p>
+              <h3 className="font-black text-lg text-slate-800 tracking-tight">Cảnh Báo Deadline</h3>
+              <p className="text-xs text-slate-500 font-medium mt-1">Toàn bộ task trong công ty</p>
             </div>
             <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-500 shadow-sm border border-indigo-100">
               <ShieldAlert size={20} strokeWidth={2} />
             </div>
           </div>
 
-          <div className="flex-1 flex flex-col justify-center gap-3.5 mt-1">
-            <div className="flex items-center justify-between p-4 rounded-2xl bg-emerald-50/70 border border-emerald-100 transition-colors hover:bg-emerald-50">
-              <div className="flex items-center gap-3.5">
-                <div className="w-10 h-10 rounded-xl bg-white text-emerald-500 flex items-center justify-center shadow-sm border border-emerald-100/50">
-                  <CheckCircle2 size={20} strokeWidth={2.5} />
-                </div>
-                <div>
-                  <div className="font-bold text-sm text-emerald-900 leading-tight">
-                    Đúng Tiến Độ
-                  </div>
-                  <div className="text-[10px] font-black text-emerald-500/80 uppercase tracking-widest mt-1">
-                    On Track
-                  </div>
-                </div>
-              </div>
-              <span className="text-2xl font-black text-emerald-600">
-                {health.on_track}
-              </span>
-            </div>
+          <div className="flex-1 flex flex-col justify-center gap-3 mt-1">
+            <DeadlineRow
+              label="Đang Thực Hiện"
+              subtitle="In Progress"
+              value={health.in_progress || 0}
+              icon={<PlayCircle size={20} strokeWidth={2.5} />}
+              className="bg-slate-50/80 border-slate-200 hover:bg-slate-50 text-slate-800"
+              iconClassName="text-slate-500 border-slate-200"
+              valueClassName="text-slate-700"
+            />
 
-            <div className="flex items-center justify-between p-4 rounded-2xl bg-amber-50/70 border border-amber-100 transition-colors hover:bg-amber-50">
-              <div className="flex items-center gap-3.5">
-                <div className="w-10 h-10 rounded-xl bg-white text-amber-500 flex items-center justify-center shadow-sm border border-amber-100/50">
-                  <AlertTriangle size={20} strokeWidth={2.5} />
-                </div>
-                <div>
-                  <div className="font-bold text-sm text-amber-900 leading-tight">
-                    Nguy Cơ Trễ
-                  </div>
-                  <div className="text-[10px] font-black text-amber-500/80 uppercase tracking-widest mt-1">
-                    At Risk
-                  </div>
-                </div>
-              </div>
-              <span className="text-2xl font-black text-amber-600">
-                {health.at_risk}
-              </span>
-            </div>
+            <DeadlineRow
+              label="Đúng Tiến Độ"
+              subtitle="Completed"
+              value={health.completed ?? health.on_track ?? 0}
+              icon={<CheckCircle2 size={20} strokeWidth={2.5} />}
+              className="bg-emerald-50/70 border-emerald-100 hover:bg-emerald-50 text-emerald-900"
+              iconClassName="text-emerald-500 border-emerald-100/50"
+              valueClassName="text-emerald-600"
+            />
 
-            <div className="flex items-center justify-between p-4 rounded-2xl bg-rose-50/70 border border-rose-100 transition-colors hover:bg-rose-50">
-              <div className="flex items-center gap-3.5">
-                <div className="w-10 h-10 rounded-xl bg-white text-rose-500 flex items-center justify-center shadow-sm border border-rose-100/50">
-                  <Clock size={20} strokeWidth={2.5} />
-                </div>
-                <div>
-                  <div className="font-bold text-sm text-rose-900 leading-tight">
-                    Đã Cháy Hạn
-                  </div>
-                  <div className="text-[10px] font-black text-rose-500/80 uppercase tracking-widest mt-1">
-                    Overdue
-                  </div>
-                </div>
-              </div>
-              <span className="text-2xl font-black text-rose-600">
-                {health.overdue}
-              </span>
-            </div>
+            <DeadlineRow
+              label="Nguy Cơ Trễ"
+              subtitle="Under 24h"
+              value={health.at_risk || 0}
+              icon={<AlertTriangle size={20} strokeWidth={2.5} />}
+              className="bg-amber-50/70 border-amber-100 hover:bg-amber-50 text-amber-900"
+              iconClassName="text-amber-500 border-amber-100/50"
+              valueClassName="text-amber-600"
+            />
 
-            <div className="mt-2 text-center">
+            <DeadlineRow
+              label="Đã Cháy Hạn"
+              subtitle="Overdue"
+              value={health.overdue || 0}
+              icon={<Clock size={20} strokeWidth={2.5} />}
+              className="bg-rose-50/70 border-rose-100 hover:bg-rose-50 text-rose-900"
+              iconClassName="text-rose-400 border-rose-100/50"
+              valueClassName="text-rose-500"
+            />
+
+            <div className="mt-1 text-center">
               <span className="inline-block text-[11px] font-bold text-slate-500 bg-white px-3.5 py-2 rounded-xl border border-slate-200/80 shadow-sm">
-                Tổng lượt xin gia hạn:{" "}
-                <strong className="text-indigo-600 text-[13px] ml-1">
-                  {health.total_extensions_this_week || 0}
-                </strong>
+                Tổng task: <strong className="text-indigo-600 text-[13px] ml-1">{health.total_tasks || 0}</strong>
+                <span className="mx-2 text-slate-300">•</span>
+                Xin gia hạn: <strong className="text-indigo-600 text-[13px] ml-1">{health.total_extensions_this_week || 0}</strong>
               </span>
             </div>
           </div>
         </div>
 
-        {/* Biểu đồ Story Points */}
-        <div className="lg:col-span-2 bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/80 shadow-lg shadow-slate-200/20 p-6 flex flex-col min-h-[400px] transition-all hover:shadow-xl hover:shadow-indigo-100/20">
+        <div className="lg:col-span-2 bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/80 shadow-lg shadow-slate-200/20 p-6 flex flex-col min-h-[430px] transition-all hover:shadow-xl hover:shadow-indigo-100/20">
           <div className="flex justify-between items-start mb-6 shrink-0">
             <div>
-              <h3 className="font-black text-lg text-slate-800 tracking-tight">
-                Tỉ lệ đúng hạn theo phòng ban
-              </h3>
+              <h3 className="font-black text-lg text-slate-800 tracking-tight">Trạng thái công việc theo phòng ban</h3>
               <p className="text-xs text-slate-500 font-medium mt-1">
-                So sánh phần trăm nhiệm vụ hoàn thành đúng hạn (Màu xanh)
+                Xám: đang thực hiện · Xanh: đã hoàn thành · Hồng đỏ: trễ hạn
               </p>
             </div>
           </div>
@@ -312,67 +307,81 @@ const AdminDashboard = ({ data }: AdminDashboardProps) => {
               Chưa có dữ liệu phòng ban
             </div>
           ) : (
-            <div className="flex-1 w-full min-h-[280px] -ml-4">
+            <div className="flex-1 w-full min-h-[290px] -ml-4">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={chartData}
                   margin={{ top: 10, right: 10, left: -10, bottom: 0 }}
+                  barCategoryGap="30%"
                 >
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    vertical={false}
-                    stroke="#e2e8f0"
-                  />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                   <XAxis
                     dataKey="name"
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: "#475569", fontSize: 11, fontWeight: 700 }}
+                    tick={{ fill: '#475569', fontSize: 11, fontWeight: 700 }}
                     dy={10}
+                    interval={0}
+                    tickFormatter={(value) => String(value).length > 16 ? `${String(value).slice(0, 16)}...` : String(value)}
                   />
                   <YAxis
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: "#475569", fontSize: 11, fontWeight: 700 }}
-                    domain={[0, 100]}
+                    tick={{ fill: '#475569', fontSize: 11, fontWeight: 700 }}
+                    allowDecimals={false}
                   />
                   <Tooltip
-                    cursor={{ fill: "#f8fafc" }}
-                    contentStyle={{
-                      borderRadius: "12px",
-                      border: "none",
-                      boxShadow: "0 8px 20px rgba(0,0,0,0.08)",
-                      fontWeight: 600,
-                      fontSize: "12px",
-                      padding: "8px 12px",
+                    cursor={{ fill: '#f8fafc' }}
+                    formatter={(value: number | string, name: string, props: any) => {
+                      if (name === 'Đang thực hiện') {
+                        return [
+                          `${value} task`,
+                          `Đang thực hiện (${props?.payload?.raw_in_progress || 0}) + nguy cơ trễ (${props?.payload?.at_risk || 0})`,
+                        ];
+                      }
+                      return [`${value} task`, name];
                     }}
-                    formatter={(value: number) => [`${value}%`]}
+                    contentStyle={{
+                      borderRadius: '12px',
+                      border: 'none',
+                      boxShadow: '0 8px 20px rgba(0,0,0,0.08)',
+                      fontWeight: 600,
+                      fontSize: '12px',
+                      padding: '8px 12px',
+                    }}
                   />
                   <Legend
+                    verticalAlign="bottom"
+                    height={32}
                     iconType="circle"
-                    wrapperStyle={{
-                      fontSize: "12px",
-                      fontWeight: 600,
-                      paddingTop: "16px",
-                    }}
+                    wrapperStyle={{ fontSize: 12, fontWeight: 700 }}
+                  />
+                  <Bar
+                    dataKey="in_progress"
+                    name="Đang thực hiện"
+                    stackId="status"
+                    fill="#cbd5e1"
+                    radius={[0, 0, 4, 4]}
+                    barSize={32}
+                    maxBarSize={32}
                   />
                   <Bar
                     dataKey="completed"
-                    name="Đúng hạn (%)"
-                    stackId="a"
-                    fill="#6366f1"
-                    barSize={36}
-                    radius={[0, 0, 6, 6]}
-                    className="hover:opacity-90 transition-opacity"
+                    name="Đúng hạn"
+                    stackId="status"
+                    fill="#10b981"
+                    radius={[0, 0, 0, 0]}
+                    barSize={32}
+                    maxBarSize={32}
                   />
                   <Bar
-                    dataKey="remaining"
-                    name="Trễ hạn (%)"
-                    stackId="a"
-                    fill="#cbd5e1"
-                    barSize={36}
-                    radius={[6, 6, 0, 0]}
-                    className="hover:opacity-90 transition-opacity"
+                    dataKey="overdue"
+                    name="Trễ hạn"
+                    stackId="status"
+                    fill="#fda4af"
+                    radius={[4, 4, 0, 0]}
+                    barSize={32}
+                    maxBarSize={32}
                   />
                 </BarChart>
               </ResponsiveContainer>

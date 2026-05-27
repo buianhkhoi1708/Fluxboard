@@ -168,14 +168,23 @@ exports.executePendingNotification = async (notificationId) => {
             return notif;
         }
 
-        const subject = `[Fluxboard] ${notif.title}`;
+        const subject = `[FluxBoard] ${notif.title}`;
 
         const html = notif.email_html || `
-            <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
-                <h2>Hi ${notif.recipient_id.full_name || notif.recipient_id.email},</h2>
-                <p style="font-size: 16px;">${notif.message}</p>
-                <p style="color: #666; font-size: 14px; margin-top: 20px;">Best regards,<br>Fluxboard System</p>
-            </div>`;
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
+        <div style="background-color: #4F46E5; padding: 24px; text-align: center;">
+            <h1 style="color: white; margin: 0; font-size: 24px;">Thông báo từ FluxBoard</h1>
+        </div>
+
+        <div style="padding: 30px; background-color: #ffffff; color: #333;">
+            <h2 style="color: #111827; margin-top: 0;">Xin chào ${notif.recipient_id.full_name || notif.recipient_id.email},</h2>
+            <p style="font-size: 16px; line-height: 1.6; color: #4b5563;">${notif.message}</p>
+        </div>
+
+        <div style="background-color: #f9fafb; padding: 18px; text-align: center; font-size: 13px; color: #6b7280; border-top: 1px solid #e5e7eb;">
+            Đây là email tự động từ hệ thống FluxBoard. Vui lòng không trả lời email này.
+        </div>
+    </div>`;
 
         await emailService.sendEmail(recipientEmail, subject, html);
 
