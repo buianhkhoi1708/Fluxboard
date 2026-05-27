@@ -7,7 +7,8 @@ import axios, {
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL as string;
 
 const axiosClient = axios.create({
-  baseURL: API_BASE_URL,
+  // BÍ KÍP: Ghép thêm /api/v1 vào đây để nó gọi đúng địa chỉ Backend
+  baseURL: API_BASE_URL ? `${API_BASE_URL}/api/v1` : 'http://localhost:8080/api/v1',
   timeout: 60000,
   headers: {
     'Content-Type': 'application/json',

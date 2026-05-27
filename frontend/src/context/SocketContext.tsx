@@ -32,24 +32,20 @@ export const SocketProvider = ({
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
+    // 🚀 BÍ KÍP: Tự động bắt link Render từ Vercel, hoặc dùng localhost khi code ở nhà
+    const socketUrl = (import.meta.env.VITE_API_BASE_URL as string) || 'http://localhost:8080';
 
-    const socketInstance = io('http://localhost:8080', {
-
+    const socketInstance = io(socketUrl, {
       withCredentials: true,
-
       transports: ['websocket', 'polling']
-
     });
 
     // ====================================
     // CONNECT
     // ====================================
     socketInstance.on('connect', () => {
-
-      console.log('✅ [Socket]: Connected');
-
+      console.log(`✅ [Socket]: Connected to ${socketUrl}`);
       console.log('Socket ID:', socketInstance.id);
-
       setIsConnected(true);
     });
 
@@ -57,9 +53,7 @@ export const SocketProvider = ({
     // DISCONNECT
     // ====================================
     socketInstance.on('disconnect', () => {
-
       console.log('❌ [Socket]: Disconnected');
-
       setIsConnected(false);
     });
 
@@ -67,9 +61,7 @@ export const SocketProvider = ({
     // ERROR
     // ====================================
     socketInstance.on('connect_error', (err) => {
-
       console.error('🚨 Socket Error:', err.message);
-
     });
 
     setSocket(socketInstance);
@@ -84,11 +76,8 @@ export const SocketProvider = ({
   // JOIN BOARD ROOM
   // ====================================
   const joinBoard = (boardId: string) => {
-
     if (!socket) return;
-
     socket.emit('joinBoard', boardId);
-
     console.log(`📌 Joined board: ${boardId}`);
   };
 
@@ -96,11 +85,8 @@ export const SocketProvider = ({
   // LEAVE BOARD ROOM
   // ====================================
   const leaveBoard = (boardId: string) => {
-
     if (!socket) return;
-
     socket.emit('leaveBoard', boardId);
-
     console.log(`🚪 Left board: ${boardId}`);
   };
 
@@ -117,4 +103,5 @@ export const SocketProvider = ({
     </SocketContext.Provider>
   );
 };
+
 export const useSocket = () => useContext(SocketContext);
