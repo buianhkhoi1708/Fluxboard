@@ -142,36 +142,36 @@ exports.requestExtension = async (taskId, userId, newDueDate, reason) => {
     const task = await findActiveTask(taskId);
 
     if (!task) {
-        throw new AppError('Task not found', 404);
+        throw new AppError('Không tìm thấy công việc.', 404);
     }
 
     const deadline = await findActiveDeadline(taskId);
 
     if (!deadline) {
-        throw new AppError('Deadline not found', 404);
+        throw new AppError('Không tìm thấy deadline của công việc.', 404);
     }
 
     if (isInvalidDate(newDueDate)) {
-        throw new AppError('New due date is invalid or missing.', 400);
+        throw new AppError('Deadline mới không hợp lệ hoặc chưa được cung cấp.', 400);
     }
 
     const parsedNewDueDate = toDate(newDueDate);
     const currentDueDate = toDate(deadline.due_date);
 
     if (parsedNewDueDate <= currentDueDate) {
-        throw new AppError('The proposed deadline must be after the original deadline.', 400);
+        throw new AppError('Bạn đã gửi yêu cầu dời hạn trước đó. Vui lòng chờ quản lý xử lý.', 400);
     }
 
     if (!reason || !String(reason).trim()) {
-        throw new AppError('Extension reason is required.', 400);
+        throw new AppError('Vui lòng nhập lý do xin dời hạn.', 400);
     }
 
     if (deadline.extension_status === 'PENDING') {
-        throw new AppError('You have already submitted a request. Please wait for approval!', 400);
+        throw new AppError('Không tìm thấy deadline mới đang chờ duyệt.', 400);
     }
 
     if (deadline.extension_count >= deadline.extension_limit) {
-        throw new AppError('Extension limit reached!', 400);
+        throw new AppError('Không có yêu cầu dời hạn nào đang chờ xử lý.', 400);
     }
 
     const originalDueDate = deadline.due_date;
@@ -331,31 +331,46 @@ exports.dispatchTaskDeadlineNotification = async (user, task, deadlineRecord) =>
     const formattedDate = new Date(deadlineRecord.due_date).toLocaleString('vi-VN');
 
     if (emailEnabled && user.email) {
-        const subject = `[Urgent] Task Deadline Approaching: ${task.title}`;
+        const subject = `[FluxBoard] Công việc sắp đến hạn: ${task.title}`;
 
         const emailHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
             <div style="background-color: #ef4444; padding: 20px; text-align: center;">
-                <h1 style="color: white; margin: 0; font-size: 24px;">Deadline Alert</h1>
+                <h1 style="color: white; margin: 0; font-size: 24px;">Cảnh báo deadline</h1>
             </div>
+
             <div style="padding: 30px; background-color: #ffffff;">
-                <h2 style="color: #333333;">Hi ${user.full_name || user.email},</h2>
-                <p style="color: #555555;">Your task is approaching its deadline.</p>
-                <div style="background-color: #FEF2F2; padding: 15px; border-left: 4px solid #e11d48; margin: 20px 0;">
-                    <p style="margin: 0; color: #991B1B;"><strong>Task:</strong> ${task.title}</p>
-                    <p style="margin: 10px 0 0 0; color: #B91C1C;"><strong>Due Date:</strong> ${formattedDate}</p>
+                <h2 style="color: #333333;">Xin chào ${user.full_name || user.email},</h2>
+
+                <p style="color: #555555; line-height: 1.6;">
+                    Công việc của bạn đang sắp đến hạn. Vui lòng kiểm tra và xử lý kịp thời.
+                </p>
+
+                <div style="background-color: #FEF2F2; padding: 15px; border-left: 4px solid #e11d48; margin: 20px 0; border-radius: 8px;">
+                    <p style="margin: 0; color: #991B1B;">
+                        <strong>Công việc:</strong> ${task.title}
+                    </p>
+
+                    <p style="margin: 10px 0 0 0; color: #B91C1C;">
+                        <strong>Hạn chót:</strong> ${formattedDate}
+                    </p>
                 </div>
+
                 <div style="text-align: center; margin-top: 30px;">
                     <a href="${frontendUrl}/board/${task.board_id}?taskId=${task._id}" style="background-color: #e11d48; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold;">
-                        View Task
+                        Xem công việc
                     </a>
                 </div>
+            </div>
+
+            <div style="background-color: #f9fafb; padding: 18px; text-align: center; font-size: 13px; color: #6b7280; border-top: 1px solid #e5e7eb;">
+                Đây là email tự động từ hệ thống FluxBoard. Vui lòng không trả lời email này.
             </div>
         </div>`;
 
         emailService
             .sendEmail(user.email, subject, emailHtml)
-            .catch(err => console.error('Email sending failed:', err));
+            .catch(err => console.error('Gửi email nhắc deadline thất bại:', err));
     }
 
     if (pushEnabled) {
@@ -366,7 +381,7 @@ exports.dispatchTaskDeadlineNotification = async (user, task, deadlineRecord) =>
                 task_id: task._id,
                 board_id: task.board_id,
                 title: task.title,
-                message: `Deadline is approaching for: ${task.title}`,
+                message: `Deadline của công việc "${task.title}" đang sắp đến hạn.`,
                 action_url: `/board/${task.board_id}?taskId=${task._id}`
             });
         }
