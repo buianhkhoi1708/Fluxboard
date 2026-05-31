@@ -49,7 +49,7 @@ Tạo file .env trong thư mục backend:
 SERVER_HOST=localhost
 SERVER_PORT=8080
 
-MONGODB_URI=mongodb+srv://fluxboard_admin:Fluxboard12345@cluster0.sknswiy.mongodb.net/fluxboard
+MONGODB_URI=your_db
 
 GEMINI_API_KEY=your_key
 
