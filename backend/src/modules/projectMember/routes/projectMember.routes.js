@@ -1,24 +1,29 @@
-const express = require('express');
-const router = express.Router({ mergeParams: true }); 
-const projectMemberController = require('../controllers/projectMember.controller');
-const requireAuth = require('../../auth/middlewares/requireAuth');
-const requirePermission = require('../../../common/middlewares/requirePermission');
+const express = require("express");
+const router = express.Router({ mergeParams: true });
+const projectMemberController = require("../controllers/projectMember.controller");
+const requireAuth = require("../../auth/middlewares/requireAuth");
+const requirePermission = require("../../../common/middlewares/requirePermission");
 
-// Chốt chặn xác thực
 router.use(requireAuth);
 
-// --- QUẢN LÝ THÀNH VIÊN DỰ ÁN ---
-// --- QUẢN LÝ THÀNH VIÊN DỰ ÁN ---
+router.get("/:id/members", projectMemberController.getMembers);
 
-// Đổi :projectId thành :id
-router.get('/:id/members', projectMemberController.getMembers);
+router.post(
+  "/:id/members",
+  requirePermission("PROJECT", "MANAGE_MEMBERS", "PROJECT"),
+  projectMemberController.addMember,
+);
 
-// Đổi :projectId thành :id
-router.post('/:id/members', requirePermission('PROJECT', 'MANAGE_MEMBERS', 'PROJECT'), projectMemberController.addMember);
+router.put(
+  "/:id/members/:userId",
+  requirePermission("PROJECT", "MANAGE_MEMBERS", "PROJECT"),
+  projectMemberController.updateMember,
+);
 
-// Đổi :projectId thành :id
-router.put('/:id/members/:userId', requirePermission('PROJECT', 'MANAGE_MEMBERS', 'PROJECT'), projectMemberController.updateMember);
-
-router.delete('/:id/members/:userId', requirePermission('PROJECT', 'MANAGE_MEMBERS', 'PROJECT'), projectMemberController.removeMember);
+router.delete(
+  "/:id/members/:userId",
+  requirePermission("PROJECT", "MANAGE_MEMBERS", "PROJECT"),
+  projectMemberController.removeMember,
+);
 
 module.exports = router;

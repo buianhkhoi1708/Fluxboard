@@ -1,10 +1,6 @@
 const aiService = require("../services/ai.service");
-const Task = require("../../task/models/task.model"); 
+const Task = require("../../task/models/task.model");
 const Column = require("../../column/models/column.model");
-
-// =========================================================================
-// 1. CÁC HÀM CŨ SẾP ĐÃ VIẾT (Giữ nguyên logic)
-// =========================================================================
 
 exports.generateBoard = async (req, res, next) => {
   try {
@@ -16,7 +12,10 @@ exports.generateBoard = async (req, res, next) => {
       });
     }
 
-    const generatedData = await aiService.generateBoardContext(req.user.id, prompt);
+    const generatedData = await aiService.generateBoardContext(
+      req.user.id,
+      prompt,
+    );
 
     const columns = await Column.find({ board_id: board_id });
     if (!columns || columns.length === 0) {
@@ -27,7 +26,9 @@ exports.generateBoard = async (req, res, next) => {
     }
 
     const tasksToSave = generatedData.tasks.map((task) => {
-      const foundCol = columns.find((c) => c.name.toLowerCase() === task.column_name.toLowerCase());
+      const foundCol = columns.find(
+        (c) => c.name.toLowerCase() === task.column_name.toLowerCase(),
+      );
 
       return {
         title: task.title,
@@ -70,7 +71,9 @@ exports.generateInsights = async (req, res, next) => {
   try {
     const projectId = req.body.projectId || req.params.projectId;
     if (!projectId) {
-      return res.status(400).json({ success: false, error: { message: "Project ID is required" } });
+      return res
+        .status(400)
+        .json({ success: false, error: { message: "Project ID is required" } });
     }
 
     const insights = await aiService.generateInsights(req.user.id, projectId);
@@ -84,10 +87,16 @@ exports.generateSubtasks = async (req, res, next) => {
   try {
     const { title, description } = req.body;
     if (!title) {
-      return res.status(400).json({ success: false, error: { message: "Task title is required" } });
+      return res
+        .status(400)
+        .json({ success: false, error: { message: "Task title is required" } });
     }
 
-    const subtasks = await aiService.generateSubtasks(req.user.id, title, description);
+    const subtasks = await aiService.generateSubtasks(
+      req.user.id,
+      title,
+      description,
+    );
     res.status(200).json({ success: true, data: subtasks });
   } catch (error) {
     next(error);
@@ -104,14 +113,16 @@ exports.summarizeTaskActivity = async (req, res, next) => {
   }
 };
 
-// =========================================================================
-// 2. CÁC HÀM MỚI BỔ SUNG (Tích hợp Smart Tasks & Deviation)
-// =========================================================================
-
 exports.generateSmartTasks = async (req, res, next) => {
   try {
-    // Trích xuất các tham số từ Frontend
-    const { board_id, project_id, prompt, member_ids, generation_mode, start_date } = req.body;
+    const {
+      board_id,
+      project_id,
+      prompt,
+      member_ids,
+      generation_mode,
+      start_date,
+    } = req.body;
 
     if (!board_id || !project_id || !prompt) {
       return res.status(400).json({
@@ -120,20 +131,15 @@ exports.generateSmartTasks = async (req, res, next) => {
       });
     }
 
-    // Gọi service xử lý toàn bộ logic phức tạp
     const generatedData = await aiService.generateSmartTasks(
       req.user.id,
       board_id,
       project_id,
       prompt,
       member_ids || [],
-      generation_mode || 'SIMPLE',
-      start_date
+      generation_mode || "SIMPLE",
+      start_date,
     );
-
-    // Lưu ý: Việc cập nhật task_order_ids vào Column nếu Sếp cần hiển thị kéo thả mượt mà trên Kanban, 
-    // Sếp có thể bổ sung logic chọc vào DB ở đây tương tự như hàm `generateBoard` ở trên,
-    // hoặc có thể load lại Board trên UI để Backend tự xử lý sắp xếp.
 
     res.status(200).json({ success: true, data: generatedData });
   } catch (error) {
@@ -143,9 +149,8 @@ exports.generateSmartTasks = async (req, res, next) => {
 
 exports.getDeviationInsights = async (req, res, next) => {
   try {
-    // Lấy projectId từ params hoặc query
     const projectId = req.params.projectId || req.query.projectId;
-    
+
     if (!projectId) {
       return res.status(400).json({
         success: false,
@@ -153,7 +158,6 @@ exports.getDeviationInsights = async (req, res, next) => {
       });
     }
 
-    // Gọi service so sánh AI với thực tế
     const deviationData = await aiService.getDeviationInsights(projectId);
 
     res.status(200).json({ success: true, data: deviationData });

@@ -1,44 +1,39 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
 
-const userController = require('../controllers/user.controller');
-const requireAuth = require('../../auth/middlewares/requireAuth');
+const userController = require("../controllers/user.controller");
+const requireAuth = require("../../auth/middlewares/requireAuth");
 
-const requirePermissionModule = require('../../rbac/middlewares/requirePermission.middleware');
+const requirePermissionModule = require("../../rbac/middlewares/requirePermission.middleware");
 const requirePermission =
-    typeof requirePermissionModule === 'function'
-        ? requirePermissionModule
-        : requirePermissionModule.requirePermission;
+  typeof requirePermissionModule === "function"
+    ? requirePermissionModule
+    : requirePermissionModule.requirePermission;
 
-// Tất cả tuyến user bắt buộc đăng nhập.
 router.use(requireAuth);
 
-// Tuyến tĩnh phải đặt trước '/:id'.
-router.get('/', userController.getAllUsers);
+router.get("/", userController.getAllUsers);
 
-router.get(
-    '/unassigned',
-    userController.getUnassignedUsers,
-);
+router.get("/unassigned", userController.getUnassignedUsers);
 
-router.get('/:id', userController.getUserById);
+router.get("/:id", userController.getUserById);
 
 router.post(
-    '/',
-    requirePermission('USER', 'CREATE', 'SYSTEM'),
-    userController.createUser,
+  "/",
+  requirePermission("USER", "CREATE", "SYSTEM"),
+  userController.createUser,
 );
 
 router.put(
-    '/:id/assign-team',
-    requirePermission('USER', 'UPDATE', 'SYSTEM'),
-    userController.assignToTeam,
+  "/:id/assign-team",
+  requirePermission("USER", "UPDATE", "SYSTEM"),
+  userController.assignToTeam,
 );
 
 router.put(
-    '/:id/revoke',
-    requirePermission('USER', 'DELETE', 'SYSTEM'),
-    userController.revokeAccess,
+  "/:id/revoke",
+  requirePermission("USER", "DELETE", "SYSTEM"),
+  userController.revokeAccess,
 );
 
 module.exports = router;

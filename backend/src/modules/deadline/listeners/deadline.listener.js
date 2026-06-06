@@ -1,49 +1,48 @@
-const eventBus = require('../../../common/utils/eventBus');
-const TaskDeadline = require('../models/taskDeadline.model');
+const eventBus = require("../../../common/utils/eventBus");
+const TaskDeadline = require("../models/taskDeadline.model");
 
-eventBus.on('task_created', async (payload) => {
-    try {
-        if (payload.due_date) {
-            await TaskDeadline.create({
-                task_id: payload.task_id,
-                start_date: payload.start_date || new Date(),
-                due_date: payload.due_date,
-                extension_limit: payload.extension_limit || 2
-            });
-            // 🗑️ Đã tắt log: console.log(`⏱️ [Deadline System] Task tracking...`);
-        }
-    } catch (error) {
-        console.error(`❌ [Deadline System] Error creating a tracking schedule:`, error);
+eventBus.on("task_created", async (payload) => {
+  try {
+    if (payload.due_date) {
+      await TaskDeadline.create({
+        task_id: payload.task_id,
+        start_date: payload.start_date || new Date(),
+        due_date: payload.due_date,
+        extension_limit: payload.extension_limit || 2,
+      });
     }
+  } catch (error) {
+    console.error(
+      `❌ [Deadline System] Error creating a tracking schedule:`,
+      error,
+    );
+  }
 });
 
-// 💡 TÍNH TOÁN ĐỘ TRỄ KHI TASK HOÀN THÀNH
-eventBus.on('task_completed', async (payload) => {
-    try {
-        const deadline = await TaskDeadline.findOne({ task_id: payload.task_id });
-        if (!deadline) return;
+eventBus.on("task_completed", async (payload) => {
+  try {
+    const deadline = await TaskDeadline.findOne({ task_id: payload.task_id });
+    if (!deadline) return;
 
-        const now = new Date();
-        deadline.actual_completed_at = now;
+    const now = new Date();
+    deadline.actual_completed_at = now;
 
-        // KIỂM TRA TRỄ HẠN
-        if (now.getTime() > deadline.due_date.getTime()) {
-            deadline.completion_status = 'LATE';
-            // Tính số phút trễ
-            const diffMs = now.getTime() - deadline.due_date.getTime();
-            deadline.late_minutes = Math.floor(diffMs / 60000); 
+    if (now.getTime() > deadline.due_date.getTime()) {
+      deadline.completion_status = "LATE";
 
-            // 🗑️ Đã tắt log: console.log(`⚠️ [Deadline System] Task completed LATE...`);
-            
-            // Bắn sự kiện trễ cho module Activity/Notification (Nếu cần)
-            eventBus.emit('task_completed_late', { task_id: payload.task_id, late_minutes: deadline.late_minutes });
-        } else {
-            deadline.completion_status = 'ON_TIME';
-            // 🗑️ Đã tắt log: console.log(`✅ [Deadline System] Task completed ON TIME`);
-        }
+      const diffMs = now.getTime() - deadline.due_date.getTime();
+      deadline.late_minutes = Math.floor(diffMs / 60000);
 
-        await deadline.save();
-    } catch (error) {
-        console.error(`❌ [Deadline System] Update completion error:`, error);
+      eventBus.emit("task_completed_late", {
+        task_id: payload.task_id,
+        late_minutes: deadline.late_minutes,
+      });
+    } else {
+      deadline.completion_status = "ON_TIME";
     }
+
+    await deadline.save();
+  } catch (error) {
+    console.error(`❌ [Deadline System] Update completion error:`, error);
+  }
 });

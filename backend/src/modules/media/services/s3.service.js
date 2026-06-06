@@ -1,30 +1,25 @@
 const {
-    S3Client,
-    PutObjectCommand,
-    DeleteObjectCommand
-} = require('@aws-sdk/client-s3');
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectCommand,
+} = require("@aws-sdk/client-s3");
 
-const {
-    getSignedUrl
-} = require('@aws-sdk/s3-request-presigner');
+const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 
-const { v4: uuidv4 } = require('uuid');
+const { v4: uuidv4 } = require("uuid");
 
-const path = require('path');
+const path = require("path");
 
-const crypto = require('crypto');
+const crypto = require("crypto");
 
 const s3Client = new S3Client({
+  region: process.env.AWS_REGION,
 
-    region: process.env.AWS_REGION,
-
-    credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY,
-        secretAccessKey: process.env.AWS_SECRET_KEY
-    }
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY,
+    secretAccessKey: process.env.AWS_SECRET_KEY,
+  },
 });
-
-
 
 /**
  * =========================================================
@@ -36,39 +31,30 @@ const s3Client = new S3Client({
  */
 
 exports.uploadAvatar = async (file) => {
+  const extension = path.extname(file.originalname);
 
-    const extension =
-        path.extname(file.originalname);
+  const fileName = `avatar-${uuidv4()}${extension}`;
 
-    const fileName =
-        `avatar-${uuidv4()}${extension}`;
+  const s3Key = `fluxboard/avatars/${fileName}`;
 
-    const s3Key =
-        `fluxboard/avatars/${fileName}`;
+  const params = {
+    Bucket: process.env.AWS_S3_BUCKET,
 
-    const params = {
+    Key: s3Key,
 
-        Bucket: process.env.AWS_S3_BUCKET,
+    Body: file.buffer,
 
-        Key: s3Key,
+    ContentType: file.mimetype,
 
-        Body: file.buffer,
+    CacheControl: "max-age=31536000",
 
-        ContentType: file.mimetype,
+    ContentDisposition: "inline",
+  };
 
-        CacheControl: 'max-age=31536000',
+  await s3Client.send(new PutObjectCommand(params));
 
-        ContentDisposition: 'inline'
-    };
-
-    await s3Client.send(
-        new PutObjectCommand(params)
-    );
-
-    return `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${s3Key}`;
+  return `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${s3Key}`;
 };
-
-
 
 /**
  * =========================================================
@@ -77,39 +63,30 @@ exports.uploadAvatar = async (file) => {
  */
 
 exports.uploadFile = async (file) => {
+  const fileExtension = path.extname(file.originalname);
 
-    const fileExtension =
-        path.extname(file.originalname);
+  const fileName = `${uuidv4()}${fileExtension}`;
 
-    const fileName =
-        `${uuidv4()}${fileExtension}`;
+  const s3Key = `fluxboard/uploads/${fileName}`;
 
-    const s3Key =
-        `fluxboard/uploads/${fileName}`;
+  const params = {
+    Bucket: process.env.AWS_S3_BUCKET,
 
-    const params = {
+    Key: s3Key,
 
-        Bucket: process.env.AWS_S3_BUCKET,
+    Body: file.buffer,
 
-        Key: s3Key,
+    ContentType: file.mimetype,
 
-        Body: file.buffer,
+    CacheControl: "max-age=31536000",
 
-        ContentType: file.mimetype,
+    ContentDisposition: "inline",
+  };
 
-        CacheControl: 'max-age=31536000',
+  await s3Client.send(new PutObjectCommand(params));
 
-        ContentDisposition: 'inline'
-    };
-
-    await s3Client.send(
-        new PutObjectCommand(params)
-    );
-
-    return `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${s3Key}`;
+  return `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${s3Key}`;
 };
-
-
 
 /**
  * =========================================================
@@ -121,52 +98,36 @@ exports.uploadFile = async (file) => {
  * =========================================================
  */
 
-exports.generateUploadUrl = async (
-    fileName,
-    fileType
-) => {
+exports.generateUploadUrl = async (fileName, fileType) => {
+  const extension = path.extname(fileName);
 
-    const extension =
-        path.extname(fileName);
+  const uniqueFileName = `${crypto.randomBytes(16).toString("hex")}${extension}`;
 
-    const uniqueFileName =
-        `${crypto.randomBytes(16).toString('hex')}${extension}`;
+  const s3Key = `fluxboard/task-attachments/${uniqueFileName}`;
 
-    const s3Key =
-        `fluxboard/task-attachments/${uniqueFileName}`;
+  const command = new PutObjectCommand({
+    Bucket: process.env.AWS_S3_BUCKET,
 
-    const command = new PutObjectCommand({
+    Key: s3Key,
 
-        Bucket: process.env.AWS_S3_BUCKET,
+    ContentType: fileType,
 
-        Key: s3Key,
+    CacheControl: "max-age=31536000",
 
-        ContentType: fileType,
+    ContentDisposition: "inline",
+  });
 
-        CacheControl: 'max-age=31536000',
+  const uploadUrl = await getSignedUrl(s3Client, command, {
+    expiresIn: 3600,
+  });
 
-        ContentDisposition: 'inline'
-    });
+  const fileUrl = `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${s3Key}`;
 
-    const uploadUrl =
-        await getSignedUrl(
-            s3Client,
-            command,
-            {
-                expiresIn: 3600
-            }
-        );
-
-    const fileUrl =
-        `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${s3Key}`;
-
-    return {
-        uploadUrl,
-        fileUrl
-    };
+  return {
+    uploadUrl,
+    fileUrl,
+  };
 };
-
-
 
 /**
  * =========================================================
@@ -174,52 +135,36 @@ exports.generateUploadUrl = async (
  * =========================================================
  */
 
-exports.generateAvatarUploadUrl = async (
-    fileName,
-    fileType
-) => {
+exports.generateAvatarUploadUrl = async (fileName, fileType) => {
+  const extension = path.extname(fileName);
 
-    const extension =
-        path.extname(fileName);
+  const uniqueFileName = `avatar-${uuidv4()}${extension}`;
 
-    const uniqueFileName =
-        `avatar-${uuidv4()}${extension}`;
+  const s3Key = `fluxboard/avatars/${uniqueFileName}`;
 
-    const s3Key =
-        `fluxboard/avatars/${uniqueFileName}`;
+  const command = new PutObjectCommand({
+    Bucket: process.env.AWS_S3_BUCKET,
 
-    const command = new PutObjectCommand({
+    Key: s3Key,
 
-        Bucket: process.env.AWS_S3_BUCKET,
+    ContentType: fileType,
 
-        Key: s3Key,
+    CacheControl: "max-age=31536000",
 
-        ContentType: fileType,
+    ContentDisposition: "inline",
+  });
 
-        CacheControl: 'max-age=31536000',
+  const uploadUrl = await getSignedUrl(s3Client, command, {
+    expiresIn: 300,
+  });
 
-        ContentDisposition: 'inline'
-    });
+  const fileUrl = `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${s3Key}`;
 
-    const uploadUrl =
-        await getSignedUrl(
-            s3Client,
-            command,
-            {
-                expiresIn: 300
-            }
-        );
-
-    const fileUrl =
-        `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${s3Key}`;
-
-    return {
-        uploadUrl,
-        fileUrl
-    };
+  return {
+    uploadUrl,
+    fileUrl,
+  };
 };
-
-
 
 /**
  * =========================================================
@@ -228,48 +173,32 @@ exports.generateAvatarUploadUrl = async (
  */
 
 exports.deleteFile = async (fileUrl) => {
+  if (!fileUrl) return;
 
-    if (!fileUrl) return;
+  try {
+    const bucketDomain = `${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/`;
 
-    try {
+    let s3Key = fileUrl.replace(`https://${bucketDomain}`, "");
 
-        const bucketDomain =
-            `${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/`;
+    /**
+     * Fallback regionless URL
+     */
 
-        let s3Key =
-            fileUrl.replace(
-                `https://${bucketDomain}`,
-                ''
-            );
-
-        /**
-         * Fallback regionless URL
-         */
-
-        if (s3Key === fileUrl) {
-
-            s3Key =
-                fileUrl.replace(
-                    `https://${process.env.AWS_S3_BUCKET}.s3.amazonaws.com/`,
-                    ''
-                );
-        }
-
-        const command =
-            new DeleteObjectCommand({
-
-                Bucket: process.env.AWS_S3_BUCKET,
-
-                Key: s3Key
-            });
-
-        await s3Client.send(command);
-
-    } catch (error) {
-
-        console.error(
-            'Failed to delete S3 object:',
-            error
-        );
+    if (s3Key === fileUrl) {
+      s3Key = fileUrl.replace(
+        `https://${process.env.AWS_S3_BUCKET}.s3.amazonaws.com/`,
+        "",
+      );
     }
+
+    const command = new DeleteObjectCommand({
+      Bucket: process.env.AWS_S3_BUCKET,
+
+      Key: s3Key,
+    });
+
+    await s3Client.send(command);
+  } catch (error) {
+    console.error("Failed to delete S3 object:", error);
+  }
 };

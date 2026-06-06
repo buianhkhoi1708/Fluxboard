@@ -1,82 +1,75 @@
-const User = require('../../user/models/user.model');
-const AppError = require('../../../common/exceptions/AppError');
-const emailService = require('../../email/services/email.service');
-const crypto = require('crypto');
-const bcrypt = require('bcrypt');
+const User = require("../../user/models/user.model");
+const AppError = require("../../../common/exceptions/AppError");
+const emailService = require("../../email/services/email.service");
+const crypto = require("crypto");
+const bcrypt = require("bcrypt");
 
 const RESET_TOKEN_TTL_MINUTES = 15;
 
 const hashToken = (token) => {
-    return crypto
-        .createHash('sha256')
-        .update(String(token || ''))
-        .digest('hex');
+  return crypto
+    .createHash("sha256")
+    .update(String(token || ""))
+    .digest("hex");
 };
 
 const findResetUser = async (email, token) => {
-    if (!email || !token) {
-        throw new AppError(
-            'Liên kết đặt lại mật khẩu không hợp lệ.',
-            400,
-            'BAD_REQUEST',
-        );
-    }
+  if (!email || !token) {
+    throw new AppError(
+      "Liên kết đặt lại mật khẩu không hợp lệ.",
+      400,
+      "BAD_REQUEST",
+    );
+  }
 
-    const user = await User.findOne({
-        email,
-        reset_password_token: hashToken(token),
-        reset_password_expires: { $gt: Date.now() },
-    });
+  const user = await User.findOne({
+    email,
+    reset_password_token: hashToken(token),
+    reset_password_expires: { $gt: Date.now() },
+  });
 
-    if (!user) {
-        throw new AppError(
-            'Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.',
-            400,
-            'BAD_REQUEST',
-        );
-    }
+  if (!user) {
+    throw new AppError(
+      "Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.",
+      400,
+      "BAD_REQUEST",
+    );
+  }
 
-    if (user.status === 'INACTIVE') {
-        throw new AppError(
-            'Tài khoản đã bị vô hiệu hóa.',
-            403,
-            'FORBIDDEN',
-        );
-    }
+  if (user.status === "INACTIVE") {
+    throw new AppError("Tài khoản đã bị vô hiệu hóa.", 403, "FORBIDDEN");
+  }
 
-    return user;
+  return user;
 };
 
 exports.forgotPassword = async (email) => {
-    if (!email) {
-        throw new AppError(
-            'Vui lòng nhập email.',
-            400,
-            'BAD_REQUEST',
-        );
-    }
+  if (!email) {
+    throw new AppError("Vui lòng nhập email.", 400, "BAD_REQUEST");
+  }
 
-    const user = await User.findOne({ email });
+  const user = await User.findOne({ email });
 
-    if (!user || user.status === 'INACTIVE') {
-        throw new AppError(
-            'Không tìm thấy tài khoản hoặc tài khoản đã bị vô hiệu hóa.',
-            404,
-            'NOT_FOUND',
-        );
-    }
+  if (!user || user.status === "INACTIVE") {
+    throw new AppError(
+      "Không tìm thấy tài khoản hoặc tài khoản đã bị vô hiệu hóa.",
+      404,
+      "NOT_FOUND",
+    );
+  }
 
-    const resetToken = crypto.randomBytes(32).toString('hex');
+  const resetToken = crypto.randomBytes(32).toString("hex");
 
-    user.reset_password_token = hashToken(resetToken);
-    user.reset_password_expires = Date.now() + RESET_TOKEN_TTL_MINUTES * 60 * 1000;
+  user.reset_password_token = hashToken(resetToken);
+  user.reset_password_expires =
+    Date.now() + RESET_TOKEN_TTL_MINUTES * 60 * 1000;
 
-    await user.save();
+  await user.save();
 
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    const resetLink = `${frontendUrl}/reset-password?token=${encodeURIComponent(resetToken)}&email=${encodeURIComponent(email)}`;
+  const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+  const resetLink = `${frontendUrl}/reset-password?token=${encodeURIComponent(resetToken)}&email=${encodeURIComponent(email)}`;
 
-    const emailHtml = `
+  const emailHtml = `
     <div style="font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;max-width:600px;margin:0 auto;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;box-shadow:0 4px 6px -1px rgba(0,0,0,.1);">
         <div style="background-color:#4F46E5;padding:30px 20px;text-align:center;">
             <h1 style="color:white;margin:0;font-size:28px;letter-spacing:1px;">FluxBoard</h1>
@@ -116,35 +109,31 @@ exports.forgotPassword = async (email) => {
     </div>
     `;
 
-    await emailService.sendEmail(
-        user.email,
-        '[FluxBoard] Yêu cầu đặt lại mật khẩu',
-        emailHtml,
-    );
+  await emailService.sendEmail(
+    user.email,
+    "[FluxBoard] Yêu cầu đặt lại mật khẩu",
+    emailHtml,
+  );
 };
 
 exports.verifyResetToken = async (email, token) => {
-    await findResetUser(email, token);
-    return true;
+  await findResetUser(email, token);
+  return true;
 };
 
 exports.resetPassword = async (email, token, newPassword) => {
-    if (!newPassword) {
-        throw new AppError(
-            'Vui lòng nhập mật khẩu mới.',
-            400,
-            'BAD_REQUEST',
-        );
-    }
+  if (!newPassword) {
+    throw new AppError("Vui lòng nhập mật khẩu mới.", 400, "BAD_REQUEST");
+  }
 
-    const user = await findResetUser(email, token);
+  const user = await findResetUser(email, token);
 
-    user.password_hash = await bcrypt.hash(newPassword, 10);
-    user.password = undefined;
-    user.reset_password_token = undefined;
-    user.reset_password_expires = undefined;
+  user.password_hash = await bcrypt.hash(newPassword, 10);
+  user.password = undefined;
+  user.reset_password_token = undefined;
+  user.reset_password_expires = undefined;
 
-    await user.save();
+  await user.save();
 
-    return true;
+  return true;
 };

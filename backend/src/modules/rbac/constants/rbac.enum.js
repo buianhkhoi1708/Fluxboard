@@ -1,36 +1,39 @@
-/**
- * src/modules/rbac/constants/rbac.enum.js
- */
-
 exports.Roles = Object.freeze({
-    SYSTEM_ADMIN: 'SYSTEM_ADMIN',
-    ADMIN: 'ADMIN',
-    MANAGER: 'MANAGER',
-    PM: 'PM',
-    LEAD: 'LEAD',
-    MEMBER: 'MEMBER',
-    VIEWER: 'VIEWER'
-}); //
-
-exports.Scopes = Object.freeze({
-    SYSTEM: 'SYSTEM',
-    PROJECT: 'PROJECT',
-    PERSONAL: 'PERSONAL'
-}); //
-
-// Bổ sung thêm Resource (Tài nguyên)
-exports.Resources = Object.freeze({
-    USER: 'USER', PROJECT: 'PROJECT', TASK: 'TASK', ROLE: 'ROLE', PERMISSION: 'PERMISSION',
-    RBAC: 'RBAC', DEPARTMENT: 'DEPARTMENT', TEAM: 'TEAM', 
-    BOARD: 'BOARD', COLUMN: 'COLUMN', COMMENT: 'COMMENT', 
-    ATTACHMENT: 'ATTACHMENT', LABEL: 'LABEL' // 👈 Phải có mấy cái này
+  SYSTEM_ADMIN: "SYSTEM_ADMIN",
+  ADMIN: "ADMIN",
+  MANAGER: "MANAGER",
+  PM: "PM",
+  LEAD: "LEAD",
+  MEMBER: "MEMBER",
+  VIEWER: "VIEWER",
 });
 
-// Bổ sung thêm Action (Hành động)
+exports.Scopes = Object.freeze({
+  SYSTEM: "SYSTEM",
+  PROJECT: "PROJECT",
+  PERSONAL: "PERSONAL",
+});
+
+exports.Resources = Object.freeze({
+  USER: "USER",
+  PROJECT: "PROJECT",
+  TASK: "TASK",
+  ROLE: "ROLE",
+  PERMISSION: "PERMISSION",
+  RBAC: "RBAC",
+  DEPARTMENT: "DEPARTMENT",
+  TEAM: "TEAM",
+  BOARD: "BOARD",
+  COLUMN: "COLUMN",
+  COMMENT: "COMMENT",
+  ATTACHMENT: "ATTACHMENT",
+  LABEL: "LABEL",
+});
+
 exports.Actions = Object.freeze({
-    CREATE: 'CREATE',
-    READ: 'READ',
-    UPDATE: 'UPDATE',
-    DELETE: 'DELETE',
-    MANAGE_MEMBERS: 'MANAGE_MEMBERS'
+  CREATE: "CREATE",
+  READ: "READ",
+  UPDATE: "UPDATE",
+  DELETE: "DELETE",
+  MANAGE_MEMBERS: "MANAGE_MEMBERS",
 });

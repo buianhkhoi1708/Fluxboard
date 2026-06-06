@@ -1,12 +1,15 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const teamController = require('../controllers/team.controller');
-const requireAuth = require('../../auth/middlewares/requireAuth');
-const requirePermission = require('../../rbac/middlewares/requirePermission.middleware');
+const teamController = require("../controllers/team.controller");
+const requireAuth = require("../../auth/middlewares/requireAuth");
+const requirePermission = require("../../rbac/middlewares/requirePermission.middleware");
 
 router.use(requireAuth);
 
-// POST /api/v1/organization/teams
-router.post('/', requirePermission('TEAM', 'CREATE', 'SYSTEM'), teamController.createTeam);
+router.post(
+  "/",
+  requirePermission("TEAM", "CREATE", "SYSTEM"),
+  teamController.createTeam,
+);
 
 module.exports = router;

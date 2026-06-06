@@ -1,13 +1,24 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
-const departmentSchema = new mongoose.Schema({
+const departmentSchema = new mongoose.Schema(
+  {
     name: { type: String, required: true },
-    code: { type: String, required: true, unique: true }, 
+    code: { type: String, required: true, unique: true },
     description: { type: String },
-    // 💡 Thêm dòng này để thiết lập cấu trúc cây (Parent Referencing)
-    parent_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Department', default: null },
-    manager_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
-    is_deleted: { type: Boolean, default: false }
-}, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
-module.exports = mongoose.model('Department', departmentSchema);
+    parent_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Department",
+      default: null,
+    },
+    manager_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    is_deleted: { type: Boolean, default: false },
+  },
+  { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } },
+);
+
+module.exports = mongoose.model("Department", departmentSchema);
