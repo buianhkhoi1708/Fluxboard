@@ -7,7 +7,7 @@ import axios, {
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL as string;
 
 // 🚀 BÍ KÍP: Khai báo 1 lần xài mãi mãi cho tất cả mọi nơi
-const FINAL_API_URL = API_BASE_URL ? `${API_BASE_URL}/api/v1` : 'http://localhost:8080/api/v1';
+const FINAL_API_URL = API_BASE_URL ? `${API_BASE_URL}` : 'http://localhost:8080/api/v1';
 
 const axiosClient = axios.create({
   baseURL: FINAL_API_URL,
