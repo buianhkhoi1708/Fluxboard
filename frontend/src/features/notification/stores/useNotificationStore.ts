@@ -1,17 +1,17 @@
-import { create } from 'zustand';
-import { notificationApi } from '../api/notificationApi';
-import { NotificationStore, AppNotification } from '../types/notificationTypes';
+import { create } from "zustand";
+import { notificationApi } from "../api/notificationApi";
+import { NotificationStore, AppNotification } from "../types/notificationTypes";
 
 let isPollingActive = false;
 let currentPollingUserId: string | null = null;
 
 const optionalString = (value: any): string | undefined => {
-  if (value === null || value === undefined || value === '') return undefined;
+  if (value === null || value === undefined || value === "") return undefined;
   return String(value);
 };
 
 const getRawNotificationId = (notif: any): string => {
-  return String(notif?._id || notif?.id || notif?.notification_id || '');
+  return String(notif?._id || notif?.id || notif?.notification_id || "");
 };
 
 const normalizeActionUrl = (rawUrl?: string | null): string | undefined => {
@@ -21,16 +21,14 @@ const normalizeActionUrl = (rawUrl?: string | null): string | undefined => {
   if (!url) return undefined;
 
   try {
-    if (url.startsWith('http://') || url.startsWith('https://')) {
+    if (url.startsWith("http://") || url.startsWith("https://")) {
       const parsed = new URL(url);
       url = `${parsed.pathname}${parsed.search}`;
     }
-  } catch {
-    // Giữ nguyên nếu parse URL lỗi.
-  }
+  } catch {}
 
-  if (url.startsWith('/boards/')) {
-    url = url.replace('/boards/', '/board/');
+  if (url.startsWith("/boards/")) {
+    url = url.replace("/boards/", "/board/");
   }
 
   return url;
@@ -41,12 +39,14 @@ const mapNotification = (notif: any): AppNotification => {
 
   return {
     id,
-    title: optionalString(notif?.title) || '',
-    message: optionalString(notif?.message) || '',
-    type: optionalString(notif?.type) || '',
+    title: optionalString(notif?.title) || "",
+    message: optionalString(notif?.message) || "",
+    type: optionalString(notif?.type) || "",
 
     referenceId: optionalString(notif?.reference_id || notif?.referenceId),
-    referenceType: optionalString(notif?.reference_type || notif?.referenceType),
+    referenceType: optionalString(
+      notif?.reference_type || notif?.referenceType,
+    ),
     actionUrl: normalizeActionUrl(notif?.action_url || notif?.actionUrl),
 
     metadata: notif?.metadata || {},
@@ -107,10 +107,6 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     isPollingActive = true;
     currentPollingUserId = normalizedUserId;
 
-    // ==========================================
-    // 1. TẢI LỊCH SỬ THÔNG BÁO TỪ MONGODB
-    // Không hiện toast cho dữ liệu lịch sử.
-    // ==========================================
     try {
       const response: any = await notificationApi.getNotificationHistory(1, 50);
       const rawList = extractNotificationList(response);
@@ -121,19 +117,21 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
           .filter((item: AppNotification) => Boolean(item.id)),
       );
 
-      const unread = mappedNotifs.filter((n: AppNotification) => !n.isRead).length;
+      const unread = mappedNotifs.filter(
+        (n: AppNotification) => !n.isRead,
+      ).length;
 
       set({
         notifications: mappedNotifs,
         unreadCount: unread,
       });
     } catch (error) {
-      console.error('Failed to load initial MongoDB notification history:', error);
+      console.error(
+        "Failed to load initial MongoDB notification history:",
+        error,
+      );
     }
 
-    // ==========================================
-    // 2. LONG POLLING REALTIME PIPELINE
-    // ==========================================
     const executePoll = async () => {
       if (!isPollingActive || currentPollingUserId !== normalizedUserId) return;
 
@@ -184,7 +182,8 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
             return {
               notifications: sortNotifications(currentList),
               unreadCount: currentUnread,
-              latestToastNotification: latestNewNotification || state.latestToastNotification,
+              latestToastNotification:
+                latestNewNotification || state.latestToastNotification,
             };
           });
         }
@@ -205,16 +204,16 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
   disconnectWebSocket: () => {
     isPollingActive = false;
     currentPollingUserId = null;
-    console.log('Notification real-time pipeline stopped.');
+    console.log("Notification real-time pipeline stopped.");
   },
 
   addNotification: (message: string, extra: Partial<AppNotification> = {}) => {
     set((state) => {
       const newNotif: AppNotification = {
         id: extra.id || Math.random().toString(36).substring(2, 9),
-        title: extra.title || '',
+        title: extra.title || "",
         message,
-        type: extra.type || 'LOCAL',
+        type: extra.type || "LOCAL",
 
         referenceId: extra.referenceId,
         referenceType: extra.referenceType,
@@ -262,7 +261,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
         };
       });
     } catch (error) {
-      console.error('Failed to sync notification status to server:', error);
+      console.error("Failed to sync notification status to server:", error);
     }
   },
 
@@ -288,7 +287,10 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
         unreadCount: 0,
       }));
     } catch (error) {
-      console.error('Failed to clear all unread notification statuses on server:', error);
+      console.error(
+        "Failed to clear all unread notification statuses on server:",
+        error,
+      );
     }
   },
 

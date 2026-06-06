@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import BoardView from '../features/board/components/BoardView';
+import React, { useEffect } from "react";
+import BoardView from "../features/board/components/BoardView";
 
 const BoardPage = () => {
   useEffect(() => {

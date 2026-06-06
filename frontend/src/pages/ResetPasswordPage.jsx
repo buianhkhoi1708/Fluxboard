@@ -1,22 +1,32 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { useAuthStore } from '../features/auth/store/useAuthStore';
-import { resetPasswordSchema } from '../features/auth/schema/auth.schema';
-import { ArrowRight, Loader2, CheckCircle2, XCircle, Eye, EyeOff } from 'lucide-react';
-import logoIcon from '../assets/icon.svg';
+import React, { useState, useEffect } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { useAuthStore } from "../features/auth/store/useAuthStore";
+import { resetPasswordSchema } from "../features/auth/schema/auth.schema";
+import {
+  ArrowRight,
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  Eye,
+  EyeOff,
+} from "lucide-react";
+import logoIcon from "../assets/icon.svg";
 
 const ResetPasswordPage = () => {
   const [searchParams] = useSearchParams();
-  const token = searchParams.get('token') || '';
-  const email = searchParams.get('email') || '';
+  const token = searchParams.get("token") || "";
+  const email = searchParams.get("email") || "";
 
-  const [formData, setFormData] = useState({ password: '', confirmPassword: '' });
+  const [formData, setFormData] = useState({
+    password: "",
+    confirmPassword: "",
+  });
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isVerifying, setIsVerifying] = useState(true);
   const [isValidToken, setIsValidToken] = useState(false);
-  const [status, setStatus] = useState({ type: '', message: '' });
+  const [status, setStatus] = useState({ type: "", message: "" });
 
   const { verifyResetToken, resetPassword, isLoading } = useAuthStore();
 
@@ -28,7 +38,10 @@ const ResetPasswordPage = () => {
         if (!mounted) return;
         setIsVerifying(false);
         setIsValidToken(false);
-        setStatus({ type: 'error', message: 'Đường dẫn đặt lại mật khẩu thiếu mã xác thực hoặc email.' });
+        setStatus({
+          type: "error",
+          message: "Đường dẫn đặt lại mật khẩu thiếu mã xác thực hoặc email.",
+        });
         return;
       }
 
@@ -39,21 +52,26 @@ const ResetPasswordPage = () => {
 
       if (result.success) {
         setIsValidToken(true);
-        setStatus({ type: '', message: '' });
+        setStatus({ type: "", message: "" });
       } else {
         setIsValidToken(false);
-        setStatus({ type: 'error', message: result.message || 'Liên kết đặt lại mật khẩu không hợp lệ.' });
+        setStatus({
+          type: "error",
+          message: result.message || "Liên kết đặt lại mật khẩu không hợp lệ.",
+        });
       }
     };
 
     checkToken();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, [token, email, verifyResetToken]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
   const handleBlur = async (e) => {
@@ -61,15 +79,15 @@ const ResetPasswordPage = () => {
 
     try {
       await resetPasswordSchema.validateAt(name, formData);
-      setErrors(prev => ({ ...prev, [name]: '' }));
+      setErrors((prev) => ({ ...prev, [name]: "" }));
     } catch (err) {
-      setErrors(prev => ({ ...prev, [name]: err.message }));
+      setErrors((prev) => ({ ...prev, [name]: err.message }));
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setStatus({ type: '', message: '' });
+    setStatus({ type: "", message: "" });
     setErrors({});
 
     try {
@@ -78,7 +96,7 @@ const ResetPasswordPage = () => {
       const result = await resetPassword(token, email, formData.password);
 
       setStatus({
-        type: result.success ? 'success' : 'error',
+        type: result.success ? "success" : "error",
         message: result.message,
       });
 
@@ -87,11 +105,11 @@ const ResetPasswordPage = () => {
       const validationErrors = {};
 
       if (Array.isArray(err?.inner)) {
-        err.inner.forEach(error => {
+        err.inner.forEach((error) => {
           validationErrors[error.path] = error.message;
         });
       } else {
-        validationErrors.password = err?.message || 'Dữ liệu không hợp lệ.';
+        validationErrors.password = err?.message || "Dữ liệu không hợp lệ.";
       }
 
       setErrors(validationErrors);
@@ -121,51 +139,73 @@ const ResetPasswordPage = () => {
       <div className="w-full lg:w-[55%] flex items-center justify-center p-8 sm:p-12 lg:p-24 relative bg-white">
         <div className="w-full max-w-md z-10">
           <div className="flex items-center gap-4 mb-12">
-            <img src={logoIcon} alt="Fluxboard Logo" className="w-16 h-16 sm:w-20 sm:h-20 object-contain drop-shadow-md" />
-            <span className="text-4xl sm:text-5xl font-black text-slate-800 tracking-tight">Fluxboard</span>
+            <img
+              src={logoIcon}
+              alt="Fluxboard Logo"
+              className="w-16 h-16 sm:w-20 sm:h-20 object-contain drop-shadow-md"
+            />
+            <span className="text-4xl sm:text-5xl font-black text-slate-800 tracking-tight">
+              Fluxboard
+            </span>
           </div>
 
-          <h2 className="text-3xl font-black text-slate-800 mb-8">Đặt lại mật khẩu</h2>
+          <h2 className="text-3xl font-black text-slate-800 mb-8">
+            Đặt lại mật khẩu
+          </h2>
 
           {isVerifying && (
             <div className="flex flex-col items-center justify-center py-8">
-              <Loader2 className="animate-spin text-indigo-600 mb-4" size={32} />
-              <p className="text-sm font-medium text-slate-500">Đang kiểm tra tính hợp lệ của đường dẫn...</p>
+              <Loader2
+                className="animate-spin text-indigo-600 mb-4"
+                size={32}
+              />
+              <p className="text-sm font-medium text-slate-500">
+                Đang kiểm tra tính hợp lệ của đường dẫn...
+              </p>
             </div>
           )}
 
           {!isVerifying && status.type && (
-            <div className={`mb-6 p-4 rounded-xl flex items-start gap-3 border ${status.type === 'success' ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
-              {status.type === 'success' ? (
-                <CheckCircle2 className="text-emerald-500 shrink-0 mt-0.5" size={20} />
+            <div
+              className={`mb-6 p-4 rounded-xl flex items-start gap-3 border ${status.type === "success" ? "bg-emerald-50 border-emerald-200" : "bg-rose-50 border-rose-200"}`}
+            >
+              {status.type === "success" ? (
+                <CheckCircle2
+                  className="text-emerald-500 shrink-0 mt-0.5"
+                  size={20}
+                />
               ) : (
                 <XCircle className="text-rose-500 shrink-0 mt-0.5" size={20} />
               )}
-              <p className={`text-sm font-medium ${status.type === 'success' ? 'text-emerald-700' : 'text-rose-600'}`}>
+              <p
+                className={`text-sm font-medium ${status.type === "success" ? "text-emerald-700" : "text-rose-600"}`}
+              >
                 {status.message}
               </p>
             </div>
           )}
 
-          {!isVerifying && isValidToken && status.type !== 'success' && (
+          {!isVerifying && isValidToken && status.type !== "success" && (
             <form onSubmit={handleSubmit} className="flex flex-col gap-5">
               <div>
-                <label className="block text-sm font-bold text-slate-700 mt-3 mb-1.5 ml-1">Mật khẩu mới</label>
+                <label className="block text-sm font-bold text-slate-700 mt-3 mb-1.5 ml-1">
+                  Mật khẩu mới
+                </label>
                 <div className="relative">
                   <input
-                    type={showPassword ? 'text' : 'password'}
+                    type={showPassword ? "text" : "password"}
                     name="password"
                     value={formData.password}
                     onChange={handleChange}
                     onBlur={handleBlur}
-                    className={`w-full border-2 pl-4 pr-12 py-3.5 rounded-xl text-sm font-semibold transition-all outline-none ${errors.password ? 'bg-rose-50 border-rose-300 focus:border-rose-400 focus:ring-4 focus:ring-rose-100' : 'bg-white border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100'}`}
+                    className={`w-full border-2 pl-4 pr-12 py-3.5 rounded-xl text-sm font-semibold transition-all outline-none ${errors.password ? "bg-rose-50 border-rose-300 focus:border-rose-400 focus:ring-4 focus:ring-rose-100" : "bg-white border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"}`}
                     placeholder="Nhập tối thiểu 8 ký tự, 1 chữ hoa, 1 số"
                   />
                   <button
                     type="button"
-                    onClick={() => setShowPassword(prev => !prev)}
+                    onClick={() => setShowPassword((prev) => !prev)}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
-                    aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                    aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
                   >
                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
@@ -178,24 +218,34 @@ const ResetPasswordPage = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1.5 ml-1">Xác nhận mật khẩu mới</label>
+                <label className="block text-sm font-bold text-slate-700 mb-1.5 ml-1">
+                  Xác nhận mật khẩu mới
+                </label>
                 <div className="relative">
                   <input
-                    type={showConfirmPassword ? 'text' : 'password'}
+                    type={showConfirmPassword ? "text" : "password"}
                     name="confirmPassword"
                     value={formData.confirmPassword}
                     onChange={handleChange}
                     onBlur={handleBlur}
-                    className={`w-full border-2 pl-4 pr-12 py-3.5 rounded-xl text-sm font-semibold transition-all outline-none ${errors.confirmPassword ? 'bg-rose-50 border-rose-300 focus:border-rose-400 focus:ring-4 focus:ring-rose-100' : 'bg-white border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100'}`}
+                    className={`w-full border-2 pl-4 pr-12 py-3.5 rounded-xl text-sm font-semibold transition-all outline-none ${errors.confirmPassword ? "bg-rose-50 border-rose-300 focus:border-rose-400 focus:ring-4 focus:ring-rose-100" : "bg-white border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"}`}
                     placeholder="Nhập lại mật khẩu mới"
                   />
                   <button
                     type="button"
-                    onClick={() => setShowConfirmPassword(prev => !prev)}
+                    onClick={() => setShowConfirmPassword((prev) => !prev)}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
-                    aria-label={showConfirmPassword ? 'Ẩn xác nhận mật khẩu' : 'Hiện xác nhận mật khẩu'}
+                    aria-label={
+                      showConfirmPassword
+                        ? "Ẩn xác nhận mật khẩu"
+                        : "Hiện xác nhận mật khẩu"
+                    }
                   >
-                    {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                    {showConfirmPassword ? (
+                      <EyeOff size={20} />
+                    ) : (
+                      <Eye size={20} />
+                    )}
                   </button>
                 </div>
                 {errors.confirmPassword && (
@@ -222,14 +272,18 @@ const ResetPasswordPage = () => {
             </form>
           )}
 
-          {!isVerifying && (!isValidToken || status.type === 'success') && (
+          {!isVerifying && (!isValidToken || status.type === "success") && (
             <div className="mt-8 text-left">
               <Link
-                to={status.type === 'success' ? '/login' : '/forgot-password'}
+                to={status.type === "success" ? "/login" : "/forgot-password"}
                 className="inline-flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-slate-800 transition-colors"
               >
                 <ArrowRight className="rotate-180" size={16} />
-                <span>{status.type === 'success' ? 'Quay lại đăng nhập' : 'Gửi lại email khôi phục'}</span>
+                <span>
+                  {status.type === "success"
+                    ? "Quay lại đăng nhập"
+                    : "Gửi lại email khôi phục"}
+                </span>
               </Link>
             </div>
           )}

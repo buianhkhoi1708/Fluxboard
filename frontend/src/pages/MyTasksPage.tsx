@@ -16,7 +16,6 @@ type TaskViewState = "IN_PROGRESS" | "COMPLETED" | "OVERDUE";
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
-// ------- Task Card Skeleton -------
 const TaskCardSkeleton = () => (
   <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-slate-200/80 shadow-sm p-5 flex flex-col animate-pulse">
     <div className="flex justify-between items-start mb-3">
@@ -46,11 +45,7 @@ const isTaskCompleted = (task: any) => {
 };
 
 const getDueDateValue = (task: any) => {
-  return (
-    task?.deadline_info?.due_date ||
-    task?.due_date ||
-    null
-  );
+  return task?.deadline_info?.due_date || task?.due_date || null;
 };
 
 const getTaskViewState = (task: any): TaskViewState => {
@@ -108,8 +103,7 @@ const getStateConfig = (state: TaskViewState) => {
       return {
         label: "Đã hoàn thành",
         icon: CheckCircle2,
-        badgeClass:
-          "bg-emerald-50 text-emerald-700 border-emerald-200",
+        badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
         cardClass:
           "border-emerald-200/80 hover:border-emerald-300 hover:shadow-emerald-100/40",
       };
@@ -118,8 +112,7 @@ const getStateConfig = (state: TaskViewState) => {
       return {
         label: "Trễ hạn",
         icon: Flame,
-        badgeClass:
-          "bg-rose-50 text-rose-700 border-rose-200 animate-pulse",
+        badgeClass: "bg-rose-50 text-rose-700 border-rose-200 animate-pulse",
         cardClass:
           "border-rose-300 bg-rose-50/40 hover:border-rose-400 hover:shadow-rose-100/60",
       };
@@ -129,8 +122,7 @@ const getStateConfig = (state: TaskViewState) => {
       return {
         label: "Đang thực hiện",
         icon: CircleDotDashed,
-        badgeClass:
-          "bg-indigo-50 text-indigo-700 border-indigo-200",
+        badgeClass: "bg-indigo-50 text-indigo-700 border-indigo-200",
         cardClass:
           "border-slate-200/80 hover:border-indigo-300 hover:shadow-indigo-100/20",
       };
@@ -185,7 +177,6 @@ const getDeadlinePrefix = (task: any) => {
   return "Hạn chót:";
 };
 
-// ------- Main Component -------
 const MyTasksPage = () => {
   const navigate = useNavigate();
   const { data: myTasks, isLoading, isError, refetch } = useGetMyTasks();
@@ -212,7 +203,7 @@ const MyTasksPage = () => {
   return (
     <div className="flex-1 bg-linear-to-br from-slate-50 via-white to-indigo-50/30 h-full overflow-y-auto no-scrollbar p-4 md:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
-        {/* HEADER */}
+        {}
         <div className="mb-8 flex flex-col xl:flex-row xl:items-end xl:justify-between gap-6">
           <div>
             <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight flex items-center gap-3 text-slate-800">
@@ -264,7 +255,7 @@ const MyTasksPage = () => {
           )}
         </div>
 
-        {/* LOADING SKELETON */}
+        {}
         {isLoading && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[...Array(6)].map((_, index) => (
@@ -273,7 +264,7 @@ const MyTasksPage = () => {
           </div>
         )}
 
-        {/* ERROR STATE */}
+        {}
         {isError && !isLoading && (
           <div className="bg-white/80 backdrop-blur-sm border border-dashed border-red-200 rounded-2xl p-16 flex flex-col items-center justify-center text-center shadow-sm">
             <div className="p-5 bg-red-50 rounded-full mb-5">
@@ -299,7 +290,7 @@ const MyTasksPage = () => {
           </div>
         )}
 
-        {/* EMPTY STATE */}
+        {}
         {!isLoading && !isError && tasks.length === 0 && (
           <div className="bg-white/80 backdrop-blur-sm border border-dashed border-indigo-200 rounded-2xl p-16 flex flex-col items-center justify-center text-center shadow-sm">
             <div className="p-5 bg-indigo-50 rounded-full mb-5 animate-bounce-slow">
@@ -316,7 +307,7 @@ const MyTasksPage = () => {
           </div>
         )}
 
-        {/* TASKS GRID */}
+        {}
         {!isLoading && !isError && tasks.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {tasks.map((task: any) => {
@@ -340,7 +331,7 @@ const MyTasksPage = () => {
                   }}
                   className={`bg-white/80 backdrop-blur-sm rounded-xl border shadow-sm hover:shadow-md hover:-translate-y-0.5 cursor-pointer transition-all duration-200 p-5 flex flex-col group ${stateConfig.cardClass}`}
                 >
-                  {/* Priority & State */}
+                  {}
                   <div className="flex justify-between items-start mb-3 gap-3">
                     <span
                       className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${getPriorityColor(task.priority)}`}
@@ -356,7 +347,7 @@ const MyTasksPage = () => {
                     </span>
                   </div>
 
-                  {/* Title & Description */}
+                  {}
                   <h3 className="text-lg font-bold text-slate-800 mb-2 line-clamp-2 leading-snug group-hover:text-indigo-700 transition-colors">
                     {task.title}
                   </h3>
@@ -367,7 +358,7 @@ const MyTasksPage = () => {
                     </p>
                   )}
 
-                  {/* Footer info */}
+                  {}
                   <div className="space-y-2 mt-auto pt-4 border-t border-slate-100">
                     {task.ai_suggested_point ? (
                       <div className="flex items-center text-sm text-indigo-600 font-medium bg-indigo-50 w-fit px-2 py-1 rounded-md">

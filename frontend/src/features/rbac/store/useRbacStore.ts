@@ -24,7 +24,6 @@ export const useRbacStore = create<IRbacState>((set, get) => ({
   activeRolePermissionIds: [],
   isLoading: false,
 
-  // 1. GỌI API THẬT ĐỂ LẤY DANH SÁCH ROLES VÀ PERMISSIONS
   fetchInitialData: async () => {
     set({ isLoading: true });
     try {
@@ -47,7 +46,7 @@ export const useRbacStore = create<IRbacState>((set, get) => ({
       set({ roles: rolesData, permissions: permsData, isLoading: false });
 
       const firstRole = rolesData[0];
-      // 🚀 FIX: Kiểm tra cả .id và ._id (đề phòng backend trả về _id của MongoDB)
+
       const roleIdToUse = firstRole?.id || firstRole?._id;
 
       if (roleIdToUse && /^[a-f\d]{24}$/i.test(roleIdToUse)) {
@@ -63,9 +62,7 @@ export const useRbacStore = create<IRbacState>((set, get) => ({
     }
   },
 
-  // 2. GỌI API THẬT LẤY QUYỀN CỦA ROLE ĐANG CHỌN
   setActiveRole: async (roleId: string) => {
-    // 🚀 FIX: Chặn gọi API nếu ID không chuẩn
     if (!roleId || !/^[a-f\d]{24}$/i.test(roleId)) {
       console.warn("RBAC: RoleID không hợp lệ, không gọi API:", roleId);
       return;
@@ -84,13 +81,11 @@ export const useRbacStore = create<IRbacState>((set, get) => ({
     }
   },
 
-  // 3. GỌI API THẬT ĐỂ GÁN/XÓA QUYỀN KHI BẤM CÔNG TẮC
   togglePermission: async (
     roleId: string,
     permissionId: string,
     currentStatus: boolean,
   ) => {
-    // Optimistic Update: Đổi UI trước cho mượt
     set((state) => {
       const newIds = currentStatus
         ? state.activeRolePermissionIds.filter((id) => id !== permissionId)
@@ -98,7 +93,6 @@ export const useRbacStore = create<IRbacState>((set, get) => ({
       return { activeRolePermissionIds: newIds };
     });
 
-    // Gọi API thật phía sau
     try {
       if (currentStatus) {
         await rbacApi.removePermission(roleId, permissionId);
@@ -107,7 +101,7 @@ export const useRbacStore = create<IRbacState>((set, get) => ({
       }
     } catch (error) {
       console.error("❌ Lỗi thay đổi quyền:", error);
-      // Trả lại trạng thái cũ nếu API báo lỗi
+
       get().setActiveRole(roleId);
     }
   },

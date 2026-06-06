@@ -1,8 +1,6 @@
-// features/board/types/boardTypes.ts
-
-export type PriorityLevel = 'Low' | 'Medium' | 'High' | 'Critical';
-export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'DONE' | string;
-export type TaskModalInitialFocus = 'detail' | 'comments';
+export type PriorityLevel = "Low" | "Medium" | "High" | "Critical";
+export type TaskStatus = "TODO" | "IN_PROGRESS" | "DONE" | string;
+export type TaskModalInitialFocus = "detail" | "comments";
 
 export interface TaskCommentUser {
   id?: string;

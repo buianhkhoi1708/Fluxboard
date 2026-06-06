@@ -1,7 +1,7 @@
-import React from 'react';
-import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import { useAuthStore } from '../features/auth/store/useAuthStore';
-import { useRoleAccess } from '../features/rbac/hooks/useRoleAccess';
+import React from "react";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { useAuthStore } from "../features/auth/store/useAuthStore";
+import { useRoleAccess } from "../features/rbac/hooks/useRoleAccess";
 
 interface ProtectedRouteProps {
   allowedRoles?: string[];
@@ -12,11 +12,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) => {
 
   const { user, token, checkAuth } = useAuthStore();
 
-  const {
-    hasAccess,
-    isLoadingRoles,
-    currentRoleName,
-  } = useRoleAccess();
+  const { hasAccess, isLoadingRoles, currentRoleName } = useRoleAccess();
 
   const isAuthenticated = Boolean(token && user && checkAuth());
 

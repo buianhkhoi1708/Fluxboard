@@ -1,11 +1,20 @@
-import React from 'react';
-import { useNotificationSettings, useUpdateNotifications } from '../hooks/useSettingQueries';
-import { Loader2, CheckCircle, Mail, BellRing, CalendarClock } from 'lucide-react';
+import React from "react";
+import {
+  useNotificationSettings,
+  useUpdateNotifications,
+} from "../hooks/useSettingQueries";
+import {
+  Loader2,
+  CheckCircle,
+  Mail,
+  BellRing,
+  CalendarClock,
+} from "lucide-react";
 
 type NotificationSettingKey =
-  | 'email_notifications'
-  | 'push_notifications'
-  | 'task_deadline_reminders';
+  | "email_notifications"
+  | "push_notifications"
+  | "task_deadline_reminders";
 
 const notificationOptions: Array<{
   key: NotificationSettingKey;
@@ -14,21 +23,23 @@ const notificationOptions: Array<{
   icon: React.ReactNode;
 }> = [
   {
-    key: 'email_notifications',
-    label: 'Thông báo nhận việc qua Email',
-    description: 'Bật/tắt việc gửi email khi có task, deadline, xin dời hạn hoặc cập nhật quan trọng.',
+    key: "email_notifications",
+    label: "Thông báo nhận việc qua Email",
+    description:
+      "Bật/tắt việc gửi email khi có task, deadline, xin dời hạn hoặc cập nhật quan trọng.",
     icon: <Mail size={18} />,
   },
   {
-    key: 'push_notifications',
-    label: 'Thông báo đẩy thời gian thực',
-    description: 'Bật/tắt thông báo realtime trên header và popup nhỏ khi đang online.',
+    key: "push_notifications",
+    label: "Thông báo đẩy thời gian thực",
+    description:
+      "Bật/tắt thông báo realtime trên header và popup nhỏ khi đang online.",
     icon: <BellRing size={18} />,
   },
   {
-    key: 'task_deadline_reminders',
-    label: 'Nhắc nhở thời hạn chót công việc',
-    description: 'Bật/tắt các nhắc nhở deadline sắp đến hoặc quá hạn.',
+    key: "task_deadline_reminders",
+    label: "Nhắc nhở thời hạn chót công việc",
+    description: "Bật/tắt các nhắc nhở deadline sắp đến hoặc quá hạn.",
     icon: <CalendarClock size={18} />,
   },
 ];
@@ -81,16 +92,18 @@ export const NotificationTab = () => {
     return (
       <div className="flex items-center justify-between gap-5 p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/30 transition-colors">
         <div className="flex items-start gap-3 min-w-0">
-          <div className={`mt-0.5 w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-            isChecked ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-200 text-slate-500'
-          }`}>
+          <div
+            className={`mt-0.5 w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+              isChecked
+                ? "bg-indigo-100 text-indigo-600"
+                : "bg-slate-200 text-slate-500"
+            }`}
+          >
             {icon}
           </div>
 
           <div className="min-w-0">
-            <span className="text-sm font-black text-slate-700">
-              {label}
-            </span>
+            <span className="text-sm font-black text-slate-700">{label}</span>
             <p className="text-xs text-slate-500 font-medium mt-1 leading-relaxed">
               {description}
             </p>
@@ -102,12 +115,12 @@ export const NotificationTab = () => {
           disabled={isPending}
           onClick={() => handleToggle(stateKey, isChecked)}
           className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors duration-300 disabled:opacity-60 disabled:cursor-not-allowed ${
-            isChecked ? 'bg-indigo-600' : 'bg-slate-300'
+            isChecked ? "bg-indigo-600" : "bg-slate-300"
           }`}
         >
           <span
             className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-300 ${
-              isChecked ? 'translate-x-6' : 'translate-x-1'
+              isChecked ? "translate-x-6" : "translate-x-1"
             }`}
           />
         </button>
@@ -118,9 +131,7 @@ export const NotificationTab = () => {
   return (
     <div className="max-w-2xl animate-in fade-in duration-300">
       <div className="mb-6">
-        <h3 className="text-lg font-bold text-slate-800">
-          Cấu hình thông báo
-        </h3>
+        <h3 className="text-lg font-bold text-slate-800">Cấu hình thông báo</h3>
         <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
           <CheckCircle size={12} className="text-emerald-500" />
           Thay đổi sẽ được đồng bộ với cơ sở dữ liệu trung tâm.

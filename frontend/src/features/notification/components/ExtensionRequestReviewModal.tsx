@@ -1,7 +1,16 @@
-import React, { useState } from 'react';
-import { CalendarClock, UserRound, MessageSquareText, X, CheckCircle2, XCircle, ExternalLink, Loader2 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { notificationApi } from '../api/notificationApi';
+import React, { useState } from "react";
+import {
+  CalendarClock,
+  UserRound,
+  MessageSquareText,
+  X,
+  CheckCircle2,
+  XCircle,
+  ExternalLink,
+  Loader2,
+} from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { notificationApi } from "../api/notificationApi";
 
 interface Props {
   open: boolean;
@@ -11,17 +20,22 @@ interface Props {
 }
 
 const formatDate = (value?: string | Date) => {
-  if (!value) return 'Không rõ';
-  return new Date(value).toLocaleString('vi-VN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
+  if (!value) return "Không rõ";
+  return new Date(value).toLocaleString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
   });
 };
 
-const ExtensionRequestReviewModal: React.FC<Props> = ({ open, notification, onClose, onDone }) => {
+const ExtensionRequestReviewModal: React.FC<Props> = ({
+  open,
+  notification,
+  onClose,
+  onDone,
+}) => {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -29,7 +43,11 @@ const ExtensionRequestReviewModal: React.FC<Props> = ({ open, notification, onCl
 
   const meta = notification.metadata || {};
   const taskId = meta.task_id || notification.referenceId;
-  const actionUrl = notification.actionUrl || (meta.board_id && meta.task_id ? `/board/${meta.board_id}?taskId=${meta.task_id}` : null);
+  const actionUrl =
+    notification.actionUrl ||
+    (meta.board_id && meta.task_id
+      ? `/board/${meta.board_id}?taskId=${meta.task_id}`
+      : null);
 
   const goToTask = () => {
     if (actionUrl) {
@@ -41,7 +59,9 @@ const ExtensionRequestReviewModal: React.FC<Props> = ({ open, notification, onCl
   const approve = async () => {
     if (!taskId) return;
 
-    const ok = window.confirm('Sếp chắc chắn muốn CHẤP NHẬN yêu cầu dời deadline này?');
+    const ok = window.confirm(
+      "Sếp chắc chắn muốn CHẤP NHẬN yêu cầu dời deadline này?",
+    );
     if (!ok) return;
 
     setIsSubmitting(true);
@@ -52,7 +72,7 @@ const ExtensionRequestReviewModal: React.FC<Props> = ({ open, notification, onCl
       onClose();
     } catch (error) {
       console.error(error);
-      alert('Chấp nhận thất bại. Vui lòng thử lại.');
+      alert("Chấp nhận thất bại. Vui lòng thử lại.");
     } finally {
       setIsSubmitting(false);
     }
@@ -61,19 +81,26 @@ const ExtensionRequestReviewModal: React.FC<Props> = ({ open, notification, onCl
   const reject = async () => {
     if (!taskId) return;
 
-    const rejectReason = window.prompt('Nhập lý do từ chối, hoặc để trống nếu không cần:');
-    const ok = window.confirm('Sếp chắc chắn muốn TỪ CHỐI yêu cầu dời deadline này?');
+    const rejectReason = window.prompt(
+      "Nhập lý do từ chối, hoặc để trống nếu không cần:",
+    );
+    const ok = window.confirm(
+      "Sếp chắc chắn muốn TỪ CHỐI yêu cầu dời deadline này?",
+    );
     if (!ok) return;
 
     setIsSubmitting(true);
     try {
-      await notificationApi.rejectDeadlineExtension(String(taskId), rejectReason || '');
+      await notificationApi.rejectDeadlineExtension(
+        String(taskId),
+        rejectReason || "",
+      );
       await notificationApi.markAsReadOnServer(notification.id);
       onDone?.();
       onClose();
     } catch (error) {
       console.error(error);
-      alert('Từ chối thất bại. Vui lòng thử lại.');
+      alert("Từ chối thất bại. Vui lòng thử lại.");
     } finally {
       setIsSubmitting(false);
     }
@@ -81,7 +108,10 @@ const ExtensionRequestReviewModal: React.FC<Props> = ({ open, notification, onCl
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm" onClick={onClose} />
+      <div
+        className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm"
+        onClick={onClose}
+      />
 
       <div className="relative w-full max-w-xl overflow-hidden rounded-[2rem] bg-white shadow-2xl border border-white/70 animate-in zoom-in-95 fade-in duration-200">
         <div className="relative bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 px-7 py-6 text-white">
@@ -97,9 +127,11 @@ const ExtensionRequestReviewModal: React.FC<Props> = ({ open, notification, onCl
               <CalendarClock size={28} />
             </div>
             <div>
-              <p className="text-sm font-bold text-indigo-100">Yêu cầu dời deadline</p>
+              <p className="text-sm font-bold text-indigo-100">
+                Yêu cầu dời deadline
+              </p>
               <h2 className="text-2xl font-black leading-tight mt-1">
-                {meta.task_title || 'Task cần xử lý'}
+                {meta.task_title || "Task cần xử lý"}
               </h2>
             </div>
           </div>
@@ -111,21 +143,27 @@ const ExtensionRequestReviewModal: React.FC<Props> = ({ open, notification, onCl
               <div className="flex items-center gap-2 text-slate-500 text-xs font-black uppercase tracking-wider mb-2">
                 <UserRound size={15} /> Người xin
               </div>
-              <p className="font-extrabold text-slate-800">{meta.requester_name || 'Không rõ'}</p>
+              <p className="font-extrabold text-slate-800">
+                {meta.requester_name || "Không rõ"}
+              </p>
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
               <div className="flex items-center gap-2 text-slate-500 text-xs font-black uppercase tracking-wider mb-2">
                 <CalendarClock size={15} /> Deadline hiện tại
               </div>
-              <p className="font-extrabold text-rose-600">{formatDate(meta.current_due_date)}</p>
+              <p className="font-extrabold text-rose-600">
+                {formatDate(meta.current_due_date)}
+              </p>
             </div>
 
             <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 sm:col-span-2">
               <div className="flex items-center gap-2 text-emerald-700 text-xs font-black uppercase tracking-wider mb-2">
                 <CalendarClock size={15} /> Deadline mới đề xuất
               </div>
-              <p className="font-extrabold text-emerald-700">{formatDate(meta.requested_due_date)}</p>
+              <p className="font-extrabold text-emerald-700">
+                {formatDate(meta.requested_due_date)}
+              </p>
             </div>
           </div>
 
@@ -134,7 +172,7 @@ const ExtensionRequestReviewModal: React.FC<Props> = ({ open, notification, onCl
               <MessageSquareText size={15} /> Lý do xin dời
             </div>
             <p className="text-slate-700 font-semibold leading-relaxed whitespace-pre-wrap">
-              {meta.reason || 'Không có lý do'}
+              {meta.reason || "Không có lý do"}
             </p>
           </div>
 
@@ -151,7 +189,11 @@ const ExtensionRequestReviewModal: React.FC<Props> = ({ open, notification, onCl
               disabled={isSubmitting}
               className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-rose-600 px-4 py-3 font-extrabold text-white hover:bg-rose-700 transition shadow-lg shadow-rose-200 disabled:opacity-60"
             >
-              {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : <XCircle size={18} />}
+              {isSubmitting ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <XCircle size={18} />
+              )}
               Từ chối
             </button>
 
@@ -160,7 +202,11 @@ const ExtensionRequestReviewModal: React.FC<Props> = ({ open, notification, onCl
               disabled={isSubmitting}
               className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 py-3 font-extrabold text-white hover:bg-emerald-700 transition shadow-lg shadow-emerald-200 disabled:opacity-60"
             >
-              {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
+              {isSubmitting ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <CheckCircle2 size={18} />
+              )}
               Chấp nhận
             </button>
           </div>

@@ -1,27 +1,37 @@
-import React, { useEffect } from 'react';
-import { Outlet } from 'react-router-dom';
-import Sidebar from './Sidebar';
-import TopNavbar from './TopNavbar';
-import { useNotificationStore } from '../features/notification/stores/useNotificationStore';
-import { useAuthStore } from '../features/auth/store/useAuthStore';
+import React, { useEffect } from "react";
+import { Outlet } from "react-router-dom";
+import Sidebar from "./Sidebar";
+import TopNavbar from "./TopNavbar";
+import { useNotificationStore } from "../features/notification/stores/useNotificationStore";
+import { useAuthStore } from "../features/auth/store/useAuthStore";
 
 const MainLayout = () => {
   const user = useAuthStore((state) => state.user);
-  const connectWebSocket = useNotificationStore((state) => state.connectWebSocket);
-  const disconnectWebSocket = useNotificationStore((state) => state.disconnectWebSocket);
+  const connectWebSocket = useNotificationStore(
+    (state) => state.connectWebSocket,
+  );
+  const disconnectWebSocket = useNotificationStore(
+    (state) => state.disconnectWebSocket,
+  );
 
   useEffect(() => {
     const userId = user?.id || user?._id || user?.user_id;
 
     if (userId) {
-      console.log('[Notification] Start pipeline for user:', userId);
+      console.log("[Notification] Start pipeline for user:", userId);
       connectWebSocket(String(userId));
     }
 
     return () => {
       disconnectWebSocket();
     };
-  }, [user?.id, user?._id, user?.user_id, connectWebSocket, disconnectWebSocket]);
+  }, [
+    user?.id,
+    user?._id,
+    user?.user_id,
+    connectWebSocket,
+    disconnectWebSocket,
+  ]);
 
   return (
     <div className="flex flex-col h-screen w-full overflow-hidden bg-slate-50 font-sans text-slate-800">

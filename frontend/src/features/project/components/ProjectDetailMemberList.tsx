@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState } from "react";
 import {
   Shield,
   Mail,
@@ -8,26 +8,26 @@ import {
   Search,
   Users,
   Fingerprint,
-} from 'lucide-react';
-import { useRemoveProjectMember } from '../hooks/useProjectQueries';
-import { useQuery } from '@tanstack/react-query';
-import axiosClient from '../../../lib/axiosClient';
+} from "lucide-react";
+import { useRemoveProjectMember } from "../hooks/useProjectQueries";
+import { useQuery } from "@tanstack/react-query";
+import axiosClient from "../../../lib/axiosClient";
 
 const normalizeRoleName = (value?: string | null) => {
-  if (!value) return '';
+  if (!value) return "";
 
   return String(value)
     .trim()
     .toUpperCase()
-    .replace(/\s+/g, '_')
-    .replace(/-/g, '_');
+    .replace(/\s+/g, "_")
+    .replace(/-/g, "_");
 };
 
 const getCurrentUser = () => {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === "undefined") return null;
 
   try {
-    const rawUser = localStorage.getItem('user');
+    const rawUser = localStorage.getItem("user");
     return rawUser ? JSON.parse(rawUser) : null;
   } catch {
     return null;
@@ -35,11 +35,11 @@ const getCurrentUser = () => {
 };
 
 const getUserId = (user: any) => {
-  return String(user?.user_id || user?.id || user?._id || '');
+  return String(user?.user_id || user?.id || user?._id || "");
 };
 
 const getSystemRoleName = (user: any) => {
-  if (!user) return '';
+  if (!user) return "";
 
   const directRole =
     user.role_name ||
@@ -54,27 +54,27 @@ const getSystemRoleName = (user: any) => {
     return normalizeRoleName(directRole);
   }
 
-  if (user.role_id && typeof user.role_id === 'object') {
+  if (user.role_id && typeof user.role_id === "object") {
     return normalizeRoleName(user.role_id.name || user.role_id.code);
   }
 
   if (Array.isArray(user.system_role_ids)) {
     const matched = user.system_role_ids.find((item: any) => {
-      return normalizeRoleName(item) === 'SYSTEM_ADMIN';
+      return normalizeRoleName(item) === "SYSTEM_ADMIN";
     });
 
-    if (matched) return 'SYSTEM_ADMIN';
+    if (matched) return "SYSTEM_ADMIN";
   }
 
-  return '';
+  return "";
 };
 
 const isSystemAdminUser = (user: any) => {
-  return getSystemRoleName(user) === 'SYSTEM_ADMIN';
+  return getSystemRoleName(user) === "SYSTEM_ADMIN";
 };
 
 const isCurrentUserSystemAdmin = () => {
-  return getSystemRoleName(getCurrentUser()) === 'SYSTEM_ADMIN';
+  return getSystemRoleName(getCurrentUser()) === "SYSTEM_ADMIN";
 };
 
 const shouldExposeUser = (candidate: any) => {
@@ -86,15 +86,18 @@ const shouldExposeUser = (candidate: any) => {
 
   const currentUser = getCurrentUser();
 
-  return isCurrentUserSystemAdmin() && getUserId(currentUser) === getUserId(candidate);
+  return (
+    isCurrentUserSystemAdmin() &&
+    getUserId(currentUser) === getUserId(candidate)
+  );
 };
 
 const getMemberUser = (member: any) => {
-  if (member?.user_id && typeof member.user_id === 'object') {
+  if (member?.user_id && typeof member.user_id === "object") {
     return member.user_id;
   }
 
-  if (member?.user && typeof member.user === 'object') {
+  if (member?.user && typeof member.user === "object") {
     return member.user;
   }
 
@@ -118,13 +121,13 @@ const ProjectDetailMemberList = ({
   projectId,
   onEditRequest,
 }: any) => {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const { mutateAsync: removeMember } = useRemoveProjectMember(projectId);
 
   const { data: systemRoles = [] } = useQuery({
-    queryKey: ['all-system-roles'],
+    queryKey: ["all-system-roles"],
     queryFn: async () => {
-      const response: any = await axiosClient.get('/rbac/roles', {
+      const response: any = await axiosClient.get("/rbac/roles", {
         params: {
           size: 100,
         },
@@ -161,9 +164,9 @@ const ProjectDetailMemberList = ({
       member.full_name ||
       member.name ||
       member.username ||
-      '';
+      "";
 
-    const email = userData?.email || member.email || '';
+    const email = userData?.email || member.email || "";
 
     return (
       name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -172,7 +175,7 @@ const ProjectDetailMemberList = ({
   });
 
   const handleKickMember = async (userId: string, memberName: string) => {
-    if (!userId) return alert('Không tìm thấy ID người dùng.');
+    if (!userId) return alert("Không tìm thấy ID người dùng.");
 
     if (
       window.confirm(
@@ -182,15 +185,15 @@ const ProjectDetailMemberList = ({
       try {
         await removeMember(userId);
       } catch (error) {
-        console.error('Lỗi xóa member:', error);
-        alert('Có lỗi xảy ra khi xóa thành viên.');
+        console.error("Lỗi xóa member:", error);
+        alert("Có lỗi xảy ra khi xóa thành viên.");
       }
     }
   };
 
   return (
     <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col">
-      {/* TOOLBAR */}
+      {}
       <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-50/50">
         <div className="flex items-center gap-3 w-full sm:w-auto">
           <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 shadow-sm">
@@ -223,7 +226,7 @@ const ProjectDetailMemberList = ({
         </div>
       </div>
 
-      {/* TABLE */}
+      {}
       <div className="overflow-x-auto custom-scrollbar">
         <table className="w-full text-left border-collapse min-w-[800px]">
           <thead>
@@ -252,9 +255,10 @@ const ProjectDetailMemberList = ({
                   userData?.full_name ||
                   userData?.fullName ||
                   member.name ||
-                  'Unnamed User';
+                  "Unnamed User";
 
-                const email = userData?.email || member.email || 'Chưa có email';
+                const email =
+                  userData?.email || member.email || "Chưa có email";
                 const avatar =
                   userData?.avatar_url ||
                   userData?.avatarUrl ||
@@ -300,14 +304,14 @@ const ProjectDetailMemberList = ({
                       <div className="flex flex-wrap gap-2">
                         {roles.map((role: any, roleIndex: number) => {
                           const roleKey =
-                            typeof role === 'string'
+                            typeof role === "string"
                               ? role
                               : role._id || role.id || roleIndex;
 
                           const roleDisplay =
-                            typeof role === 'string'
+                            typeof role === "string"
                               ? getRoleName(role)
-                              : role.name || role.code || 'MEMBER';
+                              : role.name || role.code || "MEMBER";
 
                           return (
                             <span

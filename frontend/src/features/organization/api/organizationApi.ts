@@ -1,20 +1,20 @@
-import axiosClient from '../../../lib/axiosClient';
+import axiosClient from "../../../lib/axiosClient";
 
 const normalizeRoleName = (value?: string | null) => {
-  if (!value) return '';
+  if (!value) return "";
 
   return String(value)
     .trim()
     .toUpperCase()
-    .replace(/\s+/g, '_')
-    .replace(/-/g, '_');
+    .replace(/\s+/g, "_")
+    .replace(/-/g, "_");
 };
 
 const getCurrentUser = () => {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === "undefined") return null;
 
   try {
-    const rawUser = localStorage.getItem('user');
+    const rawUser = localStorage.getItem("user");
 
     return rawUser ? JSON.parse(rawUser) : null;
   } catch {
@@ -23,7 +23,7 @@ const getCurrentUser = () => {
 };
 
 const getUserId = (user: any) => {
-  return String(user?.user_id || user?.id || user?._id || '');
+  return String(user?.user_id || user?.id || user?._id || "");
 };
 
 const getRoleName = (user: any) => {
@@ -40,29 +40,29 @@ const getRoleName = (user: any) => {
     return normalizeRoleName(directRole);
   }
 
-  if (user?.role_id && typeof user.role_id === 'object') {
+  if (user?.role_id && typeof user.role_id === "object") {
     return normalizeRoleName(user.role_id.name || user.role_id.code);
   }
 
   if (Array.isArray(user?.system_role_ids)) {
     const roleName = user.system_role_ids.find((item: any) => {
-      return normalizeRoleName(item) === 'SYSTEM_ADMIN';
+      return normalizeRoleName(item) === "SYSTEM_ADMIN";
     });
 
     if (roleName) {
-      return 'SYSTEM_ADMIN';
+      return "SYSTEM_ADMIN";
     }
   }
 
-  return '';
+  return "";
 };
 
 const isSystemAdminUser = (user: any) => {
-  return getRoleName(user) === 'SYSTEM_ADMIN';
+  return getRoleName(user) === "SYSTEM_ADMIN";
 };
 
 const isCurrentUserSystemAdmin = () => {
-  return getRoleName(getCurrentUser()) === 'SYSTEM_ADMIN';
+  return getRoleName(getCurrentUser()) === "SYSTEM_ADMIN";
 };
 
 const shouldExposeUserInSelectableList = (candidate: any) => {
@@ -74,7 +74,10 @@ const shouldExposeUserInSelectableList = (candidate: any) => {
 
   const currentUser = getCurrentUser();
 
-  return isCurrentUserSystemAdmin() && getUserId(currentUser) === getUserId(candidate);
+  return (
+    isCurrentUserSystemAdmin() &&
+    getUserId(currentUser) === getUserId(candidate)
+  );
 };
 
 const getUserVisibilityParams = () => {
@@ -215,13 +218,9 @@ const sanitizeOrgTreeResponse = (response: any) => {
 };
 
 export const orgApi = {
-  /* =========================
-     DEPARTMENTS & TREE
-  ========================= */
-
   getOrgTree: (params?: any) => {
     return axiosClient
-      .get('/organizations/tree', {
+      .get("/organizations/tree", {
         params: {
           ...getUserVisibilityParams(),
           ...params,
@@ -231,7 +230,7 @@ export const orgApi = {
   },
 
   createDepartment: (payload: any) => {
-    return axiosClient.post('/organizations/departments', payload);
+    return axiosClient.post("/organizations/departments", payload);
   },
 
   updateDepartment: (id: string, payload: any) => {
@@ -242,12 +241,8 @@ export const orgApi = {
     return axiosClient.delete(`/organizations/departments/${id}`);
   },
 
-  /* =========================
-     TEAMS
-  ========================= */
-
   createTeam: (payload: any) => {
-    return axiosClient.post('/organizations/teams', payload);
+    return axiosClient.post("/organizations/teams", payload);
   },
 
   updateTeam: (teamId: string, payload: any) => {
@@ -257,10 +252,6 @@ export const orgApi = {
   deleteTeam: (teamId: string) => {
     return axiosClient.delete(`/organizations/teams/${teamId}`);
   },
-
-  /* =========================
-     MEMBERS & ASSIGNMENTS
-  ========================= */
 
   assignUserToTeam: (userId: string, teamId: string, departmentId: string) => {
     return axiosClient.post(`/organizations/teams/${teamId}/users`, {
@@ -273,13 +264,9 @@ export const orgApi = {
     return axiosClient.delete(`/organizations/teams/${teamId}/users/${userId}`);
   },
 
-  /* =========================
-     USERS & SEARCH
-  ========================= */
-
   searchOrgUsers: (keyword: string) => {
     return axiosClient
-      .get('/organizations/search', {
+      .get("/organizations/search", {
         params: {
           keyword,
           ...getUserVisibilityParams(),
@@ -290,7 +277,7 @@ export const orgApi = {
 
   getUnassignedUsers: (params?: any) => {
     return axiosClient
-      .get('/organizations/users/unassigned', {
+      .get("/organizations/users/unassigned", {
         params: {
           ...getUserVisibilityParams(),
           ...params,

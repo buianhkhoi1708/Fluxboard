@@ -45,7 +45,7 @@ const formatDateForDisplay = (dateString?: string | null) => {
   if (!dateString) return "";
   const date = new Date(dateString);
   if (isNaN(date.getTime())) return "";
-  
+
   return date.toLocaleDateString("vi-VN", {
     day: "2-digit",
     month: "2-digit",
@@ -112,20 +112,38 @@ const TaskItem: React.FC<TaskItemProps> = memo(
       }
     };
 
-    const handleToggleSubtask = async (e: React.MouseEvent, subtaskId: string) => {
+    const handleToggleSubtask = async (
+      e: React.MouseEvent,
+      subtaskId: string,
+    ) => {
       e.stopPropagation();
       if (!activeBoardId) return;
 
-      const subtask = task.subtasks?.find((st: Task) => st.id === subtaskId || st._id === subtaskId);
+      const subtask = task.subtasks?.find(
+        (st: Task) => st.id === subtaskId || st._id === subtaskId,
+      );
       if (!subtask) return;
 
-      const newStatus = subtask.status === "DONE" || subtask.is_done ? "TODO" : "DONE";
-      const rawAssignees = subtask.assignees_user_id || subtask.assigneesUserId || subtask.assignees || subtask.assignee_id || [];
-      const assigneeArray = Array.isArray(rawAssignees) ? rawAssignees : [rawAssignees];
+      const newStatus =
+        subtask.status === "DONE" || subtask.is_done ? "TODO" : "DONE";
+      const rawAssignees =
+        subtask.assignees_user_id ||
+        subtask.assigneesUserId ||
+        subtask.assignees ||
+        subtask.assignee_id ||
+        [];
+      const assigneeArray = Array.isArray(rawAssignees)
+        ? rawAssignees
+        : [rawAssignees];
 
       const cleanAssignees = assigneeArray
-        .map((item: any) => typeof item === "object" ? item.user_id || item.id || item._id : item)
-        .filter((id: any) => id && String(id) !== "undefined" && !String(id).startsWith("temp-"))
+        .map((item: any) =>
+          typeof item === "object" ? item.user_id || item.id || item._id : item,
+        )
+        .filter(
+          (id: any) =>
+            id && String(id) !== "undefined" && !String(id).startsWith("temp-"),
+        )
         .map((id: any) => String(id));
 
       try {
@@ -138,8 +156,11 @@ const TaskItem: React.FC<TaskItemProps> = memo(
             column_id: listId,
             parent_task_id: safeTaskId,
             status: newStatus,
-            priority: subtask.priority ? String(subtask.priority).toUpperCase() : "MEDIUM",
-            story_point: Number(subtask.story_point || subtask.story_points) || 0,
+            priority: subtask.priority
+              ? String(subtask.priority).toUpperCase()
+              : "MEDIUM",
+            story_point:
+              Number(subtask.story_point || subtask.story_points) || 0,
             assignees_user_id: cleanAssignees,
             start_date: subtask.start_date || null,
             due_date: subtask.due_date || null,
@@ -150,7 +171,10 @@ const TaskItem: React.FC<TaskItemProps> = memo(
       }
     };
 
-    const openDetail = (e: React.MouseEvent, mode: TaskModalInitialFocus = "detail") => {
+    const openDetail = (
+      e: React.MouseEvent,
+      mode: TaskModalInitialFocus = "detail",
+    ) => {
       e.stopPropagation();
       if (onOpenTaskDetail) onOpenTaskDetail(safeTaskId, mode);
     };
@@ -172,7 +196,9 @@ const TaskItem: React.FC<TaskItemProps> = memo(
           ${isOverlay ? "rotate-3 scale-105 shadow-2xl border-indigo-500 ring-4 ring-indigo-50/80 z-50" : ""}`}
         >
           <div className="flex justify-between items-start gap-2 pr-24">
-            <h4 className={`text-sm font-semibold break-words leading-snug transition-all ${isTaskDone ? "line-through text-slate-400 font-medium" : "text-slate-800"}`}>
+            <h4
+              className={`text-sm font-semibold break-words leading-snug transition-all ${isTaskDone ? "line-through text-slate-400 font-medium" : "text-slate-800"}`}
+            >
               {task.title}
             </h4>
             {isTaskDone && (
@@ -185,19 +211,25 @@ const TaskItem: React.FC<TaskItemProps> = memo(
           {task.description && (
             <div className="mt-2 flex items-start gap-1.5 text-slate-500">
               <AlignLeft size={12} className="shrink-0 mt-0.5 text-slate-400" />
-              <p className={`text-xs line-clamp-2 leading-relaxed ${isTaskDone ? "text-slate-400/70" : ""}`}>
+              <p
+                className={`text-xs line-clamp-2 leading-relaxed ${isTaskDone ? "text-slate-400/70" : ""}`}
+              >
                 {task.description}
               </p>
             </div>
           )}
 
-          {(task.start_date || task.due_date || (task.estimated_days && task.estimated_days > 0)) && (
+          {(task.start_date ||
+            task.due_date ||
+            (task.estimated_days && task.estimated_days > 0)) && (
             <div className="mt-2.5 flex flex-wrap items-center gap-2 sm:gap-3 text-[10px] font-medium text-slate-500">
               {(task.start_date || task.due_date) && (
                 <div className="flex items-center gap-1 px-1.5 py-0.5 bg-slate-50 rounded border border-slate-100 whitespace-nowrap">
                   <Calendar size={10} className="text-slate-400" />
                   <span>
-                    {task.start_date ? formatDateForDisplay(task.start_date) : "?"}
+                    {task.start_date
+                      ? formatDateForDisplay(task.start_date)
+                      : "?"}
                     {" - "}
                     {task.due_date ? formatDateForDisplay(task.due_date) : "?"}
                   </span>
@@ -218,15 +250,23 @@ const TaskItem: React.FC<TaskItemProps> = memo(
               {task.subtasks.map((st: Task) => (
                 <div
                   key={String(st.id || st._id)}
-                  onClick={(e) => handleToggleSubtask(e, String(st.id || st._id))}
+                  onClick={(e) =>
+                    handleToggleSubtask(e, String(st.id || st._id))
+                  }
                   className="flex items-center gap-2 cursor-pointer hover:bg-slate-50 p-1 -mx-1 rounded transition-colors"
                 >
                   {st.status === "DONE" || st.is_done ? (
-                    <CheckSquare size={13} className="text-emerald-500 shrink-0" />
+                    <CheckSquare
+                      size={13}
+                      className="text-emerald-500 shrink-0"
+                    />
                   ) : (
                     <Square size={13} className="text-slate-300 shrink-0" />
                   )}
-                  <span className={`text-[11px] flex-1 truncate ${st.status === "DONE" || st.is_done ? "line-through text-slate-400" : "text-slate-600 font-medium"}`} title={st.title}>
+                  <span
+                    className={`text-[11px] flex-1 truncate ${st.status === "DONE" || st.is_done ? "line-through text-slate-400" : "text-slate-600 font-medium"}`}
+                    title={st.title}
+                  >
                     {st.title}
                   </span>
                 </div>
@@ -237,28 +277,46 @@ const TaskItem: React.FC<TaskItemProps> = memo(
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs font-medium border-t border-slate-100 pt-2.5">
             <div className="flex items-center gap-2">
               {task.priority && (
-                <span className={`flex items-center gap-1 px-2 py-0.5 rounded-md ${isTaskDone ? "bg-slate-100 text-slate-400 border border-slate-200/60" : priorityColors[String(task.priority).toUpperCase()] || priorityColors.MEDIUM}`}>
+                <span
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded-md ${isTaskDone ? "bg-slate-100 text-slate-400 border border-slate-200/60" : priorityColors[String(task.priority).toUpperCase()] || priorityColors.MEDIUM}`}
+                >
                   <Flag size={10} />
-                  <span className="text-[10px] font-bold uppercase">{task.priority}</span>
+                  <span className="text-[10px] font-bold uppercase">
+                    {task.priority}
+                  </span>
                 </span>
               )}
             </div>
 
             <div className="flex items-center gap-2">
               {(() => {
-                const rawAssignees = task.assignees_user_id || task.assigneesUserId || task.assignees || task.assignee_id || task.assignee_ids;
-                const assigneeArray = Array.isArray(rawAssignees) ? rawAssignees : (rawAssignees ? [rawAssignees] : []);
+                const rawAssignees =
+                  task.assignees_user_id ||
+                  task.assigneesUserId ||
+                  task.assignees ||
+                  task.assignee_id ||
+                  task.assignee_ids;
+                const assigneeArray = Array.isArray(rawAssignees)
+                  ? rawAssignees
+                  : rawAssignees
+                    ? [rawAssignees]
+                    : [];
 
                 if (assigneeArray.length > 0) {
                   return (
                     <div className="flex flex-wrap items-center gap-1.5 mt-1">
                       {assigneeArray.map((item: any, idx: number) => {
-                        const userId = typeof item === "object" ? item.user_id || item.id || item._id : item;
+                        const userId =
+                          typeof item === "object"
+                            ? item.user_id || item.id || item._id
+                            : item;
                         if (!userId) return null;
 
                         const member = getUser(userId, projectId);
-                        const displayName = member?.full_name || member?.name || "Thành viên";
-                        const avatarUrl = member?.avatar_url || member?.avatarUrl;
+                        const displayName =
+                          member?.full_name || member?.name || "Thành viên";
+                        const avatarUrl =
+                          member?.avatar_url || member?.avatarUrl;
                         const initial = displayName.charAt(0).toUpperCase();
 
                         return (
@@ -274,11 +332,15 @@ const TaskItem: React.FC<TaskItemProps> = memo(
                                 className={`w-4 h-4 rounded-full object-cover border shrink-0 ${isTaskDone ? "border-slate-200/80 grayscale" : "border-indigo-200"}`}
                               />
                             ) : (
-                              <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] text-white shrink-0 ${isTaskDone ? "bg-slate-300" : "bg-indigo-600"}`}>
+                              <div
+                                className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] text-white shrink-0 ${isTaskDone ? "bg-slate-300" : "bg-indigo-600"}`}
+                              >
                                 {initial}
                               </div>
                             )}
-                            <span className="truncate max-w-[80px]">{displayName}</span>
+                            <span className="truncate max-w-[80px]">
+                              {displayName}
+                            </span>
                           </span>
                         );
                       })}

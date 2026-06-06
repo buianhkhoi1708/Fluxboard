@@ -1,5 +1,5 @@
-import axiosClient from '../../../lib/axiosClient';
-import { IncomingUser } from '../../user/store/useUserStore';
+import axiosClient from "../../../lib/axiosClient";
+import { IncomingUser } from "../../user/store/useUserStore";
 
 export interface ApiResponse<T> {
   success: boolean;
@@ -18,20 +18,20 @@ export type UpdateProjectPayload = Partial<CreateProjectPayload> & {
 };
 
 const normalizeRoleName = (value?: string | null) => {
-  if (!value) return '';
+  if (!value) return "";
 
   return String(value)
     .trim()
     .toUpperCase()
-    .replace(/\s+/g, '_')
-    .replace(/-/g, '_');
+    .replace(/\s+/g, "_")
+    .replace(/-/g, "_");
 };
 
 const getCurrentUser = () => {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === "undefined") return null;
 
   try {
-    const rawUser = localStorage.getItem('user');
+    const rawUser = localStorage.getItem("user");
     return rawUser ? JSON.parse(rawUser) : null;
   } catch {
     return null;
@@ -39,11 +39,11 @@ const getCurrentUser = () => {
 };
 
 const getUserId = (user: any) => {
-  return String(user?.user_id || user?.id || user?._id || '');
+  return String(user?.user_id || user?.id || user?._id || "");
 };
 
 const getRoleName = (user: any) => {
-  if (!user) return '';
+  if (!user) return "";
 
   const directRole =
     user.role_name ||
@@ -58,23 +58,23 @@ const getRoleName = (user: any) => {
     return normalizeRoleName(directRole);
   }
 
-  if (user.role_id && typeof user.role_id === 'object') {
+  if (user.role_id && typeof user.role_id === "object") {
     return normalizeRoleName(user.role_id.name || user.role_id.code);
   }
 
   if (Array.isArray(user.system_role_ids)) {
     const matched = user.system_role_ids.find((item: any) => {
-      return normalizeRoleName(item) === 'SYSTEM_ADMIN';
+      return normalizeRoleName(item) === "SYSTEM_ADMIN";
     });
 
-    if (matched) return 'SYSTEM_ADMIN';
+    if (matched) return "SYSTEM_ADMIN";
   }
 
-  return '';
+  return "";
 };
 
 const isCurrentUserSystemAdmin = () => {
-  return getRoleName(getCurrentUser()) === 'SYSTEM_ADMIN';
+  return getRoleName(getCurrentUser()) === "SYSTEM_ADMIN";
 };
 
 const getUserVisibilityParams = () => {
@@ -89,7 +89,7 @@ const getUserVisibilityParams = () => {
 
 export const projectApi = {
   createProject: (data: CreateProjectPayload): Promise<ApiResponse<any>> => {
-    return axiosClient.post('/projects', data);
+    return axiosClient.post("/projects", data);
   },
 
   getProjects: (params?: {
@@ -97,7 +97,7 @@ export const projectApi = {
     size?: number;
     sort?: string;
   }): Promise<ApiResponse<any>> => {
-    return axiosClient.get('/projects', {
+    return axiosClient.get("/projects", {
       params: {
         ...getUserVisibilityParams(),
         ...params,
@@ -147,7 +147,7 @@ export const projectApi = {
     page?: number;
     size?: number;
   }): Promise<ApiResponse<any>> => {
-    return axiosClient.get('/projects/overviews', {
+    return axiosClient.get("/projects/overviews", {
       params: {
         ...getUserVisibilityParams(),
         ...params,

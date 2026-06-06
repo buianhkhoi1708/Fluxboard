@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import Column from './Column';
-import TaskItem from './TaskItem';
-import { useUserStore } from '../../user/store/useUserStore';
-import { useBoardStore } from '../stores/useBoardStore';
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import Column from "./Column";
+import TaskItem from "./TaskItem";
+import { useUserStore } from "../../user/store/useUserStore";
+import { useBoardStore } from "../stores/useBoardStore";
 
 import {
   DndContext,
@@ -13,30 +13,30 @@ import {
   MouseSensor,
   TouchSensor,
   DragEndEvent,
-} from '@dnd-kit/core';
+} from "@dnd-kit/core";
 
-import { arrayMove } from '@dnd-kit/sortable';
-import { Sparkles, Filter, Users, Plus, X } from 'lucide-react';
-import { useRealtimeEvent } from '../../../hooks/useRealtimeEvent';
-import { useParams, useSearchParams } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
+import { arrayMove } from "@dnd-kit/sortable";
+import { Sparkles, Filter, Users, Plus, X } from "lucide-react";
+import { useRealtimeEvent } from "../../../hooks/useRealtimeEvent";
+import { useParams, useSearchParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 
 import {
   useGetBoardDetail,
   useMoveTask,
   useCreateColumn,
   BOARD_QUERY_KEYS,
-} from '../hooks/useBoardQueries';
+} from "../hooks/useBoardQueries";
 
-import { Task, BoardColumn, TaskModalInitialFocus } from '../types/index';
-import TaskDetailModal from './TaskDetailModal';
+import { Task, BoardColumn, TaskModalInitialFocus } from "../types/index";
+import TaskDetailModal from "./TaskDetailModal";
 
 const BoardView = () => {
   const { id } = useParams();
-  const currentBoardId = id || '69d22692ef24ae604f65ae89';
+  const currentBoardId = id || "69d22692ef24ae604f65ae89";
 
   const [searchParams, setSearchParams] = useSearchParams();
-  const taskIdFromUrl = searchParams.get('taskId');
+  const taskIdFromUrl = searchParams.get("taskId");
 
   const queryClient = useQueryClient();
 
@@ -49,40 +49,49 @@ const BoardView = () => {
 
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [isAddingCol, setIsAddingCol] = useState(false);
-  const [newColName, setNewColName] = useState('');
+  const [newColName, setNewColName] = useState("");
   const newColInputRef = useRef<HTMLInputElement>(null);
 
-  const [selectedTaskDetailId, setSelectedTaskDetailId] = useState<string | null>(null);
-  const [taskModalInitialFocus, setTaskModalInitialFocus] = useState<TaskModalInitialFocus>('detail');
+  const [selectedTaskDetailId, setSelectedTaskDetailId] = useState<
+    string | null
+  >(null);
+  const [taskModalInitialFocus, setTaskModalInitialFocus] =
+    useState<TaskModalInitialFocus>("detail");
 
   const activeDragId = useRef<string | null>(null);
 
-  const boardTitle = board?.name || board?.board_name || 'Bảng công việc';
+  const boardTitle = board?.name || board?.board_name || "Bảng công việc";
 
-  const openTaskDetail = (taskId: string, mode: TaskModalInitialFocus = 'detail') => {
+  const openTaskDetail = (
+    taskId: string,
+    mode: TaskModalInitialFocus = "detail",
+  ) => {
     setTaskModalInitialFocus(mode);
     setSelectedTaskDetailId(taskId);
   };
 
   useEffect(() => {
     if (taskIdFromUrl && board) {
-      openTaskDetail(taskIdFromUrl, 'detail');
-      searchParams.delete('taskId');
+      openTaskDetail(taskIdFromUrl, "detail");
+      searchParams.delete("taskId");
       setSearchParams(searchParams, { replace: true });
     }
   }, [taskIdFromUrl, board, searchParams, setSearchParams]);
 
   const selectedTaskData = useMemo(() => {
-    if (!selectedTaskDetailId || !Array.isArray(board?.columns)) return { task: null, listId: '' };
+    if (!selectedTaskDetailId || !Array.isArray(board?.columns))
+      return { task: null, listId: "" };
 
     for (const col of board.columns) {
-      const foundTask = col.tasks?.find((t: Task) => String(t.id || t._id) === String(selectedTaskDetailId));
+      const foundTask = col.tasks?.find(
+        (t: Task) => String(t.id || t._id) === String(selectedTaskDetailId),
+      );
       if (foundTask) {
         return { task: foundTask, listId: String(col.id || col._id) };
       }
     }
 
-    return { task: null, listId: '' };
+    return { task: null, listId: "" };
   }, [selectedTaskDetailId, board]);
 
   useEffect(() => {
@@ -95,22 +104,26 @@ const BoardView = () => {
     if (isAddingCol && newColInputRef.current) newColInputRef.current.focus();
   }, [isAddingCol]);
 
-  const mouseSensor = useSensor(MouseSensor, { activationConstraint: { distance: 5 } });
-  const touchSensor = useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } });
+  const mouseSensor = useSensor(MouseSensor, {
+    activationConstraint: { distance: 5 },
+  });
+  const touchSensor = useSensor(TouchSensor, {
+    activationConstraint: { delay: 250, tolerance: 5 },
+  });
   const sensors = useSensors(mouseSensor, touchSensor);
 
   useRealtimeEvent(`/topic/board/${currentBoardId}`, (data) => {
     if (activeDragId.current) {
-      console.log('🛑 Bỏ qua Socket do đang trong phiên kéo thả!');
+      console.log("🛑 Bỏ qua Socket do đang trong phiên kéo thả!");
       return;
     }
 
-    console.log('🔄 WebSocket có cập nhật mới! Tải lại Board...', data);
+    console.log("🔄 WebSocket có cập nhật mới! Tải lại Board...", data);
 
     queryClient.invalidateQueries({
       queryKey: BOARD_QUERY_KEYS.boardDetail(currentBoardId),
       exact: true,
-      refetchType: 'active',
+      refetchType: "active",
     });
   });
 
@@ -123,18 +136,28 @@ const BoardView = () => {
       if (!Array.isArray(col.tasks)) return;
 
       col.tasks.forEach((task: Task) => {
-        const assignees = task.assignees_user_id || task.assigneesUserId || task.assignees || [];
+        const assignees =
+          task.assignees_user_id ||
+          task.assigneesUserId ||
+          task.assignees ||
+          [];
         if (!Array.isArray(assignees)) return;
 
         assignees.forEach((item: any) => {
-          const userId = typeof item === 'object' ? item.id || item._id : item;
+          const userId = typeof item === "object" ? item.id || item._id : item;
           if (userId) assignedUserIds.add(String(userId));
         });
       });
     });
 
-    return Array.from(assignedUserIds).map(userId => {
-      return userDictionary?.[userId] || { id: userId, full_name: 'Member', avatar_url: null };
+    return Array.from(assignedUserIds).map((userId) => {
+      return (
+        userDictionary?.[userId] || {
+          id: userId,
+          full_name: "Member",
+          avatar_url: null,
+        }
+      );
     });
   }, [board, userDictionary]);
 
@@ -152,10 +175,10 @@ const BoardView = () => {
         boardId: activeBoardId,
       });
 
-      setNewColName('');
+      setNewColName("");
       setIsAddingCol(false);
     } catch (error) {
-      console.error('Lỗi tạo cột mới:', error);
+      console.error("Lỗi tạo cột mới:", error);
     }
   };
 
@@ -169,8 +192,12 @@ const BoardView = () => {
     const activeId = String(active.id);
     const overId = String(over.id);
 
-    const activeColId = String(active.data.current?.columnId || active.data.current?.listId);
-    const overColId = String(over.data.current?.columnId || over.data.current?.listId || over.id);
+    const activeColId = String(
+      active.data.current?.columnId || active.data.current?.listId,
+    );
+    const overColId = String(
+      over.data.current?.columnId || over.data.current?.listId || over.id,
+    );
 
     if (!activeColId || !overColId) return;
 
@@ -184,13 +211,21 @@ const BoardView = () => {
 
       const newColumns = JSON.parse(JSON.stringify(oldBoard.columns));
 
-      const sourceCol = newColumns.find((c: any) => String(c.id || c._id) === activeColId);
-      const destCol = newColumns.find((c: any) => String(c.id || c._id) === overColId);
+      const sourceCol = newColumns.find(
+        (c: any) => String(c.id || c._id) === activeColId,
+      );
+      const destCol = newColumns.find(
+        (c: any) => String(c.id || c._id) === overColId,
+      );
 
       if (!sourceCol || !destCol) return oldBoard;
 
-      const activeIndex = sourceCol.tasks.findIndex((t: any) => String(t.id || t._id) === activeId);
-      const overIndex = destCol.tasks.findIndex((t: any) => String(t.id || t._id) === overId);
+      const activeIndex = sourceCol.tasks.findIndex(
+        (t: any) => String(t.id || t._id) === activeId,
+      );
+      const overIndex = destCol.tasks.findIndex(
+        (t: any) => String(t.id || t._id) === overId,
+      );
 
       if (activeIndex === -1) return oldBoard;
 
@@ -204,7 +239,7 @@ const BoardView = () => {
       } else {
         const [movedTask] = sourceCol.tasks.splice(activeIndex, 1);
 
-        if (over.data.current?.type === 'Task') {
+        if (over.data.current?.type === "Task") {
           const finalIndex = overIndex >= 0 ? overIndex : destCol.tasks.length;
           destCol.tasks.splice(finalIndex, 0, movedTask);
           newOrder = finalIndex;
@@ -221,8 +256,8 @@ const BoardView = () => {
       const pId = board?.project_id || board?.projectId || board?.project?._id;
 
       if (!pId) {
-        console.error('🚨 Không tìm thấy Project ID! Board data:', board);
-        throw new Error('Missing Project ID');
+        console.error("🚨 Không tìm thấy Project ID! Board data:", board);
+        throw new Error("Missing Project ID");
       }
 
       await moveTaskApi({
@@ -233,7 +268,7 @@ const BoardView = () => {
         projectId: String(pId),
       });
     } catch (error) {
-      console.error('❌ Lỗi API khi di chuyển task, hoàn tác UI:', error);
+      console.error("❌ Lỗi API khi di chuyển task, hoàn tác UI:", error);
       queryClient.setQueryData(boardKey, previousBoard);
     }
   };
@@ -248,8 +283,12 @@ const BoardView = () => {
           </div>
         </div>
         <div className="flex flex-col items-center gap-1">
-          <span className="text-base font-bold text-slate-700 tracking-tight">Đang tải không gian làm việc...</span>
-          <span className="text-xs font-medium text-slate-400">Vui lòng chờ trong giây lát</span>
+          <span className="text-base font-bold text-slate-700 tracking-tight">
+            Đang tải không gian làm việc...
+          </span>
+          <span className="text-xs font-medium text-slate-400">
+            Vui lòng chờ trong giây lát
+          </span>
         </div>
       </div>
     );
@@ -283,27 +322,33 @@ const BoardView = () => {
               <div className="flex items-center -space-x-2 mr-1 md:mr-2 shrink-0">
                 {activeMembersInBoard.length > 0 ? (
                   <>
-                    {activeMembersInBoard.slice(0, 4).map((member: any, idx: number) => {
-                      const displayName = member.full_name || 'Member';
-                      const avatarUrl = member.avatar_url;
+                    {activeMembersInBoard
+                      .slice(0, 4)
+                      .map((member: any, idx: number) => {
+                        const displayName = member.full_name || "Member";
+                        const avatarUrl = member.avatar_url;
 
-                      return (
-                        <div
-                          key={member.id || idx}
-                          title={displayName}
-                          className="w-7 h-7 md:w-8 md:h-8 rounded-full border-2 border-white flex items-center justify-center overflow-hidden z-[10] shadow-sm transition-transform hover:scale-110 hover:z-50 cursor-pointer"
-                          style={{ zIndex: 10 - idx }}
-                        >
-                          {avatarUrl ? (
-                            <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover bg-white" />
-                          ) : (
-                            <div className="w-full h-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[10px] md:text-xs font-bold">
-                              {displayName.charAt(0).toUpperCase()}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                        return (
+                          <div
+                            key={member.id || idx}
+                            title={displayName}
+                            className="w-7 h-7 md:w-8 md:h-8 rounded-full border-2 border-white flex items-center justify-center overflow-hidden z-[10] shadow-sm transition-transform hover:scale-110 hover:z-50 cursor-pointer"
+                            style={{ zIndex: 10 - idx }}
+                          >
+                            {avatarUrl ? (
+                              <img
+                                src={avatarUrl}
+                                alt={displayName}
+                                className="w-full h-full object-cover bg-white"
+                              />
+                            ) : (
+                              <div className="w-full h-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[10px] md:text-xs font-bold">
+                                {displayName.charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
 
                     {activeMembersInBoard.length > 4 && (
                       <div
@@ -331,13 +376,15 @@ const BoardView = () => {
           </div>
 
           <div className="flex-1 w-full p-4 md:p-6 overflow-x-auto overflow-y-hidden flex flex-nowrap gap-4 md:gap-6 items-start custom-scrollbar">
-            {(Array.isArray(board.columns) ? board.columns : []).map((col: BoardColumn) => (
-              <Column
-                key={col.id || col._id}
-                list={col}
-                onOpenTaskDetail={openTaskDetail}
-              />
-            ))}
+            {(Array.isArray(board.columns) ? board.columns : []).map(
+              (col: BoardColumn) => (
+                <Column
+                  key={col.id || col._id}
+                  list={col}
+                  onOpenTaskDetail={openTaskDetail}
+                />
+              ),
+            )}
 
             <div className="w-[85vw] max-w-[280px] sm:w-[280px] shrink-0">
               {isAddingCol ? (
@@ -348,10 +395,10 @@ const BoardView = () => {
                     onChange={(e) => setNewColName(e.target.value)}
                     onBlur={handleAddColumn}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleAddColumn();
-                      if (e.key === 'Escape') {
+                      if (e.key === "Enter") handleAddColumn();
+                      if (e.key === "Escape") {
                         setIsAddingCol(false);
-                        setNewColName('');
+                        setNewColName("");
                       }
                     }}
                     placeholder="Nhập tên danh sách..."
@@ -372,7 +419,7 @@ const BoardView = () => {
                       onMouseDown={(e) => {
                         e.preventDefault();
                         setIsAddingCol(false);
-                        setNewColName('');
+                        setNewColName("");
                       }}
                       className="px-3 text-slate-500 hover:bg-slate-200 rounded-lg text-xs font-bold"
                     >
@@ -394,8 +441,15 @@ const BoardView = () => {
           </div>
         </div>
 
-        <DragOverlay dropAnimation={{ duration: 250, easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)' }}>
-          {activeTask ? <TaskItem task={activeTask} isOverlay listId="overlay" /> : null}
+        <DragOverlay
+          dropAnimation={{
+            duration: 250,
+            easing: "cubic-bezier(0.18, 0.67, 0.6, 1.22)",
+          }}
+        >
+          {activeTask ? (
+            <TaskItem task={activeTask} isOverlay listId="overlay" />
+          ) : null}
         </DragOverlay>
       </DndContext>
 

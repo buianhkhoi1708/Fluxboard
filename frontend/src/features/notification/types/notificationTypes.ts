@@ -37,15 +37,8 @@ export interface AppNotification {
   referenceId?: string;
   referenceType?: string;
 
-  /**
-   * URL nội bộ frontend.
-   * Ví dụ: /board/:boardId?taskId=:taskId
-   */
   actionUrl?: string;
 
-  /**
-   * Dữ liệu phụ để dựng popup hoặc điều hướng.
-   */
   metadata?: NotificationMetadata;
 
   timestamp: number;
@@ -56,22 +49,13 @@ export interface NotificationStore {
   notifications: AppNotification[];
   unreadCount: number;
 
-  /**
-   * Notification mới nhất để FE hiện toast nhỏ ở góc màn hình.
-   */
   latestToastNotification: AppNotification | null;
 
-  /**
-   * Giữ lại field này để không làm vỡ code cũ,
-   * dù hiện tại pipeline chính đang dùng Long Polling.
-   */
   stompClient: any | null;
 
-  // Realtime pipeline
   connectWebSocket: (userId: string) => Promise<void> | void;
   disconnectWebSocket: () => void;
 
-  // UI actions
   addNotification: (message: string, extra?: Partial<AppNotification>) => void;
   markAsRead: (id: string) => Promise<void> | void;
   markAllAsRead: () => Promise<void> | void;

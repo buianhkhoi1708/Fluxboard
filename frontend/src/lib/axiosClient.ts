@@ -2,24 +2,22 @@ import axios, {
   InternalAxiosRequestConfig,
   AxiosResponse,
   AxiosError,
-} from 'axios';
+} from "axios";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL as string;
 
-// 🚀 BÍ KÍP: Khai báo 1 lần xài mãi mãi cho tất cả mọi nơi
-const FINAL_API_URL = API_BASE_URL ? `${API_BASE_URL}` : 'http://localhost:8080/api/v1';
+const FINAL_API_URL = API_BASE_URL
+  ? `${API_BASE_URL}`
+  : "http://localhost:8080/api/v1";
 
 const axiosClient = axios.create({
   baseURL: FINAL_API_URL,
   timeout: 60000,
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
 });
 
-// ==========================================
-// SILENT REFRESH QUEUE
-// ==========================================
 let isRefreshing = false;
 let failedQueue: Array<{
   resolve: (token: string) => void;
@@ -38,20 +36,20 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = [];
 };
 
-const getAccessToken = () => localStorage.getItem('token');
+const getAccessToken = () => localStorage.getItem("token");
 
-const getRefreshToken = () => localStorage.getItem('refreshToken');
+const getRefreshToken = () => localStorage.getItem("refreshToken");
 
 const clearAuthStorage = () => {
-  localStorage.removeItem('token');
-  localStorage.removeItem('refreshToken');
-  localStorage.removeItem('user');
-  localStorage.removeItem('lastActivityAt');
+  localStorage.removeItem("token");
+  localStorage.removeItem("refreshToken");
+  localStorage.removeItem("user");
+  localStorage.removeItem("lastActivityAt");
 };
 
 const redirectToLogin = () => {
-  if (window.location.pathname !== '/login') {
-    window.location.href = '/login';
+  if (window.location.pathname !== "/login") {
+    window.location.href = "/login";
   }
 };
 
@@ -59,11 +57,11 @@ const isAuthBypassUrl = (url?: string) => {
   if (!url) return false;
 
   return (
-    url.includes('/auth/login') ||
-    url.includes('/auth/forgot-password') ||
-    url.includes('/auth/reset-password') ||
-    url.includes('/auth/refresh-token') ||
-    url.includes('/auth/refresh')
+    url.includes("/auth/login") ||
+    url.includes("/auth/forgot-password") ||
+    url.includes("/auth/reset-password") ||
+    url.includes("/auth/refresh-token") ||
+    url.includes("/auth/refresh")
   );
 };
 
@@ -73,32 +71,28 @@ const unwrapRefreshResponse = (response: any) => {
 
 const saveSessionFromRefresh = (payload: any) => {
   const newAccessToken =
-    payload?.accessToken ||
-    payload?.access_token ||
-    payload?.token;
+    payload?.accessToken || payload?.access_token || payload?.token;
 
-  const newRefreshToken =
-    payload?.refreshToken ||
-    payload?.refresh_token;
+  const newRefreshToken = payload?.refreshToken || payload?.refresh_token;
 
   const refreshedUser = payload?.user;
 
   if (!newAccessToken) {
-    throw new Error('Không lấy được access token mới từ máy chủ.');
+    throw new Error("Không lấy được access token mới từ máy chủ.");
   }
 
-  localStorage.setItem('token', newAccessToken);
+  localStorage.setItem("token", newAccessToken);
 
   if (newRefreshToken) {
-    localStorage.setItem('refreshToken', newRefreshToken);
+    localStorage.setItem("refreshToken", newRefreshToken);
   }
 
   if (refreshedUser) {
-    localStorage.setItem('user', JSON.stringify(refreshedUser));
+    localStorage.setItem("user", JSON.stringify(refreshedUser));
   }
 
   window.dispatchEvent(
-    new CustomEvent('auth:session-refreshed', {
+    new CustomEvent("auth:session-refreshed", {
       detail: {
         accessToken: newAccessToken,
         refreshToken: newRefreshToken,
@@ -110,9 +104,6 @@ const saveSessionFromRefresh = (payload: any) => {
   return newAccessToken;
 };
 
-// ==========================================
-// REQUEST INTERCEPTOR
-// ==========================================
 axiosClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = getAccessToken();
@@ -126,9 +117,6 @@ axiosClient.interceptors.request.use(
   (error: any) => Promise.reject(error),
 );
 
-// ==========================================
-// RESPONSE INTERCEPTOR
-// ==========================================
 axiosClient.interceptors.response.use(
   (response: AxiosResponse) => {
     return response.data;
@@ -138,14 +126,17 @@ axiosClient.interceptors.response.use(
     const originalRequest = error.config as any;
 
     if (!error.response) {
-      console.error('[Network Error]: Không thể kết nối tới máy chủ');
+      console.error("[Network Error]: Không thể kết nối tới máy chủ");
       return Promise.reject(error);
     }
 
     const status = error.response.status;
     const errorData = error.response.data as any;
 
-    console.error(`[API Error ${status}]:`, errorData || 'Đã có lỗi xảy ra từ máy chủ');
+    console.error(
+      `[API Error ${status}]:`,
+      errorData || "Đã có lỗi xảy ra từ máy chủ",
+    );
 
     if (status !== 401) {
       return Promise.reject(error);
@@ -184,12 +175,14 @@ axiosClient.interceptors.response.use(
     isRefreshing = true;
 
     try {
-      console.warn('🔄 Đang âm thầm gia hạn phiên đăng nhập...');
+      console.warn("🔄 Đang âm thầm gia hạn phiên đăng nhập...");
 
-      // 🚀 BÍ KÍP: Dùng FINAL_API_URL để không bao giờ bị lạc đường
-      const refreshResponse = await axios.post(`${FINAL_API_URL}/auth/refresh-token`, {
-        refreshToken,
-      });
+      const refreshResponse = await axios.post(
+        `${FINAL_API_URL}/auth/refresh-token`,
+        {
+          refreshToken,
+        },
+      );
 
       const refreshPayload = unwrapRefreshResponse(refreshResponse);
       const newAccessToken = saveSessionFromRefresh(refreshPayload);
@@ -200,7 +193,7 @@ axiosClient.interceptors.response.use(
 
       return axiosClient(originalRequest);
     } catch (refreshError) {
-      console.error('🔴 Refresh token thất bại. Đăng xuất bắt buộc.');
+      console.error("🔴 Refresh token thất bại. Đăng xuất bắt buộc.");
 
       processQueue(refreshError, null);
       clearAuthStorage();

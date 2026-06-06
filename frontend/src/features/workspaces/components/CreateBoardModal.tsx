@@ -1,15 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   X,
   KanbanSquare,
   Loader2,
   Sparkles,
   LayoutTemplate,
-} from 'lucide-react';
-import { useCreateBoard } from '../hooks/useWorkspaceQueries';
-import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import axiosClient from '../../../lib/axiosClient';
+} from "lucide-react";
+import { useCreateBoard } from "../hooks/useWorkspaceQueries";
+import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import axiosClient from "../../../lib/axiosClient";
 
 interface CreateBoardModalProps {
   isOpen: boolean;
@@ -18,23 +18,23 @@ interface CreateBoardModalProps {
   onSuccess?: () => void;
 }
 
-type BoardMode = 'standard' | 'ai';
+type BoardMode = "standard" | "ai";
 
 const normalizeRoleName = (value?: string | null) => {
-  if (!value) return '';
+  if (!value) return "";
 
   return String(value)
     .trim()
     .toUpperCase()
-    .replace(/\s+/g, '_')
-    .replace(/-/g, '_');
+    .replace(/\s+/g, "_")
+    .replace(/-/g, "_");
 };
 
 const getCurrentUser = () => {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === "undefined") return null;
 
   try {
-    const rawUser = localStorage.getItem('user');
+    const rawUser = localStorage.getItem("user");
     return rawUser ? JSON.parse(rawUser) : null;
   } catch {
     return null;
@@ -42,11 +42,11 @@ const getCurrentUser = () => {
 };
 
 const getUserId = (user: any) => {
-  return String(user?.user_id || user?.id || user?._id || '');
+  return String(user?.user_id || user?.id || user?._id || "");
 };
 
 const getRoleName = (user: any) => {
-  if (!user) return '';
+  if (!user) return "";
 
   const directRole =
     user.role_name ||
@@ -61,27 +61,27 @@ const getRoleName = (user: any) => {
     return normalizeRoleName(directRole);
   }
 
-  if (user.role_id && typeof user.role_id === 'object') {
+  if (user.role_id && typeof user.role_id === "object") {
     return normalizeRoleName(user.role_id.name || user.role_id.code);
   }
 
   if (Array.isArray(user.system_role_ids)) {
     const matched = user.system_role_ids.find((item: any) => {
-      return normalizeRoleName(item) === 'SYSTEM_ADMIN';
+      return normalizeRoleName(item) === "SYSTEM_ADMIN";
     });
 
-    if (matched) return 'SYSTEM_ADMIN';
+    if (matched) return "SYSTEM_ADMIN";
   }
 
-  return '';
+  return "";
 };
 
 const isCurrentUserSystemAdmin = () => {
-  return getRoleName(getCurrentUser()) === 'SYSTEM_ADMIN';
+  return getRoleName(getCurrentUser()) === "SYSTEM_ADMIN";
 };
 
 const isSystemAdminUser = (user: any) => {
-  return getRoleName(user) === 'SYSTEM_ADMIN';
+  return getRoleName(user) === "SYSTEM_ADMIN";
 };
 
 const shouldExposeUser = (candidate: any) => {
@@ -93,15 +93,18 @@ const shouldExposeUser = (candidate: any) => {
 
   const currentUser = getCurrentUser();
 
-  return isCurrentUserSystemAdmin() && getUserId(currentUser) === getUserId(candidate);
+  return (
+    isCurrentUserSystemAdmin() &&
+    getUserId(currentUser) === getUserId(candidate)
+  );
 };
 
 const getMemberUser = (member: any) => {
-  if (member?.user_id && typeof member.user_id === 'object') {
+  if (member?.user_id && typeof member.user_id === "object") {
     return member.user_id;
   }
 
-  if (member?.user && typeof member.user === 'object') {
+  if (member?.user && typeof member.user === "object") {
     return member.user;
   }
 
@@ -139,27 +142,30 @@ const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
   const { mutate: createBoard, isPending } = useCreateBoard();
   const navigate = useNavigate();
 
-  const [name, setName] = useState('');
-  const [mode, setMode] = useState<BoardMode>('standard');
+  const [name, setName] = useState("");
+  const [mode, setMode] = useState<BoardMode>("standard");
 
   const { data: projectMembers = [], isLoading: isLoadingMembers } = useQuery({
-    queryKey: ['project-members-for-ai', projectId],
+    queryKey: ["project-members-for-ai", projectId],
     queryFn: async () => {
-      const response: any = await axiosClient.get(`/projects/${projectId}/members`, {
-        params: getUserVisibilityParams(),
-      });
+      const response: any = await axiosClient.get(
+        `/projects/${projectId}/members`,
+        {
+          params: getUserVisibilityParams(),
+        },
+      );
 
       return extractList(response).filter((member: any) => {
         return shouldExposeUser(getMemberUser(member));
       });
     },
-    enabled: isOpen && !!projectId && mode === 'ai',
+    enabled: isOpen && !!projectId && mode === "ai",
   });
 
   useEffect(() => {
     if (isOpen) {
-      setName('');
-      setMode('standard');
+      setName("");
+      setMode("standard");
     }
   }, [isOpen]);
 
@@ -168,7 +174,7 @@ const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (mode === 'standard') {
+    if (mode === "standard") {
       if (!name.trim()) return;
 
       createBoard(
@@ -189,7 +195,7 @@ const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
               `Lỗi: ${
                 err.response?.data?.message ||
                 err.response?.data?.error?.message ||
-                'Có lỗi xảy ra'
+                "Có lỗi xảy ra"
               }`,
             );
           },
@@ -201,7 +207,7 @@ const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
 
     onClose();
 
-    navigate('/aigenerateboard', {
+    navigate("/aigenerateboard", {
       state: {
         projectId,
         members: projectMembers,
@@ -212,7 +218,7 @@ const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
   return (
     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[110] p-4 animate-in fade-in">
       <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in-95">
-        {/* Header */}
+        {}
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
             <KanbanSquare size={20} className="text-indigo-600" />
@@ -229,21 +235,21 @@ const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
 
         <form onSubmit={handleSubmit} className="p-6">
           <div className="space-y-6">
-            {/* Mode */}
+            {}
             <div className="grid grid-cols-2 gap-3">
               <div
-                onClick={() => setMode('standard')}
+                onClick={() => setMode("standard")}
                 className={`cursor-pointer p-4 rounded-xl border-2 transition-all flex flex-col items-center text-center gap-2 ${
-                  mode === 'standard'
-                    ? 'border-indigo-600 bg-indigo-50/50 shadow-sm'
-                    : 'border-slate-100 hover:border-indigo-200 hover:bg-slate-50 text-slate-500'
+                  mode === "standard"
+                    ? "border-indigo-600 bg-indigo-50/50 shadow-sm"
+                    : "border-slate-100 hover:border-indigo-200 hover:bg-slate-50 text-slate-500"
                 }`}
               >
                 <div
                   className={`p-2 rounded-lg ${
-                    mode === 'standard'
-                      ? 'bg-indigo-100 text-indigo-700'
-                      : 'bg-slate-100 text-slate-500'
+                    mode === "standard"
+                      ? "bg-indigo-100 text-indigo-700"
+                      : "bg-slate-100 text-slate-500"
                   }`}
                 >
                   <LayoutTemplate size={24} />
@@ -252,9 +258,7 @@ const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
                 <div>
                   <h3
                     className={`text-sm font-bold ${
-                      mode === 'standard'
-                        ? 'text-indigo-900'
-                        : 'text-slate-700'
+                      mode === "standard" ? "text-indigo-900" : "text-slate-700"
                     }`}
                   >
                     Bảng Tiêu Chuẩn
@@ -267,18 +271,18 @@ const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
               </div>
 
               <div
-                onClick={() => setMode('ai')}
+                onClick={() => setMode("ai")}
                 className={`cursor-pointer p-4 rounded-xl border-2 transition-all flex flex-col items-center text-center gap-2 ${
-                  mode === 'ai'
-                    ? 'border-violet-600 bg-violet-50/50 shadow-sm'
-                    : 'border-slate-100 hover:border-violet-200 hover:bg-slate-50 text-slate-500'
+                  mode === "ai"
+                    ? "border-violet-600 bg-violet-50/50 shadow-sm"
+                    : "border-slate-100 hover:border-violet-200 hover:bg-slate-50 text-slate-500"
                 }`}
               >
                 <div
                   className={`p-2 rounded-lg ${
-                    mode === 'ai'
-                      ? 'bg-violet-100 text-violet-700'
-                      : 'bg-slate-100 text-slate-500'
+                    mode === "ai"
+                      ? "bg-violet-100 text-violet-700"
+                      : "bg-slate-100 text-slate-500"
                   }`}
                 >
                   <Sparkles size={24} />
@@ -287,9 +291,7 @@ const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
                 <div>
                   <h3
                     className={`text-sm font-bold flex items-center justify-center gap-1.5 ${
-                      mode === 'ai'
-                        ? 'text-violet-900'
-                        : 'text-slate-700'
+                      mode === "ai" ? "text-violet-900" : "text-slate-700"
                     }`}
                   >
                     AI Board
@@ -305,9 +307,9 @@ const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
               </div>
             </div>
 
-            {/* Body */}
+            {}
             <div className="min-h-[70px]">
-              {mode === 'standard' ? (
+              {mode === "standard" ? (
                 <div className="animate-in fade-in slide-in-from-bottom-2 duration-200">
                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">
                     Tên Bảng *
@@ -333,9 +335,14 @@ const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
                     <p className="font-semibold mb-1">Cấu hình AI Generator</p>
 
                     <p className="text-xs opacity-80 leading-relaxed">
-                      Hệ thống sẽ lấy tự động dữ liệu Workspace và chuẩn bị danh sách{' '}
-                      <b>{isLoadingMembers ? '...' : projectMembers.length} thành viên</b>{' '}
-                      để chuyển sang cấu hình với trợ lý AI. SYSTEM_ADMIN đã được ẩn khỏi danh sách này.
+                      Hệ thống sẽ lấy tự động dữ liệu Workspace và chuẩn bị danh
+                      sách{" "}
+                      <b>
+                        {isLoadingMembers ? "..." : projectMembers.length} thành
+                        viên
+                      </b>{" "}
+                      để chuyển sang cấu hình với trợ lý AI. SYSTEM_ADMIN đã
+                      được ẩn khỏi danh sách này.
                     </p>
                   </div>
                 </div>
@@ -343,7 +350,7 @@ const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
             </div>
           </div>
 
-          {/* Footer */}
+          {}
           <div className="mt-6 flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
             <button
               type="button"
@@ -353,7 +360,7 @@ const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
               Hủy
             </button>
 
-            {mode === 'standard' ? (
+            {mode === "standard" ? (
               <button
                 type="submit"
                 disabled={isPending || !name.trim()}
@@ -362,7 +369,7 @@ const CreateBoardModal: React.FC<CreateBoardModalProps> = ({
                 {isPending ? (
                   <Loader2 size={16} className="animate-spin" />
                 ) : (
-                  'Tạo Bảng'
+                  "Tạo Bảng"
                 )}
               </button>
             ) : (

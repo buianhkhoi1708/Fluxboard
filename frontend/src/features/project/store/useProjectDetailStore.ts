@@ -1,6 +1,6 @@
-import { create } from 'zustand';
-import { projectApi, ProjectMemberDetail } from '../api/projectDetailApi';
-import { userApi } from '../../user/api/userApi';
+import { create } from "zustand";
+import { projectApi, ProjectMemberDetail } from "../api/projectDetailApi";
+import { userApi } from "../../user/api/userApi";
 
 interface ProjectState {
   currentProjectId: string | null;
@@ -32,20 +32,20 @@ interface ProjectState {
 }
 
 const normalizeRoleName = (value?: string | null) => {
-  if (!value) return '';
+  if (!value) return "";
 
   return String(value)
     .trim()
     .toUpperCase()
-    .replace(/\s+/g, '_')
-    .replace(/-/g, '_');
+    .replace(/\s+/g, "_")
+    .replace(/-/g, "_");
 };
 
 const getCurrentUser = () => {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === "undefined") return null;
 
   try {
-    const rawUser = localStorage.getItem('user');
+    const rawUser = localStorage.getItem("user");
     return rawUser ? JSON.parse(rawUser) : null;
   } catch {
     return null;
@@ -53,11 +53,11 @@ const getCurrentUser = () => {
 };
 
 const getUserId = (user: any) => {
-  return String(user?.user_id || user?.id || user?._id || '');
+  return String(user?.user_id || user?.id || user?._id || "");
 };
 
 const getRoleName = (user: any) => {
-  if (!user) return '';
+  if (!user) return "";
 
   const directRole =
     user.role_name ||
@@ -72,27 +72,27 @@ const getRoleName = (user: any) => {
     return normalizeRoleName(directRole);
   }
 
-  if (user.role_id && typeof user.role_id === 'object') {
+  if (user.role_id && typeof user.role_id === "object") {
     return normalizeRoleName(user.role_id.name || user.role_id.code);
   }
 
   if (Array.isArray(user.system_role_ids)) {
     const matched = user.system_role_ids.find((item: any) => {
-      return normalizeRoleName(item) === 'SYSTEM_ADMIN';
+      return normalizeRoleName(item) === "SYSTEM_ADMIN";
     });
 
-    if (matched) return 'SYSTEM_ADMIN';
+    if (matched) return "SYSTEM_ADMIN";
   }
 
-  return '';
+  return "";
 };
 
 const isSystemAdminUser = (user: any) => {
-  return getRoleName(user) === 'SYSTEM_ADMIN';
+  return getRoleName(user) === "SYSTEM_ADMIN";
 };
 
 const isCurrentUserSystemAdmin = () => {
-  return getRoleName(getCurrentUser()) === 'SYSTEM_ADMIN';
+  return getRoleName(getCurrentUser()) === "SYSTEM_ADMIN";
 };
 
 const shouldExposeUser = (candidate: any) => {
@@ -104,15 +104,18 @@ const shouldExposeUser = (candidate: any) => {
 
   const currentUser = getCurrentUser();
 
-  return isCurrentUserSystemAdmin() && getUserId(currentUser) === getUserId(candidate);
+  return (
+    isCurrentUserSystemAdmin() &&
+    getUserId(currentUser) === getUserId(candidate)
+  );
 };
 
 const getMemberUser = (member: any) => {
-  if (member?.user_id && typeof member.user_id === 'object') {
+  if (member?.user_id && typeof member.user_id === "object") {
     return member.user_id;
   }
 
-  if (member?.user && typeof member.user === 'object') {
+  if (member?.user && typeof member.user === "object") {
     return member.user;
   }
 
@@ -158,7 +161,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         isLoading: false,
       });
     } catch (error) {
-      console.error('Lỗi fetchProjectMembers:', error);
+      console.error("Lỗi fetchProjectMembers:", error);
 
       set({
         isLoading: false,
@@ -174,11 +177,13 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       set({
         currentProject: {
           ...data,
-          members: Array.isArray(data?.members) ? filterMembers(data.members) : data?.members,
+          members: Array.isArray(data?.members)
+            ? filterMembers(data.members)
+            : data?.members,
         },
       });
     } catch (error) {
-      console.error('Lỗi fetchProjectDetails:', error);
+      console.error("Lỗi fetchProjectDetails:", error);
     }
   },
 
@@ -197,7 +202,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         systemUsers: data,
       });
     } catch (error) {
-      console.error('Lỗi fetchSystemUsers:', error);
+      console.error("Lỗi fetchSystemUsers:", error);
     }
   },
 
@@ -216,7 +221,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
       return true;
     } catch (error) {
-      console.error('Lỗi addMember:', error);
+      console.error("Lỗi addMember:", error);
 
       set({
         isActionLoading: false,
@@ -244,10 +249,15 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     }));
 
     try {
-      await projectApi.updateProjectMember(projectId, memberId, roleIds, isActive);
+      await projectApi.updateProjectMember(
+        projectId,
+        memberId,
+        roleIds,
+        isActive,
+      );
       return true;
     } catch (error) {
-      console.error('Lỗi updateMember:', error);
+      console.error("Lỗi updateMember:", error);
 
       set({
         members: previousMembers,
@@ -270,7 +280,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       await projectApi.removeProjectMember(projectId, memberId);
       return true;
     } catch (error) {
-      console.error('Lỗi removeMember:', error);
+      console.error("Lỗi removeMember:", error);
 
       set({
         members: previousMembers,
@@ -303,7 +313,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
         isLoading: false,
       });
     } catch (error) {
-      console.error('Lỗi fetchProjectOverview:', error);
+      console.error("Lỗi fetchProjectOverview:", error);
 
       set({
         isLoading: false,
@@ -326,7 +336,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
       return true;
     } catch (error) {
-      console.error('Lỗi updateProjectDetails:', error);
+      console.error("Lỗi updateProjectDetails:", error);
 
       set({
         isActionLoading: false,
@@ -350,7 +360,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
       return true;
     } catch (error) {
-      console.error('Lỗi deleteProject:', error);
+      console.error("Lỗi deleteProject:", error);
 
       set({
         isActionLoading: false,

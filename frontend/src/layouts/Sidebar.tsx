@@ -19,17 +19,6 @@ const Sidebar = () => {
   const { logout } = useAuthStore();
   const { hasAccess } = useRoleAccess();
 
-  /**
-   * Lưu ý phân quyền sidebar:
-   *
-   * - SYSTEM_ADMIN là role quản trị cao nhất nên phải thấy được các menu nền tảng:
-   *   dashboard, workspace, AI board, my tasks, settings.
-   *
-   * - Activity chỉ dành riêng cho SYSTEM_ADMIN.
-   *
-   * - Không dùng kiểu "ADMIN tự ăn quyền SYSTEM_ADMIN".
-   *   Role nào được thấy menu nào thì khai báo rõ role đó.
-   */
   const executionItems = [
     {
       path: "/dashboard",
@@ -144,7 +133,7 @@ const Sidebar = () => {
   return (
     <aside className="fixed bottom-0 left-0 w-full z-50 bg-white/90 backdrop-blur-md border-t border-slate-200/80 flex flex-row md:relative md:w-64 md:h-screen md:flex-col md:border-t-0 md:border-r md:border-slate-200/80 shrink-0 transition-all shadow-[-2px_0_10px_rgba(0,0,0,0.05)] md:shadow-none">
       <div className="flex-1 flex flex-row md:flex-col gap-1 md:gap-4 overflow-x-auto md:overflow-y-auto no-scrollbar px-3 py-2 md:px-4 md:py-6 pb-20 md:pb-6">
-        {/* SECTION EXECUTION */}
+        {}
         {visibleExecutionItems.length > 0 && (
           <div className="flex flex-row md:flex-col gap-1.5">
             <p className="hidden md:block text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 px-3 mt-2">
@@ -161,7 +150,7 @@ const Sidebar = () => {
           </div>
         )}
 
-        {/* SECTION MANAGEMENT */}
+        {}
         {visibleManagementItems.length > 0 && (
           <div className="flex flex-row md:flex-col gap-1.5 md:mt-2">
             <p className="hidden md:block text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 px-3 mt-6">
@@ -174,7 +163,7 @@ const Sidebar = () => {
           </div>
         )}
 
-        {/* LOGOUT - luôn hiển thị khi đã vào MainLayout */}
+        {}
         <div className="flex flex-row md:flex-col gap-1.5 md:mt-auto">
           <button
             onClick={() => logout()}

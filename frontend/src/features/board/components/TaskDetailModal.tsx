@@ -77,10 +77,26 @@ const CustomDateInput = forwardRef<HTMLButtonElement, CustomDateInputProps>(
       className="w-full text-sm border border-slate-200/80 rounded-xl px-3.5 py-2.5 outline-none hover:border-indigo-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100/50 transition-all bg-white flex items-center justify-between shadow-sm group"
     >
       <div className="flex items-center gap-2">
-        <Calendar size={15} className={value ? "text-indigo-500" : "text-slate-400 group-hover:text-indigo-400 transition-colors"} />
-        <span className={value ? "font-bold text-slate-800" : "text-slate-400 font-medium"}>{value || placeholder}</span>
+        <Calendar
+          size={15}
+          className={
+            value
+              ? "text-indigo-500"
+              : "text-slate-400 group-hover:text-indigo-400 transition-colors"
+          }
+        />
+        <span
+          className={
+            value ? "font-bold text-slate-800" : "text-slate-400 font-medium"
+          }
+        >
+          {value || placeholder}
+        </span>
       </div>
-      <ChevronDown size={14} className="text-slate-300 group-hover:text-indigo-500 transition-colors" />
+      <ChevronDown
+        size={14}
+        className="text-slate-300 group-hover:text-indigo-500 transition-colors"
+      />
     </button>
   ),
 );
@@ -91,7 +107,13 @@ const formatDateTime = (value?: Date | string | null) => {
   if (!value) return "Chưa có deadline";
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return "Không rõ";
-  return date.toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit", year: "numeric" });
+  return date.toLocaleString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
 };
 
 const ConfirmActionModal: React.FC<ConfirmActionModalProps> = ({
@@ -108,18 +130,31 @@ const ConfirmActionModal: React.FC<ConfirmActionModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[250] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={isSubmitting ? undefined : onClose} />
+      <div
+        className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
+        onClick={isSubmitting ? undefined : onClose}
+      />
 
       <div className="relative w-full max-w-md overflow-hidden rounded-[2rem] bg-white shadow-2xl border border-white/70 animate-in zoom-in-95 fade-in duration-200">
-        <div className={`px-6 py-5 text-white ${isRequestExtension ? "bg-gradient-to-br from-amber-500 to-orange-500" : "bg-gradient-to-br from-rose-500 to-red-600"}`}>
+        <div
+          className={`px-6 py-5 text-white ${isRequestExtension ? "bg-gradient-to-br from-amber-500 to-orange-500" : "bg-gradient-to-br from-rose-500 to-red-600"}`}
+        >
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center">
-              {isRequestExtension ? <Send size={25} /> : <AlertTriangle size={25} />}
+              {isRequestExtension ? (
+                <Send size={25} />
+              ) : (
+                <AlertTriangle size={25} />
+              )}
             </div>
 
             <div>
-              <p className="text-xs font-black uppercase tracking-widest text-white/75">Xác nhận thao tác</p>
-              <h3 className="text-xl font-black mt-1">{isRequestExtension ? "Gửi yêu cầu dời hạn?" : "Xóa công việc?"}</h3>
+              <p className="text-xs font-black uppercase tracking-widest text-white/75">
+                Xác nhận thao tác
+              </p>
+              <h3 className="text-xl font-black mt-1">
+                {isRequestExtension ? "Gửi yêu cầu dời hạn?" : "Xóa công việc?"}
+              </h3>
             </div>
           </div>
         </div>
@@ -131,7 +166,9 @@ const ConfirmActionModal: React.FC<ConfirmActionModalProps> = ({
                 ? "Bạn chắc chắn muốn gửi đơn xin dời hạn task này tới quản lý? Sau khi gửi, bạn cần chờ quản lý chấp nhận hoặc từ chối."
                 : "Bạn chắc chắn muốn xóa task này? Thao tác này có thể ảnh hưởng đến bảng công việc và các tài liệu liên quan."}
             </p>
-            <p className="mt-3 text-sm font-black text-slate-800">Task: {taskTitle || "Không rõ"}</p>
+            <p className="mt-3 text-sm font-black text-slate-800">
+              Task: {taskTitle || "Không rõ"}
+            </p>
           </div>
 
           <div className="flex gap-3">
@@ -150,7 +187,13 @@ const ConfirmActionModal: React.FC<ConfirmActionModalProps> = ({
               onClick={onConfirm}
               className={`flex-1 rounded-2xl px-4 py-3 text-sm font-black text-white transition shadow-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${isRequestExtension ? "bg-amber-500 hover:bg-amber-600 shadow-amber-200" : "bg-rose-600 hover:bg-rose-700 shadow-rose-200"}`}
             >
-              {isSubmitting ? <Loader2 size={17} className="animate-spin" /> : isRequestExtension ? <ShieldCheck size={17} /> : <Trash2 size={17} />}
+              {isSubmitting ? (
+                <Loader2 size={17} className="animate-spin" />
+              ) : isRequestExtension ? (
+                <ShieldCheck size={17} />
+              ) : (
+                <Trash2 size={17} />
+              )}
               {isRequestExtension ? "Xác nhận gửi" : "Xác nhận xóa"}
             </button>
           </div>
@@ -173,7 +216,8 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const getUser = useUserStore((state) => state.getUser);
 
   const projectId = board?.projectId || board?.project_id;
-  const { data: apiMembers, isLoading: isMembersLoading } = useGetProjectMembers(projectId as string);
+  const { data: apiMembers, isLoading: isMembersLoading } =
+    useGetProjectMembers(projectId as string);
 
   const { mutateAsync: updateApiTask } = useUpdateTask();
   const { mutateAsync: deleteApiTask } = useDeleteTask();
@@ -212,13 +256,18 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const commentPanelRef = useRef<HTMLDivElement>(null);
 
   const currentTaskId = String(task?.id || task?._id || "");
-  const safeProjectIdForHook = board?.project_id || board?.projectId || board?.project?._id || board?._id;
-  const { data: fetchedAttachments } = useGetTaskAttachments(currentTaskId, String(safeProjectIdForHook));
+  const safeProjectIdForHook =
+    board?.project_id || board?.projectId || board?.project?._id || board?._id;
+  const { data: fetchedAttachments } = useGetTaskAttachments(
+    currentTaskId,
+    String(safeProjectIdForHook),
+  );
 
   const projectMembers = useMemo(() => {
     if (!apiMembers) return [];
     if (Array.isArray(apiMembers)) return apiMembers;
-    if ((apiMembers as any).data && Array.isArray((apiMembers as any).data)) return (apiMembers as any).data;
+    if ((apiMembers as any).data && Array.isArray((apiMembers as any).data))
+      return (apiMembers as any).data;
     return (apiMembers as any).content || [];
   }, [apiMembers]);
 
@@ -242,19 +291,41 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       setEditTitle(task.title || "");
       setEditDesc(task.description || "");
       setLocalSubtasks(task.subtasks || []);
-      setEditPriority(task.priority ? String(task.priority).toUpperCase() : "MEDIUM");
+      setEditPriority(
+        task.priority ? String(task.priority).toUpperCase() : "MEDIUM",
+      );
       setEditColumnId(task.column_id || listId);
       setEditStoryPoints(taskAny.story_points || taskAny.story_point || 0);
-      setEditStartDate(taskAny.start_date ? new Date(taskAny.start_date) : null);
+      setEditStartDate(
+        taskAny.start_date ? new Date(taskAny.start_date) : null,
+      );
       setEditDueDate(taskAny.due_date ? new Date(taskAny.due_date) : null);
       setIsDone(task.status === "DONE" || task.is_done === true);
 
-      const rawAssignees = taskAny.assignees_user_id || taskAny.assigneesUserId || taskAny.assignees || taskAny.assignee_id || taskAny.assignee_ids;
-      const assigneesList = Array.isArray(rawAssignees) ? rawAssignees : rawAssignees ? [rawAssignees] : [];
+      const rawAssignees =
+        taskAny.assignees_user_id ||
+        taskAny.assigneesUserId ||
+        taskAny.assignees ||
+        taskAny.assignee_id ||
+        taskAny.assignee_ids;
+      const assigneesList = Array.isArray(rawAssignees)
+        ? rawAssignees
+        : rawAssignees
+          ? [rawAssignees]
+          : [];
 
       const normalizedIds = assigneesList
-        .map((item: any) => (typeof item === "object" ? item.user_id || item.id || item._id : item))
-        .filter((id: any) => id !== undefined && id !== null && String(id) !== "undefined" && String(id) !== "" && !String(id).startsWith("temp-"))
+        .map((item: any) =>
+          typeof item === "object" ? item.user_id || item.id || item._id : item,
+        )
+        .filter(
+          (id: any) =>
+            id !== undefined &&
+            id !== null &&
+            String(id) !== "undefined" &&
+            String(id) !== "" &&
+            !String(id).startsWith("temp-"),
+        )
         .map((id: any) => String(id));
 
       setEditAssignees(normalizedIds);
@@ -273,7 +344,9 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
   useEffect(() => {
     if (fetchedAttachments) {
-      const arr = Array.isArray(fetchedAttachments) ? fetchedAttachments : (fetchedAttachments as any).data || [];
+      const arr = Array.isArray(fetchedAttachments)
+        ? fetchedAttachments
+        : (fetchedAttachments as any).data || [];
       setLocalAttachments(arr);
     }
   }, [fetchedAttachments]);
@@ -282,7 +355,10 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     if (!isOpen || initialFocus !== "comments") return;
 
     const timer = window.setTimeout(() => {
-      commentPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      commentPanelRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
     }, 120);
 
     return () => window.clearTimeout(timer);
@@ -294,16 +370,27 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
   const toggleAssignee = (userId: string) => {
     if (!userId || userId.startsWith("temp-") || userId === "undefined") return;
-    setEditAssignees((prev) => (prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]));
+    setEditAssignees((prev) =>
+      prev.includes(userId)
+        ? prev.filter((id) => id !== userId)
+        : [...prev, userId],
+    );
   };
 
-  const handleDeleteAttachment = async (e: React.MouseEvent, attachmentId: string) => {
+  const handleDeleteAttachment = async (
+    e: React.MouseEvent,
+    attachmentId: string,
+  ) => {
     e.stopPropagation();
 
     if (!window.confirm("Bạn có chắc chắn muốn xóa tài liệu này?")) return;
     if (!activeBoardId || !board) return;
 
-    const safeProjectId = board?.project_id || board?.projectId || board?.project?._id || board?._id;
+    const safeProjectId =
+      board?.project_id ||
+      board?.projectId ||
+      board?.project?._id ||
+      board?._id;
 
     if (!safeProjectId) {
       alert("Lỗi: Không tìm thấy ID dự án!");
@@ -318,21 +405,29 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
         projectId: String(safeProjectId),
       });
 
-      setLocalAttachments((prev) => prev.filter((a) => String(a._id || a.id) !== String(attachmentId)));
+      setLocalAttachments((prev) =>
+        prev.filter((a) => String(a._id || a.id) !== String(attachmentId)),
+      );
     } catch (error) {
       console.error("Lỗi khi xóa file:", error);
       alert("Xóa tài liệu thất bại. Vui lòng thử lại!");
     }
   };
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const file = event.target.files?.[0];
 
     if (!file || !activeBoardId || !board) return;
 
     setIsUploading(true);
 
-    const safeProjectId = board?.project_id || board?.projectId || board?.project?._id || board?._id;
+    const safeProjectId =
+      board?.project_id ||
+      board?.projectId ||
+      board?.project?._id ||
+      board?._id;
 
     if (!safeProjectId) {
       alert("Lỗi dữ liệu: Không tìm thấy ID dự án để tải file lên!");
@@ -384,7 +479,11 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const handleSave = async () => {
     if (!activeBoardId || !board) return;
 
-    const safeProjectId = board?.project_id || board?.projectId || board?.project?._id || board?._id;
+    const safeProjectId =
+      board?.project_id ||
+      board?.projectId ||
+      board?.project?._id ||
+      board?._id;
 
     if (!safeProjectId) {
       alert("Lỗi dữ liệu: Không tìm thấy ID dự án!");
@@ -393,7 +492,9 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
     setIsSaving(true);
 
-    const cleanAssignees = editAssignees.filter((id) => id && id !== "undefined" && !id.startsWith("temp-"));
+    const cleanAssignees = editAssignees.filter(
+      (id) => id && id !== "undefined" && !id.startsWith("temp-"),
+    );
     const finalPriority = editPriority ? editPriority.toUpperCase() : "MEDIUM";
 
     try {
@@ -404,7 +505,11 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
           title: editTitle.trim() || "Task không tên",
           description: editDesc,
           priority: finalPriority,
-          status: isDone ? "DONE" : task.status === "DONE" ? "TODO" : task.status || "TODO",
+          status: isDone
+            ? "DONE"
+            : task.status === "DONE"
+              ? "TODO"
+              : task.status || "TODO",
           is_done: isDone,
           story_point: Number(editStoryPoints) || 0,
           start_date: editStartDate ? editStartDate.toISOString() : null,
@@ -418,7 +523,9 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       });
 
       if (String(editColumnId) !== String(listId)) {
-        const destCol = board?.columns?.find((c: any) => String(c.id || c._id) === String(editColumnId));
+        const destCol = board?.columns?.find(
+          (c: any) => String(c.id || c._id) === String(editColumnId),
+        );
         const newOrder = destCol && destCol.tasks ? destCol.tasks.length : 0;
 
         await moveApiTask({
@@ -430,7 +537,9 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
         });
       }
 
-      await queryClient.invalidateQueries({ queryKey: ["board", activeBoardId] });
+      await queryClient.invalidateQueries({
+        queryKey: ["board", activeBoardId],
+      });
       onClose();
     } catch (error) {
       console.error("Lỗi khi cập nhật Task:", error);
@@ -450,7 +559,11 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
     setIsDeleting(true);
 
-    const safeProjectId = board?.project_id || board?.projectId || board?.project?._id || board?._id;
+    const safeProjectId =
+      board?.project_id ||
+      board?.projectId ||
+      board?.project?._id ||
+      board?._id;
 
     if (!safeProjectId) {
       alert("Lỗi dữ liệu: Không tìm thấy ID dự án để xóa!");
@@ -465,7 +578,9 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
         projectId: String(safeProjectId),
       });
 
-      await queryClient.invalidateQueries({ queryKey: ["board", activeBoardId] });
+      await queryClient.invalidateQueries({
+        queryKey: ["board", activeBoardId],
+      });
       setConfirmAction(null);
       onClose();
     } catch (error) {
@@ -510,10 +625,13 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     setExtensionSuccess("");
 
     try {
-      await notificationApi.requestDeadlineExtension(String(task.id || task._id), {
-        new_due_date: extensionDate.toISOString(),
-        reason: extensionReason.trim(),
-      });
+      await notificationApi.requestDeadlineExtension(
+        String(task.id || task._id),
+        {
+          new_due_date: extensionDate.toISOString(),
+          reason: extensionReason.trim(),
+        },
+      );
 
       setExtensionSuccess("Đã gửi yêu cầu xin dời hạn tới quản lý.");
       setConfirmAction(null);
@@ -526,7 +644,9 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       }, 700);
     } catch (error: any) {
       console.error("Request extension error:", error);
-      setExtensionError(error?.response?.data?.message || "Gửi yêu cầu thất bại.");
+      setExtensionError(
+        error?.response?.data?.message || "Gửi yêu cầu thất bại.",
+      );
       setConfirmAction(null);
     } finally {
       setIsRequestingExtension(false);
@@ -544,13 +664,22 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     }
   };
 
-  const currentColumn = board?.columns?.find((c: any) => String(c.id || c._id) === String(editColumnId));
-  const currentColumnName = (currentColumn as any)?.name || (currentColumn as any)?.list_name || (currentColumn as any)?.title || "Không rõ";
+  const currentColumn = board?.columns?.find(
+    (c: any) => String(c.id || c._id) === String(editColumnId),
+  );
+  const currentColumnName =
+    (currentColumn as any)?.name ||
+    (currentColumn as any)?.list_name ||
+    (currentColumn as any)?.title ||
+    "Không rõ";
   const isConfirmSubmitting = isRequestingExtension || isDeleting;
 
   const modalContent = (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 md:p-12">
-      <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-300" onClick={onClose} />
+      <div
+        className="absolute inset-0 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-300"
+        onClick={onClose}
+      />
 
       <div className="relative w-full max-w-[1380px] bg-slate-50/95 backdrop-blur-xl rounded-[2rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] flex flex-col max-h-[95vh] overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 border border-white/50">
         <div className="bg-white/80 backdrop-blur-sm px-6 py-5 border-b border-slate-200/60 flex justify-between items-start gap-6 sticky top-0 z-10">
@@ -564,7 +693,9 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
             <p className="text-[13px] text-slate-500 px-3 mt-1.5 font-medium flex items-center gap-1.5">
               Vị trí hiện tại:
-              <span className="font-bold px-2 py-0.5 rounded-md border border-slate-200/60 bg-indigo-50 text-indigo-700">{currentColumnName}</span>
+              <span className="font-bold px-2 py-0.5 rounded-md border border-slate-200/60 bg-indigo-50 text-indigo-700">
+                {currentColumnName}
+              </span>
             </p>
           </div>
 
@@ -574,7 +705,10 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
               onClick={() => setIsDone(!isDone)}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all border ${isDone ? "bg-emerald-50 text-emerald-600 border-emerald-200 shadow-sm ring-2 ring-emerald-100 ring-offset-1" : "bg-white text-slate-400 border-slate-200 hover:border-emerald-300 hover:text-emerald-500"}`}
             >
-              <CheckSquare size={18} className={isDone ? "text-emerald-500" : "text-slate-300"} />
+              <CheckSquare
+                size={18}
+                className={isDone ? "text-emerald-500" : "text-slate-300"}
+              />
               {isDone ? "Đã hoàn thành" : "Đánh dấu xong"}
             </button>
 
@@ -614,11 +748,18 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                       <Paperclip size={18} />
                     </div>
                     <h3>Tài liệu đính kèm</h3>
-                    <span className="ml-1.5 text-xs font-black bg-slate-200 text-slate-600 px-2.5 py-1 rounded-full">{localAttachments.length}</span>
+                    <span className="ml-1.5 text-xs font-black bg-slate-200 text-slate-600 px-2.5 py-1 rounded-full">
+                      {localAttachments.length}
+                    </span>
                   </div>
 
                   <div>
-                    <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
 
                     <button
                       type="button"
@@ -626,7 +767,14 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                       disabled={isUploading}
                       className="flex items-center gap-2 px-3 py-2 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 rounded-xl text-sm font-bold transition-all shadow-sm disabled:opacity-50"
                     >
-                      {isUploading ? <Loader2 size={16} className="animate-spin text-indigo-500" /> : <Plus size={16} />}
+                      {isUploading ? (
+                        <Loader2
+                          size={16}
+                          className="animate-spin text-indigo-500"
+                        />
+                      ) : (
+                        <Plus size={16} />
+                      )}
                       {isUploading ? "Đang tải..." : "Thêm file"}
                     </button>
                   </div>
@@ -642,18 +790,38 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                       <div
                         key={idx}
                         className="flex items-center gap-3 p-3.5 bg-white border border-slate-200 rounded-2xl hover:border-indigo-400 hover:shadow-md transition-all group cursor-pointer"
-                        onClick={() => window.open(file.file_url || file.fileUrl, "_blank")}
+                        onClick={() =>
+                          window.open(file.file_url || file.fileUrl, "_blank")
+                        }
                       >
                         <div className="w-11 h-11 shrink-0 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-500 shadow-sm">
                           <File size={22} />
                         </div>
 
                         <div className="flex-1 min-w-0">
-                          <p className="text-[13px] font-bold text-slate-700 truncate group-hover:text-indigo-600 transition-colors" title={file.file_name || file.fileName}>
+                          <p
+                            className="text-[13px] font-bold text-slate-700 truncate group-hover:text-indigo-600 transition-colors"
+                            title={file.file_name || file.fileName}
+                          >
                             {file.file_name || file.fileName}
                           </p>
                           <p className="text-[11px] font-medium text-slate-400 mt-0.5 uppercase tracking-tighter">
-                            {(file.mime_type || file.mimeType || file.content_type || "").split("/")[1] || "FILE"} • {(((file.file_size || file.fileSize || file.size || 0) / 1024 / 1024)).toFixed(2)} MB
+                            {(
+                              file.mime_type ||
+                              file.mimeType ||
+                              file.content_type ||
+                              ""
+                            ).split("/")[1] || "FILE"}{" "}
+                            •{" "}
+                            {(
+                              (file.file_size ||
+                                file.fileSize ||
+                                file.size ||
+                                0) /
+                              1024 /
+                              1024
+                            ).toFixed(2)}{" "}
+                            MB
                           </p>
                         </div>
 
@@ -662,7 +830,10 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              window.open(file.file_url || file.fileUrl, "_blank");
+                              window.open(
+                                file.file_url || file.fileUrl,
+                                "_blank",
+                              );
                             }}
                             className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-50 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all"
                             title="Tải xuống / Xem"
@@ -672,7 +843,12 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
                           <button
                             type="button"
-                            onClick={(e) => handleDeleteAttachment(e, String(file._id || file.id))}
+                            onClick={(e) =>
+                              handleDeleteAttachment(
+                                e,
+                                String(file._id || file.id),
+                              )
+                            }
                             className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-50 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all"
                             title="Xóa tài liệu"
                           >
@@ -691,13 +867,18 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     <CheckSquare size={18} />
                   </div>
                   <h3>Checklist Việc Con</h3>
-                  <span className="ml-1.5 text-xs font-black bg-slate-200 text-slate-600 px-2.5 py-1 rounded-full">{localSubtasks.length}</span>
+                  <span className="ml-1.5 text-xs font-black bg-slate-200 text-slate-600 px-2.5 py-1 rounded-full">
+                    {localSubtasks.length}
+                  </span>
                 </div>
 
                 <div className="bg-white border border-slate-200/80 rounded-2xl p-2.5 shadow-sm">
                   <div className="flex flex-col gap-1 max-h-64 overflow-y-auto custom-scrollbar pr-1">
                     {localSubtasks.map((st: any, idx: number) => (
-                      <div key={idx} className="group/st flex items-center gap-3 p-2.5 hover:bg-slate-50/80 rounded-xl transition-all border border-transparent hover:border-slate-100">
+                      <div
+                        key={idx}
+                        className="group/st flex items-center gap-3 p-2.5 hover:bg-slate-50/80 rounded-xl transition-all border border-transparent hover:border-slate-100"
+                      >
                         <button
                           type="button"
                           onClick={() => {
@@ -707,16 +888,32 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                           }}
                           className="shrink-0 transition-transform active:scale-90"
                         >
-                          {st.is_done ? <CheckSquare size={18} className="text-emerald-500" /> : <Square size={18} className="text-slate-300 hover:text-indigo-400 transition-colors" />}
+                          {st.is_done ? (
+                            <CheckSquare
+                              size={18}
+                              className="text-emerald-500"
+                            />
+                          ) : (
+                            <Square
+                              size={18}
+                              className="text-slate-300 hover:text-indigo-400 transition-colors"
+                            />
+                          )}
                         </button>
 
-                        <span className={`text-[15px] flex-1 truncate ${st.is_done ? "line-through text-slate-400" : "text-slate-700 font-medium"}`}>
+                        <span
+                          className={`text-[15px] flex-1 truncate ${st.is_done ? "line-through text-slate-400" : "text-slate-700 font-medium"}`}
+                        >
                           {st.title}
                         </span>
 
                         <button
                           type="button"
-                          onClick={() => setLocalSubtasks(localSubtasks.filter((_, i) => i !== idx))}
+                          onClick={() =>
+                            setLocalSubtasks(
+                              localSubtasks.filter((_, i) => i !== idx),
+                            )
+                          }
                           className="opacity-0 group-hover/st:opacity-100 p-1.5 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
                         >
                           <X size={16} />
@@ -736,7 +933,10 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && newSubtaskTitle.trim()) {
                           e.preventDefault();
-                          setLocalSubtasks([...localSubtasks, { title: newSubtaskTitle.trim(), is_done: false }]);
+                          setLocalSubtasks([
+                            ...localSubtasks,
+                            { title: newSubtaskTitle.trim(), is_done: false },
+                          ]);
                           setNewSubtaskTitle("");
                         }
                       }}
@@ -751,12 +951,14 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             <div className="w-full xl:w-[320px] flex flex-col gap-6 shrink-0">
               <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col gap-5">
                 <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-indigo-500" /> Thông số
+                  <span className="w-2 h-2 rounded-full bg-indigo-500" /> Thông
+                  số
                 </h4>
 
                 <div className="flex flex-col gap-2">
                   <label className="text-[13px] font-bold text-slate-600 flex items-center gap-2">
-                    <KanbanSquare size={15} className="text-slate-400" /> Cột / Giai đoạn
+                    <KanbanSquare size={15} className="text-slate-400" /> Cột /
+                    Giai đoạn
                   </label>
 
                   <div className="relative">
@@ -769,8 +971,14 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                         const colId = col.id || col._id;
 
                         return (
-                          <option key={`col-${colId || idx}`} value={String(colId)}>
-                            {col.name || col.list_name || col.title || "Không rõ"}
+                          <option
+                            key={`col-${colId || idx}`}
+                            value={String(colId)}
+                          >
+                            {col.name ||
+                              col.list_name ||
+                              col.title ||
+                              "Không rõ"}
                           </option>
                         );
                       })}
@@ -784,26 +992,44 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
                 <div className="flex flex-col gap-3 mt-2">
                   <label className="text-[13px] font-bold text-slate-600 flex items-center gap-2">
-                    <User size={15} className="text-slate-400" /> Người thực hiện
+                    <User size={15} className="text-slate-400" /> Người thực
+                    hiện
                   </label>
 
                   <div className="flex flex-wrap gap-2 relative">
                     {editAssignees.length > 0 ? (
                       editAssignees.map((userId: string, idx: number) => {
                         const member = getUser(userId, projectId);
-                        const displayName = member?.full_name || (member as any)?.name || "Thành viên";
-                        const avatarUrl = member?.avatar_url || (member as any)?.avatarUrl;
-                        const initial = String(displayName).charAt(0).toUpperCase();
+                        const displayName =
+                          member?.full_name ||
+                          (member as any)?.name ||
+                          "Thành viên";
+                        const avatarUrl =
+                          member?.avatar_url || (member as any)?.avatarUrl;
+                        const initial = String(displayName)
+                          .charAt(0)
+                          .toUpperCase();
 
                         return (
-                          <div key={`assignee-${userId || idx}`} className="flex items-center gap-2 px-2 py-1.5 bg-indigo-50 border border-indigo-100 rounded-xl shadow-sm group/name">
+                          <div
+                            key={`assignee-${userId || idx}`}
+                            className="flex items-center gap-2 px-2 py-1.5 bg-indigo-50 border border-indigo-100 rounded-xl shadow-sm group/name"
+                          >
                             {avatarUrl ? (
-                              <img src={avatarUrl} alt={displayName} className="w-6 h-6 rounded-full object-cover border border-indigo-200 shadow-sm" />
+                              <img
+                                src={avatarUrl}
+                                alt={displayName}
+                                className="w-6 h-6 rounded-full object-cover border border-indigo-200 shadow-sm"
+                              />
                             ) : (
-                              <div className="w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center text-[10px] font-black text-white shadow-sm">{initial}</div>
+                              <div className="w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center text-[10px] font-black text-white shadow-sm">
+                                {initial}
+                              </div>
                             )}
 
-                            <span className="text-[12px] font-bold text-indigo-700 pr-1 truncate max-w-[120px]">{displayName}</span>
+                            <span className="text-[12px] font-bold text-indigo-700 pr-1 truncate max-w-[120px]">
+                              {displayName}
+                            </span>
 
                             <button
                               type="button"
@@ -823,7 +1049,9 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
                     <button
                       type="button"
-                      onClick={() => setIsAssigneePopupOpen(!isAssigneePopupOpen)}
+                      onClick={() =>
+                        setIsAssigneePopupOpen(!isAssigneePopupOpen)
+                      }
                       className="flex items-center gap-2 px-3 py-1.5 rounded-xl border-2 border-dashed border-slate-200 text-slate-400 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all font-bold text-[12px]"
                     >
                       <Plus size={14} /> <span>Thêm người</span>
@@ -831,22 +1059,34 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
                     {isAssigneePopupOpen && (
                       <>
-                        <div className="fixed inset-0 z-40" onClick={() => setIsAssigneePopupOpen(false)} />
+                        <div
+                          className="fixed inset-0 z-40"
+                          onClick={() => setIsAssigneePopupOpen(false)}
+                        />
 
                         <div className="absolute top-full mt-2 right-0 w-64 bg-white border border-slate-200 shadow-xl rounded-xl z-50 p-2 max-h-60 overflow-y-auto custom-scrollbar">
-                          <h5 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Thành viên dự án</h5>
+                          <h5 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">
+                            Thành viên dự án
+                          </h5>
 
                           {isMembersLoading ? (
-                            <div className="text-xs text-center text-slate-400 p-3 italic">Đang tải danh sách...</div>
+                            <div className="text-xs text-center text-slate-400 p-3 italic">
+                              Đang tải danh sách...
+                            </div>
                           ) : projectMembers.length > 0 ? (
                             projectMembers.map((member: any, idx: number) => {
-                              const rawId = member.user_id || member.id || member._id;
+                              const rawId =
+                                member.user_id || member.id || member._id;
                               if (!rawId) return null;
 
                               const safeMemberId = String(rawId);
-                              const isSelected = editAssignees.includes(safeMemberId);
-                              const displayName = member.full_name || member.name || "Unnamed";
-                              const initial = String(displayName).charAt(0).toUpperCase();
+                              const isSelected =
+                                editAssignees.includes(safeMemberId);
+                              const displayName =
+                                member.full_name || member.name || "Unnamed";
+                              const initial = String(displayName)
+                                .charAt(0)
+                                .toUpperCase();
 
                               return (
                                 <div
@@ -856,22 +1096,37 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                                 >
                                   <div className="flex items-center gap-2">
                                     {member.avatar_url ? (
-                                      <img src={member.avatar_url} className="w-7 h-7 rounded-full object-cover" alt={displayName} />
+                                      <img
+                                        src={member.avatar_url}
+                                        className="w-7 h-7 rounded-full object-cover"
+                                        alt={displayName}
+                                      />
                                     ) : (
-                                      <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600">{initial}</div>
+                                      <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600">
+                                        {initial}
+                                      </div>
                                     )}
 
-                                    <span className={`text-[13px] ${isSelected ? "font-bold text-indigo-700" : "font-medium text-slate-700"}`}>
+                                    <span
+                                      className={`text-[13px] ${isSelected ? "font-bold text-indigo-700" : "font-medium text-slate-700"}`}
+                                    >
                                       {displayName}
                                     </span>
                                   </div>
 
-                                  {isSelected && <Check size={16} className="text-indigo-600" />}
+                                  {isSelected && (
+                                    <Check
+                                      size={16}
+                                      className="text-indigo-600"
+                                    />
+                                  )}
                                 </div>
                               );
                             })
                           ) : (
-                            <div className="text-xs text-center text-slate-400 p-3 italic">Dự án chưa có thành viên nào.</div>
+                            <div className="text-xs text-center text-slate-400 p-3 italic">
+                              Dự án chưa có thành viên nào.
+                            </div>
                           )}
                         </div>
                       </>
@@ -919,7 +1174,8 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
               <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col gap-5">
                 <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500" /> Thời gian
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" /> Thời
+                  gian
                 </h4>
 
                 <div className="flex flex-col gap-2 relative">
@@ -943,7 +1199,8 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
                 <div className="flex flex-col gap-2 relative">
                   <label className="text-[13px] font-bold text-slate-600 flex items-center gap-2">
-                    <Calendar size={15} className="text-slate-400" /> Kết thúc (Due)
+                    <Calendar size={15} className="text-slate-400" /> Kết thúc
+                    (Due)
                   </label>
 
                   <DatePicker
@@ -963,7 +1220,8 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
                 <div className="flex flex-col gap-2 pt-1">
                   <label className="text-[13px] font-bold text-slate-600 flex items-center gap-2">
-                    <Clock size={15} className="text-slate-400" /> Thời lượng dự kiến
+                    <Clock size={15} className="text-slate-400" /> Thời lượng dự
+                    kiến
                   </label>
 
                   <div className="relative">
@@ -1033,7 +1291,9 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                   </div>
 
                   <div>
-                    <p className="text-sm font-bold text-amber-100">Đơn xin dời deadline</p>
+                    <p className="text-sm font-bold text-amber-100">
+                      Đơn xin dời deadline
+                    </p>
                     <h2 className="text-2xl font-black">Xin thêm thời gian</h2>
                   </div>
                 </div>
@@ -1053,17 +1313,25 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 )}
 
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs font-black uppercase text-slate-400 mb-1">Task</p>
+                  <p className="text-xs font-black uppercase text-slate-400 mb-1">
+                    Task
+                  </p>
                   <p className="font-extrabold text-slate-800">{editTitle}</p>
                 </div>
 
                 <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4">
-                  <p className="text-xs font-black uppercase text-rose-500 mb-1">Deadline hiện tại</p>
-                  <p className="font-extrabold text-rose-700">{formatDateTime(editDueDate)}</p>
+                  <p className="text-xs font-black uppercase text-rose-500 mb-1">
+                    Deadline hiện tại
+                  </p>
+                  <p className="font-extrabold text-rose-700">
+                    {formatDateTime(editDueDate)}
+                  </p>
                 </div>
 
                 <div>
-                  <label className="text-sm font-bold text-slate-700 mb-2 block">Deadline mới muốn xin</label>
+                  <label className="text-sm font-bold text-slate-700 mb-2 block">
+                    Deadline mới muốn xin
+                  </label>
 
                   <DatePicker
                     selected={extensionDate}
@@ -1105,7 +1373,11 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     disabled={isRequestingExtension}
                     className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-amber-500 text-white font-extrabold hover:bg-amber-600 transition shadow-lg shadow-amber-200 disabled:opacity-60"
                   >
-                    {isRequestingExtension ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+                    {isRequestingExtension ? (
+                      <Loader2 size={18} className="animate-spin" />
+                    ) : (
+                      <Send size={18} />
+                    )}
                     Gửi yêu cầu
                   </button>
                 </div>

@@ -1,6 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { CheckCircle2, Loader2, MessageSquareText, Send, Trash2 } from "lucide-react";
-import { useAddTaskComment, useDeleteTaskComment, useGetTaskComments } from "../hooks/useBoardQueries";
+import {
+  CheckCircle2,
+  Loader2,
+  MessageSquareText,
+  Send,
+  Trash2,
+} from "lucide-react";
+import {
+  useAddTaskComment,
+  useDeleteTaskComment,
+  useGetTaskComments,
+} from "../hooks/useBoardQueries";
 import { TaskComment } from "../types/index";
 
 interface TaskCommentsPanelProps {
@@ -14,7 +24,9 @@ const getId = (value: any) => String(value?._id || value?.id || value || "");
 
 const getUserName = (comment: TaskComment) => {
   const user: any = comment.user_id || comment.user || {};
-  return user.full_name || user.fullName || user.name || user.email || "Người dùng";
+  return (
+    user.full_name || user.fullName || user.name || user.email || "Người dùng"
+  );
 };
 
 const getAvatar = (comment: TaskComment) => {
@@ -22,7 +34,10 @@ const getAvatar = (comment: TaskComment) => {
   return user.avatar_url || user.avatarUrl || "";
 };
 
-const getInitial = (name: string) => String(name || "U").charAt(0).toUpperCase();
+const getInitial = (name: string) =>
+  String(name || "U")
+    .charAt(0)
+    .toUpperCase();
 
 const getTimeText = (value?: string | Date | null) => {
   if (!value) return "";
@@ -49,7 +64,8 @@ const TaskCommentsPanel: React.FC<TaskCommentsPanelProps> = ({
 
   const { data, isLoading } = useGetTaskComments(taskId, projectId);
   const { mutateAsync: addComment, isPending: isAdding } = useAddTaskComment();
-  const { mutateAsync: deleteComment, isPending: isDeleting } = useDeleteTaskComment();
+  const { mutateAsync: deleteComment, isPending: isDeleting } =
+    useDeleteTaskComment();
 
   const comments = useMemo(() => (Array.isArray(data) ? data : []), [data]);
 
@@ -99,7 +115,9 @@ const TaskCommentsPanel: React.FC<TaskCommentsPanelProps> = ({
 
           <div>
             <h4 className="text-sm font-black text-slate-800">Bình luận</h4>
-            <p className="text-[11px] font-bold text-slate-400">{comments.length} trao đổi</p>
+            <p className="text-[11px] font-bold text-slate-400">
+              {comments.length} trao đổi
+            </p>
           </div>
         </div>
       </div>
@@ -126,7 +144,11 @@ const TaskCommentsPanel: React.FC<TaskCommentsPanelProps> = ({
             disabled={isAdding || !content.trim()}
             className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-black text-white shadow-lg shadow-indigo-100 hover:bg-indigo-700 active:scale-95 transition disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {isAdding ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+            {isAdding ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Send size={16} />
+            )}
             Gửi
           </button>
         </div>
@@ -142,7 +164,9 @@ const TaskCommentsPanel: React.FC<TaskCommentsPanelProps> = ({
             <div className="mx-auto mb-3 w-11 h-11 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center">
               <MessageSquareText size={22} />
             </div>
-            <p className="text-sm font-bold text-slate-500">Chưa có bình luận nào</p>
+            <p className="text-sm font-bold text-slate-500">
+              Chưa có bình luận nào
+            </p>
             <p className="text-xs font-medium text-slate-400 mt-1">
               Hãy để lại ghi chú hoặc vấn đề cần xử lý.
             </p>
@@ -152,7 +176,8 @@ const TaskCommentsPanel: React.FC<TaskCommentsPanelProps> = ({
             const name = getUserName(comment);
             const avatar = getAvatar(comment);
             const commentId = getId(comment);
-            const isCurrentDeleting = isDeleting && deletingCommentId === commentId;
+            const isCurrentDeleting =
+              isDeleting && deletingCommentId === commentId;
 
             return (
               <div
@@ -181,7 +206,9 @@ const TaskCommentsPanel: React.FC<TaskCommentsPanelProps> = ({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="text-[13px] font-black text-slate-800 truncate">{name}</p>
+                        <p className="text-[13px] font-black text-slate-800 truncate">
+                          {name}
+                        </p>
                         <p className="text-[10px] font-bold text-slate-400">
                           {getTimeText(comment.created_at || comment.createdAt)}
                         </p>
@@ -195,7 +222,10 @@ const TaskCommentsPanel: React.FC<TaskCommentsPanelProps> = ({
                         className="shrink-0 p-1.5 rounded-lg text-slate-300 hover:text-emerald-600 hover:bg-emerald-50 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                       >
                         {isCurrentDeleting ? (
-                          <Loader2 size={18} className="animate-spin text-emerald-600" />
+                          <Loader2
+                            size={18}
+                            className="animate-spin text-emerald-600"
+                          />
                         ) : (
                           <CheckCircle2 size={18} />
                         )}

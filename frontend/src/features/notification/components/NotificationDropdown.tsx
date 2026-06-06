@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Bell,
   Check,
@@ -9,11 +9,11 @@ import {
   ExternalLink,
   CalendarClock,
   X,
-} from 'lucide-react';
-import { useNotificationStore } from '../stores/useNotificationStore';
-import { useAuthStore } from '../../auth/store/useAuthStore';
-import { useNavigate } from 'react-router-dom';
-import { AppNotification } from '../types/notificationTypes';
+} from "lucide-react";
+import { useNotificationStore } from "../stores/useNotificationStore";
+import { useAuthStore } from "../../auth/store/useAuthStore";
+import { useNavigate } from "react-router-dom";
+import { AppNotification } from "../types/notificationTypes";
 
 const normalizeActionUrl = (rawUrl?: string | null) => {
   if (!rawUrl) return null;
@@ -22,16 +22,14 @@ const normalizeActionUrl = (rawUrl?: string | null) => {
   if (!url) return null;
 
   try {
-    if (url.startsWith('http://') || url.startsWith('https://')) {
+    if (url.startsWith("http://") || url.startsWith("https://")) {
       const parsed = new URL(url);
       url = `${parsed.pathname}${parsed.search}`;
     }
-  } catch {
-    // Giữ nguyên rawUrl nếu URL parse lỗi.
-  }
+  } catch {}
 
-  if (url.startsWith('/boards/')) {
-    url = url.replace('/boards/', '/board/');
+  if (url.startsWith("/boards/")) {
+    url = url.replace("/boards/", "/board/");
   }
 
   return url;
@@ -52,27 +50,30 @@ const resolveActionUrl = (notif: AppNotification) => {
 };
 
 const isExtensionRequestNotification = (notif: AppNotification) => {
-  return notif.type === 'EXTENSION_REQUEST';
+  return notif.type === "EXTENSION_REQUEST";
 };
 
 const cleanMessage = (message: string) => {
-  return message.replace(/🚨|🛑|✅|⏳/g, '').trim();
+  return message.replace(/🚨|🛑|✅|⏳/g, "").trim();
 };
 
 const getToastTitle = (notif: AppNotification) => {
   if (isExtensionRequestNotification(notif)) {
-    return 'Có yêu cầu dời deadline mới';
+    return "Có yêu cầu dời deadline mới";
   }
 
-  if (notif.type === 'TASK_COMPLETED' || notif.type === 'TASK_COMPLETED_BY_YOU') {
-    return 'Có thông báo hoàn thành task';
+  if (
+    notif.type === "TASK_COMPLETED" ||
+    notif.type === "TASK_COMPLETED_BY_YOU"
+  ) {
+    return "Có thông báo hoàn thành task";
   }
 
-  if (notif.type === 'TASK_CREATE') {
-    return 'Bạn có task mới';
+  if (notif.type === "TASK_CREATE") {
+    return "Bạn có task mới";
   }
 
-  return 'Bạn có thông báo mới';
+  return "Bạn có thông báo mới";
 };
 
 const NotificationDropdown: React.FC = () => {
@@ -115,14 +116,17 @@ const NotificationDropdown: React.FC = () => {
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
 
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   useEffect(() => {
@@ -147,63 +151,68 @@ const NotificationDropdown: React.FC = () => {
   }, [latestToastNotification, clearToastNotification]);
 
   const getNotificationStyle = (notif: AppNotification) => {
-    const content = `${notif.title || ''} ${notif.message || ''} ${notif.type || ''}`.toUpperCase();
+    const content =
+      `${notif.title || ""} ${notif.message || ""} ${notif.type || ""}`.toUpperCase();
 
-    if (content.includes('EXTENSION_REQUEST') || content.includes('REQUEST') || content.includes('DỜI DEADLINE')) {
+    if (
+      content.includes("EXTENSION_REQUEST") ||
+      content.includes("REQUEST") ||
+      content.includes("DỜI DEADLINE")
+    ) {
       return {
         icon: <CalendarClock size={16} className="text-amber-500" />,
-        bg: 'bg-amber-50',
-        border: 'border-amber-100',
-        text: 'text-amber-700',
+        bg: "bg-amber-50",
+        border: "border-amber-100",
+        text: "text-amber-700",
       };
     }
 
-    if (content.includes('WARNING') || content.includes('OVERDUE')) {
+    if (content.includes("WARNING") || content.includes("OVERDUE")) {
       return {
         icon: <AlertTriangle size={16} className="text-orange-500" />,
-        bg: 'bg-orange-50',
-        border: 'border-orange-100',
-        text: 'text-orange-700',
+        bg: "bg-orange-50",
+        border: "border-orange-100",
+        text: "text-orange-700",
       };
     }
 
-    if (content.includes('REJECT')) {
+    if (content.includes("REJECT")) {
       return {
         icon: <XCircle size={16} className="text-rose-500" />,
-        bg: 'bg-rose-50',
-        border: 'border-rose-100',
-        text: 'text-rose-700',
+        bg: "bg-rose-50",
+        border: "border-rose-100",
+        text: "text-rose-700",
       };
     }
 
     if (
-      content.includes('APPROVED') ||
-      content.includes('SUCCESS') ||
-      content.includes('COMPLETED') ||
-      content.includes('HOÀN THÀNH')
+      content.includes("APPROVED") ||
+      content.includes("SUCCESS") ||
+      content.includes("COMPLETED") ||
+      content.includes("HOÀN THÀNH")
     ) {
       return {
         icon: <Check size={16} className="text-emerald-500" />,
-        bg: 'bg-emerald-50',
-        border: 'border-emerald-100',
-        text: 'text-emerald-700',
+        bg: "bg-emerald-50",
+        border: "border-emerald-100",
+        text: "text-emerald-700",
       };
     }
 
-    if (content.includes('TASK') || content.includes('DEADLINE')) {
+    if (content.includes("TASK") || content.includes("DEADLINE")) {
       return {
         icon: <Clock size={16} className="text-indigo-500" />,
-        bg: 'bg-indigo-50',
-        border: 'border-indigo-100',
-        text: 'text-indigo-700',
+        bg: "bg-indigo-50",
+        border: "border-indigo-100",
+        text: "text-indigo-700",
       };
     }
 
     return {
       icon: <Info size={16} className="text-indigo-500" />,
-      bg: 'bg-indigo-50',
-      border: 'border-indigo-100',
-      text: 'text-indigo-700',
+      bg: "bg-indigo-50",
+      border: "border-indigo-100",
+      text: "text-indigo-700",
     };
   };
 
@@ -215,7 +224,9 @@ const NotificationDropdown: React.FC = () => {
     }
 
     if (isExtensionRequestNotification(notif)) {
-      navigate(`/notifications?reviewNotificationId=${encodeURIComponent(notif.id)}`);
+      navigate(
+        `/notifications?reviewNotificationId=${encodeURIComponent(notif.id)}`,
+      );
       return;
     }
 
@@ -226,7 +237,7 @@ const NotificationDropdown: React.FC = () => {
       return;
     }
 
-    navigate('/notifications');
+    navigate("/notifications");
   };
 
   const handleToastClick = async () => {
@@ -265,7 +276,6 @@ const NotificationDropdown: React.FC = () => {
 
         {isOpen && (
           <div className="absolute right-0 mt-3 w-80 md:w-96 bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-slate-100 z-50 overflow-hidden animate-in fade-in slide-in-from-top-4 duration-200">
-
             <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
               <h3 className="font-bold text-slate-800 text-sm">Thông báo</h3>
 
@@ -293,7 +303,8 @@ const NotificationDropdown: React.FC = () => {
                 sortedNotifications.slice(0, 6).map((notif) => {
                   const style = getNotificationStyle(notif);
                   const actionUrl = resolveActionUrl(notif);
-                  const canNavigate = Boolean(actionUrl) || isExtensionRequestNotification(notif);
+                  const canNavigate =
+                    Boolean(actionUrl) || isExtensionRequestNotification(notif);
 
                   return (
                     <div
@@ -301,31 +312,40 @@ const NotificationDropdown: React.FC = () => {
                       onClick={() => handleNotificationClick(notif)}
                       className={`p-3 mb-2 rounded-xl flex gap-3 cursor-pointer transition-all ${
                         notif.isRead
-                          ? 'opacity-70 hover:bg-slate-50'
+                          ? "opacity-70 hover:bg-slate-50"
                           : `bg-white hover:${style.bg} border ${style.border} shadow-sm`
                       }`}
                     >
-                      <div className={`mt-0.5 shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${style.bg}`}>
+                      <div
+                        className={`mt-0.5 shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${style.bg}`}
+                      >
                         {style.icon}
                       </div>
 
                       <div className="flex-1 min-w-0">
                         {notif.title && (
-                          <p className={`text-xs font-black mb-0.5 truncate ${notif.isRead ? 'text-slate-500' : style.text}`}>
+                          <p
+                            className={`text-xs font-black mb-0.5 truncate ${notif.isRead ? "text-slate-500" : style.text}`}
+                          >
                             {notif.title}
                           </p>
                         )}
 
-                        <p className={`text-sm ${notif.isRead ? 'text-slate-600' : 'text-slate-800 font-semibold'} leading-snug line-clamp-2`}>
+                        <p
+                          className={`text-sm ${notif.isRead ? "text-slate-600" : "text-slate-800 font-semibold"} leading-snug line-clamp-2`}
+                        >
                           {cleanMessage(notif.message)}
                         </p>
 
                         <div className="flex items-center gap-2 mt-1.5">
                           <span className="text-[10px] font-bold text-slate-400 block">
-                            {new Date(notif.timestamp).toLocaleTimeString('vi-VN', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
+                            {new Date(notif.timestamp).toLocaleTimeString(
+                              "vi-VN",
+                              {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              },
+                            )}
                           </span>
 
                           {canNavigate && (
@@ -353,7 +373,7 @@ const NotificationDropdown: React.FC = () => {
                 type="button"
                 onClick={() => {
                   setIsOpen(false);
-                  navigate('/notifications');
+                  navigate("/notifications");
                 }}
                 className="w-full py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50 transition-all shadow-sm"
               >

@@ -1,11 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { userApi } from "../../user/api/userApi";
-import { aiApi } from "../api/aiApi"; // 🚀 IMPORT THÊM CÁI NÀY VÀO NHA SẾP
+import { aiApi } from "../api/aiApi";
 import axiosClient from "../../../lib/axiosClient";
 
-// ==========================================
-// 1. Hook lấy danh sách User
-// ==========================================
 export const useAllUsers = () => {
   return useQuery({
     queryKey: ["users", "all"],
@@ -17,9 +14,6 @@ export const useAllUsers = () => {
   });
 };
 
-// ==========================================
-// 2. Hook Xử lý Luồng Tạo AI Board (Orchestrator)
-// ==========================================
 export interface GenerateAiBoardParams {
   projectId: string;
   members: Array<{ userId: string; roleId: string }>;
@@ -46,12 +40,11 @@ export const useGenerateAiBoard = () => {
         throw new Error("Danh sách nhân sự không hợp lệ.");
       }
 
-      // 1. TẠO BOARD TRỐNG TRƯỚC (Dùng thẳng axiosClient cũng ok vì nó chung module Board)
       const boardRes: any = await axiosClient.post("/boards", {
         name: `Dự án AI: ${prompt.substring(0, 15)}...`,
         project_id: project_id,
         status: "ACTIVE",
-        create_default_cols: generation_mode === "SIMPLE"
+        create_default_cols: generation_mode === "SIMPLE",
       });
 
       const newBoardId =
@@ -66,7 +59,6 @@ export const useGenerateAiBoard = () => {
         throw new Error("Không lấy được Board ID sau khi tạo bảng rỗng.");
       }
 
-      // 2. 🚀 GỌI API GEMINI THÔNG QUA FILE API CHUẨN
       try {
         await aiApi.generateBoard({
           boardId: newBoardId,
@@ -74,7 +66,7 @@ export const useGenerateAiBoard = () => {
           prompt: prompt,
           memberIds: member_ids,
           generationMode: generation_mode || "SIMPLE",
-          startDate: project_start_date
+          startDate: project_start_date,
         });
 
         return newBoardId;

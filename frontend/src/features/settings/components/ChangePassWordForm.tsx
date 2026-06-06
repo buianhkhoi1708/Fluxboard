@@ -1,58 +1,55 @@
-import React, { useState } from 'react';
-import * as yup from 'yup';
-import { settingApi } from '../api/settingApi';
+import React, { useState } from "react";
+import * as yup from "yup";
+import { settingApi } from "../api/settingApi";
 import {
   Loader2,
   AlertTriangle,
   CheckCircle2,
   Eye,
   EyeOff,
-} from 'lucide-react';
+} from "lucide-react";
 
 const passwordSchema = yup.object().shape({
-  currentPassword: yup
-    .string()
-    .required('Vui lòng nhập mật khẩu hiện tại'),
+  currentPassword: yup.string().required("Vui lòng nhập mật khẩu hiện tại"),
 
   newPassword: yup
     .string()
-    .required('Vui lòng nhập mật khẩu mới')
+    .required("Vui lòng nhập mật khẩu mới")
     .matches(
       /^(?=.*[A-Z])(?=.*\d).{8,}$/,
-      'Mật khẩu phải từ 8 ký tự, gồm ít nhất 1 chữ hoa và 1 chữ số',
+      "Mật khẩu phải từ 8 ký tự, gồm ít nhất 1 chữ hoa và 1 chữ số",
     ),
 
   confirmPassword: yup
     .string()
-    .required('Vui lòng xác nhận mật khẩu mới')
-    .oneOf([yup.ref('newPassword')], 'Mật khẩu xác nhận không khớp'),
+    .required("Vui lòng xác nhận mật khẩu mới")
+    .oneOf([yup.ref("newPassword")], "Mật khẩu xác nhận không khớp"),
 });
 
 const clearAuthSession = () => {
-  localStorage.removeItem('token');
-  localStorage.removeItem('refreshToken');
-  localStorage.removeItem('user');
-  localStorage.removeItem('lastActivityAt');
+  localStorage.removeItem("token");
+  localStorage.removeItem("refreshToken");
+  localStorage.removeItem("user");
+  localStorage.removeItem("lastActivityAt");
 
-  // Giữ thêm dòng này để dọn sạch nếu bản cũ từng lưu accessToken.
-  localStorage.removeItem('accessToken');
+  localStorage.removeItem("accessToken");
 
-  window.dispatchEvent(new Event('auth:logout'));
+  window.dispatchEvent(new Event("auth:logout"));
 };
 
 const ChangePasswordForm = () => {
   const [formData, setFormData] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: '',
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
   });
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [isLoading, setIsLoading] = useState(false);
 
   const [serverMessage, setServerMessage] = useState({
-    type: '',
-    text: '',
+    type: "",
+    text: "",
   });
 
   const [showPasswords, setShowPasswords] = useState({
@@ -90,8 +87,8 @@ const ChangePasswordForm = () => {
     e.preventDefault();
 
     setServerMessage({
-      type: '',
-      text: '',
+      type: "",
+      text: "",
     });
 
     try {
@@ -122,27 +119,27 @@ const ChangePasswordForm = () => {
       });
 
       setServerMessage({
-        type: 'success',
-        text: 'Đổi mật khẩu thành công. Hệ thống sẽ chuyển bạn về trang đăng nhập...',
+        type: "success",
+        text: "Đổi mật khẩu thành công. Hệ thống sẽ chuyển bạn về trang đăng nhập...",
       });
 
       setFormData({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: '',
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
       });
 
       setTimeout(() => {
         clearAuthSession();
-        window.location.href = '/login';
+        window.location.href = "/login";
       }, 2000);
     } catch (error: any) {
       setServerMessage({
-        type: 'error',
+        type: "error",
         text:
           error?.response?.data?.message ||
           error?.response?.data?.error?.message ||
-          'Thay đổi mật khẩu thất bại. Vui lòng kiểm tra lại mật khẩu hiện tại.',
+          "Thay đổi mật khẩu thất bại. Vui lòng kiểm tra lại mật khẩu hiện tại.",
       });
     } finally {
       setIsLoading(false);
@@ -155,24 +152,23 @@ const ChangePasswordForm = () => {
       className="space-y-5 max-w-xl animate-in fade-in duration-300"
     >
       <div>
-        <h3 className="text-lg font-bold text-slate-800">
-          Thông tin bảo mật
-        </h3>
+        <h3 className="text-lg font-bold text-slate-800">Thông tin bảo mật</h3>
 
         <p className="text-xs text-slate-500">
-          Đảm bảo việc cập nhật mật khẩu tuân thủ đúng các quy tắc ràng buộc hệ thống.
+          Đảm bảo việc cập nhật mật khẩu tuân thủ đúng các quy tắc ràng buộc hệ
+          thống.
         </p>
       </div>
 
       {serverMessage.text && (
         <div
           className={`p-4 rounded-xl border flex items-center gap-3 text-sm ${
-            serverMessage.type === 'success'
-              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-              : 'bg-rose-50 border-rose-200 text-rose-800'
+            serverMessage.type === "success"
+              ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+              : "bg-rose-50 border-rose-200 text-rose-800"
           }`}
         >
-          {serverMessage.type === 'success' ? (
+          {serverMessage.type === "success" ? (
             <CheckCircle2 size={18} />
           ) : (
             <AlertTriangle size={18} />
@@ -188,10 +184,10 @@ const ChangePasswordForm = () => {
 
         <div className="relative">
           <input
-            type={showPasswords.current ? 'text' : 'password'}
+            type={showPasswords.current ? "text" : "password"}
             value={formData.currentPassword}
             onChange={(e) =>
-              handleInputChange('currentPassword', e.target.value)
+              handleInputChange("currentPassword", e.target.value)
             }
             className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-500"
           />
@@ -211,22 +207,18 @@ const ChangePasswordForm = () => {
         </div>
 
         {errors.currentPassword && (
-          <p className="text-rose-500 text-xs mt-1">
-            {errors.currentPassword}
-          </p>
+          <p className="text-rose-500 text-xs mt-1">{errors.currentPassword}</p>
         )}
       </div>
 
       <div className="flex flex-col gap-1.5 relative">
-        <label className="text-xs font-bold text-slate-700">
-          Mật khẩu mới
-        </label>
+        <label className="text-xs font-bold text-slate-700">Mật khẩu mới</label>
 
         <div className="relative">
           <input
-            type={showPasswords.new ? 'text' : 'password'}
+            type={showPasswords.new ? "text" : "password"}
             value={formData.newPassword}
-            onChange={(e) => handleInputChange('newPassword', e.target.value)}
+            onChange={(e) => handleInputChange("newPassword", e.target.value)}
             className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-500"
           />
 
@@ -245,9 +237,7 @@ const ChangePasswordForm = () => {
         </div>
 
         {errors.newPassword && (
-          <p className="text-rose-500 text-xs mt-1">
-            {errors.newPassword}
-          </p>
+          <p className="text-rose-500 text-xs mt-1">{errors.newPassword}</p>
         )}
       </div>
 
@@ -258,10 +248,10 @@ const ChangePasswordForm = () => {
 
         <div className="relative">
           <input
-            type={showPasswords.confirm ? 'text' : 'password'}
+            type={showPasswords.confirm ? "text" : "password"}
             value={formData.confirmPassword}
             onChange={(e) =>
-              handleInputChange('confirmPassword', e.target.value)
+              handleInputChange("confirmPassword", e.target.value)
             }
             className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-500"
           />
@@ -281,9 +271,7 @@ const ChangePasswordForm = () => {
         </div>
 
         {errors.confirmPassword && (
-          <p className="text-rose-500 text-xs mt-1">
-            {errors.confirmPassword}
-          </p>
+          <p className="text-rose-500 text-xs mt-1">{errors.confirmPassword}</p>
         )}
       </div>
 

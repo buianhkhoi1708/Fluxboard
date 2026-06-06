@@ -1,6 +1,5 @@
-import axiosClient from '../../../lib/axiosClient';
+import axiosClient from "../../../lib/axiosClient";
 
-// --- Interfaces ---
 export interface MemberUser {
   _id?: string;
   id?: string;
@@ -11,12 +10,15 @@ export interface MemberUser {
   name?: string;
   avatar_url?: string | null;
   avatarUrl?: string | null;
-  role_id?: string | {
-    _id?: string;
-    id?: string;
-    name?: string;
-    code?: string;
-  } | null;
+  role_id?:
+    | string
+    | {
+        _id?: string;
+        id?: string;
+        name?: string;
+        code?: string;
+      }
+    | null;
   role_name?: string;
   roleName?: string;
   role?: string;
@@ -60,20 +62,20 @@ export interface Project {
 }
 
 const normalizeRoleName = (value?: string | null) => {
-  if (!value) return '';
+  if (!value) return "";
 
   return String(value)
     .trim()
     .toUpperCase()
-    .replace(/\s+/g, '_')
-    .replace(/-/g, '_');
+    .replace(/\s+/g, "_")
+    .replace(/-/g, "_");
 };
 
 const getCurrentUser = () => {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === "undefined") return null;
 
   try {
-    const rawUser = localStorage.getItem('user');
+    const rawUser = localStorage.getItem("user");
     return rawUser ? JSON.parse(rawUser) : null;
   } catch {
     return null;
@@ -81,11 +83,11 @@ const getCurrentUser = () => {
 };
 
 const getUserId = (user: any) => {
-  return String(user?.user_id || user?.id || user?._id || '');
+  return String(user?.user_id || user?.id || user?._id || "");
 };
 
 const getRoleName = (user: any) => {
-  if (!user) return '';
+  if (!user) return "";
 
   const directRole =
     user.role_name ||
@@ -100,27 +102,27 @@ const getRoleName = (user: any) => {
     return normalizeRoleName(directRole);
   }
 
-  if (user.role_id && typeof user.role_id === 'object') {
+  if (user.role_id && typeof user.role_id === "object") {
     return normalizeRoleName(user.role_id.name || user.role_id.code);
   }
 
   if (Array.isArray(user.system_role_ids)) {
     const matched = user.system_role_ids.find((item: any) => {
-      return normalizeRoleName(item) === 'SYSTEM_ADMIN';
+      return normalizeRoleName(item) === "SYSTEM_ADMIN";
     });
 
-    if (matched) return 'SYSTEM_ADMIN';
+    if (matched) return "SYSTEM_ADMIN";
   }
 
-  return '';
+  return "";
 };
 
 const isSystemAdminUser = (user: any) => {
-  return getRoleName(user) === 'SYSTEM_ADMIN';
+  return getRoleName(user) === "SYSTEM_ADMIN";
 };
 
 const isCurrentUserSystemAdmin = () => {
-  return getRoleName(getCurrentUser()) === 'SYSTEM_ADMIN';
+  return getRoleName(getCurrentUser()) === "SYSTEM_ADMIN";
 };
 
 const shouldExposeUser = (candidate: any) => {
@@ -132,17 +134,20 @@ const shouldExposeUser = (candidate: any) => {
 
   const currentUser = getCurrentUser();
 
-  return isCurrentUserSystemAdmin() && getUserId(currentUser) === getUserId(candidate);
+  return (
+    isCurrentUserSystemAdmin() &&
+    getUserId(currentUser) === getUserId(candidate)
+  );
 };
 
 const getMemberUser = (member: any) => {
   if (!member) return null;
 
-  if (member.user_id && typeof member.user_id === 'object') {
+  if (member.user_id && typeof member.user_id === "object") {
     return member.user_id;
   }
 
-  if (member.user && typeof member.user === 'object') {
+  if (member.user && typeof member.user === "object") {
     return member.user;
   }
 
@@ -168,7 +173,7 @@ const getUserVisibilityParams = () => {
 };
 
 const sanitizeProject = (project: any) => {
-  if (!project || typeof project !== 'object') return project;
+  if (!project || typeof project !== "object") return project;
 
   return {
     ...project,
@@ -184,7 +189,7 @@ const unwrapData = (response: any) => {
 
 export const projectApi = {
   getUserProjects: async (): Promise<Project[]> => {
-    const response: any = await axiosClient.get('/projects', {
+    const response: any = await axiosClient.get("/projects", {
       params: getUserVisibilityParams(),
     });
 
@@ -208,14 +213,17 @@ export const projectApi = {
 
   getProjectOverview: async (projectId?: string) => {
     if (projectId) {
-      const response: any = await axiosClient.get(`/projects/${projectId}/overview`, {
-        params: getUserVisibilityParams(),
-      });
+      const response: any = await axiosClient.get(
+        `/projects/${projectId}/overview`,
+        {
+          params: getUserVisibilityParams(),
+        },
+      );
 
       return sanitizeProject(unwrapData(response));
     }
 
-    const response: any = await axiosClient.get('/projects/overviews', {
+    const response: any = await axiosClient.get("/projects/overviews", {
       params: getUserVisibilityParams(),
     });
 
@@ -235,18 +243,23 @@ export const projectApi = {
     return sanitizeProject(payload);
   },
 
-  getProjectMembersDetail: async (projectId: string): Promise<ProjectMemberDetail[]> => {
+  getProjectMembersDetail: async (
+    projectId: string,
+  ): Promise<ProjectMemberDetail[]> => {
     const project = await projectApi.getProjectDetail(projectId);
     return Array.isArray(project.members) ? project.members : [];
   },
 
   createProject: async (payload: any) => {
-    const response: any = await axiosClient.post('/projects', payload);
+    const response: any = await axiosClient.post("/projects", payload);
     return unwrapData(response);
   },
 
   updateProjectInfo: async (projectId: string, payload: any) => {
-    const response: any = await axiosClient.put(`/projects/${projectId}`, payload);
+    const response: any = await axiosClient.put(
+      `/projects/${projectId}`,
+      payload,
+    );
     return unwrapData(response);
   },
 
@@ -279,10 +292,13 @@ export const projectApi = {
     userId: string,
     roleIds: string[],
   ) => {
-    const response: any = await axiosClient.post(`/projects/${projectId}/members`, {
-      user_id: userId,
-      role_ids: roleIds,
-    });
+    const response: any = await axiosClient.post(
+      `/projects/${projectId}/members`,
+      {
+        user_id: userId,
+        role_ids: roleIds,
+      },
+    );
 
     return unwrapData(response);
   },

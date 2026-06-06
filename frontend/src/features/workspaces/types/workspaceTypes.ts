@@ -1,13 +1,11 @@
-import { IncomingUser } from '../../user/store/useUserStore';
+import { IncomingUser } from "../../user/store/useUserStore";
 
-// Cấu trúc Response bọc ngoài của Backend
 export interface ApiResponse<T> {
   success: boolean;
   data: T;
   message?: string;
 }
 
-// Kiểu dữ liệu của Project
 export interface Project {
   id: string;
   _id?: string;
@@ -17,7 +15,6 @@ export interface Project {
   is_deleted?: boolean;
 }
 
-// Kiểu dữ liệu của Board
 export interface Board {
   id: string;
   _id?: string;
@@ -25,20 +22,18 @@ export interface Board {
   project_id?: string;
 }
 
-// Kiểu dữ liệu của Task (Công việc)
 export interface Task {
   id: string;
   _id?: string;
   name: string;
-  status?: string; 
+  status?: string;
 }
 
-// Cấu trúc trả về khi gọi API lấy Tổng quan Project (Kèm theo Boards, Members, Tasks)
 export interface WorkspaceOverview {
   project: Project;
   boards: Board[];
   members: IncomingUser[];
-  tasks?: Task[]; 
+  tasks?: Task[];
 }
 export interface CreateProjectPayload {
   name: string;

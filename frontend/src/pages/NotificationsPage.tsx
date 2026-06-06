@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Bell,
   Check,
@@ -14,27 +14,27 @@ import {
   ExternalLink,
   Loader2,
   ShieldCheck,
-} from 'lucide-react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useNotificationStore } from '../features/notification/stores/useNotificationStore';
-import { notificationApi } from '../features/notification/api/notificationApi';
-import { AppNotification } from '../features/notification/types/notificationTypes';
+} from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNotificationStore } from "../features/notification/stores/useNotificationStore";
+import { notificationApi } from "../features/notification/api/notificationApi";
+import { AppNotification } from "../features/notification/types/notificationTypes";
 
 const formatDate = (value?: string | Date | null) => {
-  if (!value) return 'Không rõ';
+  if (!value) return "Không rõ";
 
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
-    return 'Không rõ';
+    return "Không rõ";
   }
 
-  return date.toLocaleString('vi-VN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
+  return date.toLocaleString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
   });
 };
 
@@ -45,16 +45,14 @@ const normalizeActionUrl = (rawUrl?: string | null) => {
   if (!url) return null;
 
   try {
-    if (url.startsWith('http://') || url.startsWith('https://')) {
+    if (url.startsWith("http://") || url.startsWith("https://")) {
       const parsed = new URL(url);
       url = `${parsed.pathname}${parsed.search}`;
     }
-  } catch {
-    // Giữ nguyên rawUrl nếu URL parse lỗi.
-  }
+  } catch {}
 
-  if (url.startsWith('/boards/')) {
-    url = url.replace('/boards/', '/board/');
+  if (url.startsWith("/boards/")) {
+    url = url.replace("/boards/", "/board/");
   }
 
   return url;
@@ -75,12 +73,12 @@ const resolveActionUrl = (notif: AppNotification) => {
 };
 
 const isExtensionRequestNotification = (notif: AppNotification) => {
-  return notif.type === 'EXTENSION_REQUEST';
+  return notif.type === "EXTENSION_REQUEST";
 };
 
 interface ConfirmActionModalProps {
   open: boolean;
-  type: 'approve' | 'reject' | null;
+  type: "approve" | "reject" | null;
   taskTitle?: string;
   isSubmitting?: boolean;
   rejectReason: string;
@@ -101,7 +99,7 @@ const ConfirmActionModal: React.FC<ConfirmActionModalProps> = ({
 }) => {
   if (!open || !type) return null;
 
-  const isApprove = type === 'approve';
+  const isApprove = type === "approve";
 
   return (
     <div className="fixed inset-0 z-[260] flex items-center justify-center p-4">
@@ -114,8 +112,8 @@ const ConfirmActionModal: React.FC<ConfirmActionModalProps> = ({
         <div
           className={`px-6 py-5 text-white ${
             isApprove
-              ? 'bg-gradient-to-br from-emerald-500 to-teal-600'
-              : 'bg-gradient-to-br from-rose-500 to-red-600'
+              ? "bg-gradient-to-br from-emerald-500 to-teal-600"
+              : "bg-gradient-to-br from-rose-500 to-red-600"
           }`}
         >
           <div className="flex items-center gap-4">
@@ -128,7 +126,7 @@ const ConfirmActionModal: React.FC<ConfirmActionModalProps> = ({
                 Xác nhận thao tác
               </p>
               <h3 className="text-xl font-black mt-1">
-                {isApprove ? 'Chấp nhận dời hạn?' : 'Từ chối dời hạn?'}
+                {isApprove ? "Chấp nhận dời hạn?" : "Từ chối dời hạn?"}
               </h3>
             </div>
           </div>
@@ -138,8 +136,8 @@ const ConfirmActionModal: React.FC<ConfirmActionModalProps> = ({
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <p className="text-sm font-semibold text-slate-600 leading-relaxed">
               {isApprove
-                ? 'Bạn chắc chắn muốn chấp nhận yêu cầu dời deadline cho task này? Sau khi xác nhận, deadline mới sẽ được áp dụng.'
-                : 'Bạn chắc chắn muốn từ chối yêu cầu dời deadline cho task này? Nhân viên sẽ nhận được thông báo kết quả.'}
+                ? "Bạn chắc chắn muốn chấp nhận yêu cầu dời deadline cho task này? Sau khi xác nhận, deadline mới sẽ được áp dụng."
+                : "Bạn chắc chắn muốn từ chối yêu cầu dời deadline cho task này? Nhân viên sẽ nhận được thông báo kết quả."}
             </p>
 
             {taskTitle && (
@@ -182,8 +180,8 @@ const ConfirmActionModal: React.FC<ConfirmActionModalProps> = ({
               onClick={onConfirm}
               className={`flex-1 rounded-2xl px-4 py-3 text-sm font-black text-white transition shadow-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
                 isApprove
-                  ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200'
-                  : 'bg-rose-600 hover:bg-rose-700 shadow-rose-200'
+                  ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200"
+                  : "bg-rose-600 hover:bg-rose-700 shadow-rose-200"
               }`}
             >
               {isSubmitting ? (
@@ -193,7 +191,7 @@ const ConfirmActionModal: React.FC<ConfirmActionModalProps> = ({
               ) : (
                 <XCircle size={17} />
               )}
-              {isApprove ? 'Chấp nhận' : 'Từ chối'}
+              {isApprove ? "Chấp nhận" : "Từ chối"}
             </button>
           </div>
         </div>
@@ -217,22 +215,26 @@ const ExtensionReviewModal: React.FC<ExtensionReviewModalProps> = ({
 }) => {
   const navigate = useNavigate();
 
-  const [confirmType, setConfirmType] = useState<'approve' | 'reject' | null>(null);
-  const [rejectReason, setRejectReason] = useState('');
+  const [confirmType, setConfirmType] = useState<"approve" | "reject" | null>(
+    null,
+  );
+  const [rejectReason, setRejectReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [localError, setLocalError] = useState('');
+  const [localError, setLocalError] = useState("");
 
   const meta = notification?.metadata || {};
   const taskId = meta.task_id || notification?.referenceId;
   const actionUrl = notification ? resolveActionUrl(notification) : null;
 
-  const taskTitle = meta.task_title || notification?.title || 'Task cần xử lý';
+  const taskTitle = meta.task_title || notification?.title || "Task cần xử lý";
 
   if (!open || !notification) return null;
 
   const handleGoToTask = async () => {
     if (!actionUrl) {
-      setLocalError('Thông báo này chưa có đường dẫn task. Cần backend gửi action_url hoặc metadata.board_id/task_id.');
+      setLocalError(
+        "Thông báo này chưa có đường dẫn task. Cần backend gửi action_url hoặc metadata.board_id/task_id.",
+      );
       return;
     }
 
@@ -246,19 +248,19 @@ const ExtensionReviewModal: React.FC<ExtensionReviewModalProps> = ({
   };
 
   const openApproveConfirm = () => {
-    setLocalError('');
-    setConfirmType('approve');
+    setLocalError("");
+    setConfirmType("approve");
   };
 
   const openRejectConfirm = () => {
-    setLocalError('');
-    setRejectReason('');
-    setConfirmType('reject');
+    setLocalError("");
+    setRejectReason("");
+    setConfirmType("reject");
   };
 
   const handleConfirmAction = async () => {
     if (!taskId) {
-      setLocalError('Không tìm thấy task_id của yêu cầu này.');
+      setLocalError("Không tìm thấy task_id của yêu cầu này.");
       setConfirmType(null);
       return;
     }
@@ -266,13 +268,16 @@ const ExtensionReviewModal: React.FC<ExtensionReviewModalProps> = ({
     if (!confirmType) return;
 
     setIsSubmitting(true);
-    setLocalError('');
+    setLocalError("");
 
     try {
-      if (confirmType === 'approve') {
+      if (confirmType === "approve") {
         await notificationApi.approveDeadlineExtension(String(taskId));
       } else {
-        await notificationApi.rejectDeadlineExtension(String(taskId), rejectReason.trim());
+        await notificationApi.rejectDeadlineExtension(
+          String(taskId),
+          rejectReason.trim(),
+        );
       }
 
       await notificationApi.markAsReadOnServer(notification.id);
@@ -280,10 +285,10 @@ const ExtensionReviewModal: React.FC<ExtensionReviewModalProps> = ({
       setConfirmType(null);
       onClose();
     } catch (error: any) {
-      console.error('Deadline extension action error:', error);
+      console.error("Deadline extension action error:", error);
       setLocalError(
         error?.response?.data?.message ||
-          'Thao tác thất bại. Vui lòng kiểm tra lại trạng thái yêu cầu hoặc thử lại.',
+          "Thao tác thất bại. Vui lòng kiểm tra lại trạng thái yêu cầu hoặc thử lại.",
       );
     } finally {
       setIsSubmitting(false);
@@ -338,7 +343,7 @@ const ExtensionReviewModal: React.FC<ExtensionReviewModalProps> = ({
                   <UserRound size={15} /> Người xin
                 </div>
                 <p className="font-extrabold text-slate-800">
-                  {meta.requester_name || 'Không rõ'}
+                  {meta.requester_name || "Không rõ"}
                 </p>
               </div>
 
@@ -366,7 +371,7 @@ const ExtensionReviewModal: React.FC<ExtensionReviewModalProps> = ({
                 <MessageSquareText size={15} /> Lý do xin dời
               </div>
               <p className="text-slate-700 font-semibold leading-relaxed whitespace-pre-wrap">
-                {meta.reason || 'Không có lý do'}
+                {meta.reason || "Không có lý do"}
               </p>
             </div>
 
@@ -424,20 +429,24 @@ const NotificationsPage = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotificationStore();
+  const { notifications, unreadCount, markAsRead, markAllAsRead } =
+    useNotificationStore();
 
-  const [reviewNotification, setReviewNotification] = useState<AppNotification | null>(null);
+  const [reviewNotification, setReviewNotification] =
+    useState<AppNotification | null>(null);
 
   const sortedNotifications = useMemo(() => {
     return [...notifications].sort((a, b) => b.timestamp - a.timestamp);
   }, [notifications]);
 
-  const reviewNotificationId = searchParams.get('reviewNotificationId');
+  const reviewNotificationId = searchParams.get("reviewNotificationId");
 
   useEffect(() => {
     if (!reviewNotificationId) return;
 
-    const found = notifications.find((notif) => notif.id === reviewNotificationId);
+    const found = notifications.find(
+      (notif) => notif.id === reviewNotificationId,
+    );
 
     if (!found) return;
 
@@ -451,50 +460,55 @@ const NotificationsPage = () => {
   }, [reviewNotificationId, notifications, markAsRead]);
 
   const getNotificationStyle = (notif: AppNotification) => {
-    const message = `${notif.title || ''} ${notif.message || ''} ${notif.type || ''}`.toUpperCase();
+    const message =
+      `${notif.title || ""} ${notif.message || ""} ${notif.type || ""}`.toUpperCase();
 
-    if (message.includes('WARNING') || message.includes('REQUEST') || message.includes('EXTENSION_REQUEST')) {
+    if (
+      message.includes("WARNING") ||
+      message.includes("REQUEST") ||
+      message.includes("EXTENSION_REQUEST")
+    ) {
       return {
         icon: <AlertTriangle size={18} className="text-amber-500" />,
-        bg: 'bg-amber-50',
-        border: 'border-amber-100',
+        bg: "bg-amber-50",
+        border: "border-amber-100",
       };
     }
 
-    if (message.includes('OVERDUE') || message.includes('REJECT')) {
+    if (message.includes("OVERDUE") || message.includes("REJECT")) {
       return {
         icon: <XCircle size={18} className="text-rose-500" />,
-        bg: 'bg-rose-50',
-        border: 'border-rose-100',
+        bg: "bg-rose-50",
+        border: "border-rose-100",
       };
     }
 
     if (
-      message.includes('APPROVED') ||
-      message.includes('SUCCESS') ||
-      message.includes('DONE') ||
-      message.includes('COMPLETED') ||
-      message.includes('HOÀN THÀNH')
+      message.includes("APPROVED") ||
+      message.includes("SUCCESS") ||
+      message.includes("DONE") ||
+      message.includes("COMPLETED") ||
+      message.includes("HOÀN THÀNH")
     ) {
       return {
         icon: <Check size={18} className="text-emerald-500" />,
-        bg: 'bg-emerald-50',
-        border: 'border-emerald-100',
+        bg: "bg-emerald-50",
+        border: "border-emerald-100",
       };
     }
 
-    if (message.includes('DEADLINE') || message.includes('TASK')) {
+    if (message.includes("DEADLINE") || message.includes("TASK")) {
       return {
         icon: <Clock size={18} className="text-indigo-500" />,
-        bg: 'bg-indigo-50',
-        border: 'border-indigo-100',
+        bg: "bg-indigo-50",
+        border: "border-indigo-100",
       };
     }
 
     return {
       icon: <Info size={18} className="text-indigo-500" />,
-      bg: 'bg-indigo-50',
-      border: 'border-indigo-100',
+      bg: "bg-indigo-50",
+      border: "border-indigo-100",
     };
   };
 
@@ -527,7 +541,7 @@ const NotificationsPage = () => {
   const closeReviewModal = () => {
     setReviewNotification(null);
 
-    if (searchParams.has('reviewNotificationId')) {
+    if (searchParams.has("reviewNotificationId")) {
       setSearchParams({});
     }
   };
@@ -539,7 +553,8 @@ const NotificationsPage = () => {
       ),
       unreadCount: Math.max(
         0,
-        state.notifications.filter((n) => !n.isRead && n.id !== notificationId).length,
+        state.notifications.filter((n) => !n.isRead && n.id !== notificationId)
+          .length,
       ),
     }));
   };
@@ -548,7 +563,6 @@ const NotificationsPage = () => {
     <>
       <div className="flex-1 bg-slate-50 h-full overflow-y-auto p-6 md:p-10 custom-scrollbar">
         <div className="max-w-3xl mx-auto">
-
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-indigo-100 rounded-2xl flex items-center justify-center text-indigo-600">
@@ -560,7 +574,9 @@ const NotificationsPage = () => {
                   Tất cả thông báo
                 </h1>
                 <p className="text-sm font-medium text-slate-500 mt-1">
-                  Bạn có <strong className="text-indigo-600">{unreadCount}</strong> thông báo chưa đọc.
+                  Bạn có{" "}
+                  <strong className="text-indigo-600">{unreadCount}</strong>{" "}
+                  thông báo chưa đọc.
                 </p>
               </div>
             </div>
@@ -580,7 +596,9 @@ const NotificationsPage = () => {
             {sortedNotifications.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-slate-400">
                 <Bell size={48} className="opacity-20 mb-4" />
-                <h3 className="text-lg font-bold text-slate-700">Trống trơn!</h3>
+                <h3 className="text-lg font-bold text-slate-700">
+                  Trống trơn!
+                </h3>
                 <p className="text-sm">Bạn chưa có bất kỳ thông báo nào.</p>
               </div>
             ) : (
@@ -589,17 +607,20 @@ const NotificationsPage = () => {
                   const style = getNotificationStyle(notif);
                   const actionUrl = resolveActionUrl(notif);
                   const canNavigate = Boolean(actionUrl);
-                  const isExtensionRequest = isExtensionRequestNotification(notif);
+                  const isExtensionRequest =
+                    isExtensionRequestNotification(notif);
 
                   return (
                     <div
                       key={notif.id}
                       onClick={() => handleNotificationClick(notif)}
                       className={`p-5 flex gap-4 cursor-pointer transition-all hover:bg-slate-50 ${
-                        notif.isRead ? 'opacity-70' : 'bg-indigo-50/30'
+                        notif.isRead ? "opacity-70" : "bg-indigo-50/30"
                       }`}
                     >
-                      <div className={`mt-1 shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${style.bg} border ${style.border}`}>
+                      <div
+                        className={`mt-1 shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${style.bg} border ${style.border}`}
+                      >
                         {style.icon}
                       </div>
 
@@ -607,13 +628,17 @@ const NotificationsPage = () => {
                         <div className="flex items-start justify-between gap-4">
                           <div className="min-w-0">
                             {notif.title && (
-                              <p className={`text-sm mb-1 ${notif.isRead ? 'text-slate-500 font-bold' : 'text-indigo-700 font-black'}`}>
+                              <p
+                                className={`text-sm mb-1 ${notif.isRead ? "text-slate-500 font-bold" : "text-indigo-700 font-black"}`}
+                              >
                                 {notif.title}
                               </p>
                             )}
 
-                            <p className={`text-base leading-snug ${notif.isRead ? 'text-slate-600 font-medium' : 'text-slate-800 font-bold'}`}>
-                              {notif.message.replace(/🚨|🛑|✅|⏳/g, '').trim()}
+                            <p
+                              className={`text-base leading-snug ${notif.isRead ? "text-slate-600 font-medium" : "text-slate-800 font-bold"}`}
+                            >
+                              {notif.message.replace(/🚨|🛑|✅|⏳/g, "").trim()}
                             </p>
 
                             {(isExtensionRequest || canNavigate) && (
@@ -640,12 +665,12 @@ const NotificationsPage = () => {
 
                         <span className="text-xs font-semibold text-slate-400 mt-2 flex items-center gap-1.5">
                           <Clock size={12} />
-                          {new Date(notif.timestamp).toLocaleString('vi-VN', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric',
+                          {new Date(notif.timestamp).toLocaleString("vi-VN", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
                           })}
                         </span>
                       </div>

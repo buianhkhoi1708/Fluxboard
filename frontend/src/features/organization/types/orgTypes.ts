@@ -1,10 +1,6 @@
-// ==========================================
-// 1. ENTITY INTERFACES
-// ==========================================
-
 export interface OrgMember {
   id?: string;
-  user_id?: string; // Hỗ trợ trường hợp API search trả về user_id
+  user_id?: string;
   userId?: string;
   full_name?: string;
   fullName?: string;
@@ -20,7 +16,7 @@ export interface OrgTeam {
   code?: string;
   department_id?: string;
   lead_id?: string;
-  leadId?: string;       // Bổ sung thêm đề phòng backend trả camelCase
+  leadId?: string;
   leadName?: string;
   lead_name?: string;
   description?: string;
@@ -38,16 +34,12 @@ export interface OrgDepartment {
   teams: OrgTeam[];
 }
 
-// ==========================================
-// 2. UI STATE INTERFACES
-// ==========================================
-
 export interface OrgModalState {
   isOpen: boolean;
-  mode: 'DEPARTMENT' | 'TEAM';
-  action: 'CREATE' | 'EDIT'; // <--- Thêm dòng này
+  mode: "DEPARTMENT" | "TEAM";
+  action: "CREATE" | "EDIT";
   targetDeptId: string | null;
-  targetTeam: any | null;    // <--- Thêm dòng này
+  targetTeam: any | null;
   targetDept?: any | null;
 }
 

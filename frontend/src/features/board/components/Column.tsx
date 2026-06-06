@@ -7,8 +7,11 @@ import CreateTaskModal from "./CreateTaskModal";
 import { useBoardStore } from "../stores/useBoardStore";
 import { getColumnTotalPoints } from "../utils/boardUtils";
 
-// 🚀 Đã import đủ 3 món để xử lý Cột và Project ID
-import { useUpdateColumn, useDeleteColumn, useGetBoardDetail } from "../hooks/useBoardQueries";
+import {
+  useUpdateColumn,
+  useDeleteColumn,
+  useGetBoardDetail,
+} from "../hooks/useBoardQueries";
 import { ColumnProps } from "../types/index";
 
 import { useDroppable } from "@dnd-kit/core";
@@ -21,7 +24,6 @@ interface ExtendedColumnProps extends ColumnProps {
   onOpenTaskDetail?: (taskId: string) => void;
 }
 
-// ✅ Modal xác nhận xoá (dùng Portal bên ngoài để luôn ở giữa màn hình)
 const ConfirmDeleteModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
@@ -61,18 +63,20 @@ const ConfirmDeleteModal: React.FC<{
         </div>
       </div>
     </div>,
-    document.body 
+    document.body,
   );
 };
 
 const Column: React.FC<ExtendedColumnProps> = memo(
   ({ list, onOpenTaskDetail }) => {
-    // 🚀 1. LẤY ACTIVE BOARD ID (Phải nằm trong component)
     const { activeBoardId } = useBoardStore();
-    
-    // 🚀 2. LẤY BOARD DATA & PROJECT ID ĐỂ VƯỢT RBAC
+
     const { data: board } = useGetBoardDetail(activeBoardId as string);
-    const safeProjectId = board?.project_id || board?.projectId || board?.project?._id || board?._id;
+    const safeProjectId =
+      board?.project_id ||
+      board?.projectId ||
+      board?.project?._id ||
+      board?._id;
 
     const { mutateAsync: updateColumnApi } = useUpdateColumn();
     const { mutateAsync: deleteColumnApi } = useDeleteColumn();
@@ -104,7 +108,6 @@ const Column: React.FC<ExtendedColumnProps> = memo(
       }
     }, [isEditingName]);
 
-    // 🚀 HÀM LƯU TÊN CỘT ĐÃ CÓ PROJECT ID
     const handleSaveColName = async () => {
       setIsEditingName(false);
       if (
@@ -117,9 +120,9 @@ const Column: React.FC<ExtendedColumnProps> = memo(
       }
 
       if (!safeProjectId) {
-         console.error("🚨 Không tìm thấy ID dự án!");
-         setEditColName(displayName);
-         return;
+        console.error("🚨 Không tìm thấy ID dự án!");
+        setEditColName(displayName);
+        return;
       }
 
       try {
@@ -127,7 +130,7 @@ const Column: React.FC<ExtendedColumnProps> = memo(
           columnId: safeListId,
           list_name: editColName.trim(),
           boardId: activeBoardId,
-          projectId: String(safeProjectId) // Vé thông hành
+          projectId: String(safeProjectId),
         });
       } catch (error) {
         console.error("Lỗi khi sửa tên cột:", error);
@@ -146,20 +149,19 @@ const Column: React.FC<ExtendedColumnProps> = memo(
       setIsDeleteModalOpen(true);
     };
 
-    // 🚀 HÀM XÓA CỘT ĐÃ CÓ PROJECT ID
     const confirmDeleteColumn = async () => {
       setIsDeleteModalOpen(false);
-      
+
       if (!safeProjectId) {
-         console.error("🚨 Không tìm thấy ID dự án để xóa!");
-         return;
+        console.error("🚨 Không tìm thấy ID dự án để xóa!");
+        return;
       }
 
       try {
         await deleteColumnApi({
           columnId: safeListId,
           boardId: activeBoardId,
-          projectId: String(safeProjectId) // Vé thông hành
+          projectId: String(safeProjectId),
         });
       } catch (error) {
         console.error("Lỗi khi xóa cột:", error);
@@ -168,7 +170,7 @@ const Column: React.FC<ExtendedColumnProps> = memo(
 
     return (
       <div className="w-[85vw] max-w-[300px] sm:w-[300px] shrink-0 flex flex-col bg-slate-100/80 backdrop-blur-md rounded-2xl max-h-full relative border border-white/60 shadow-sm">
-        {/* Menu overlay khi mở menu */}
+        {}
         {isMenuOpen && (
           <div
             className="fixed inset-0 z-10"
@@ -176,7 +178,7 @@ const Column: React.FC<ExtendedColumnProps> = memo(
           ></div>
         )}
 
-        {/* HEADER CỘT */}
+        {}
         <div className="shrink-0 flex justify-between items-start p-3.5 pb-2 cursor-grab active:cursor-grabbing group/header">
           <div className="flex flex-col gap-1.5 flex-1 min-w-0 pr-2">
             <div className="flex items-center gap-2">
@@ -246,7 +248,7 @@ const Column: React.FC<ExtendedColumnProps> = memo(
           </div>
         </div>
 
-        {/* LÕI SCROLL CHỨA TASK */}
+        {}
         <div
           ref={setNodeRef}
           className="flex-1 overflow-y-auto flex flex-col gap-2.5 px-2 pb-2 custom-scrollbar min-h-[50px]"
@@ -268,7 +270,7 @@ const Column: React.FC<ExtendedColumnProps> = memo(
           )}
         </div>
 
-        {/* FOOTER */}
+        {}
         <div className="shrink-0 p-2 pt-0">
           <button
             onClick={() => setIsCreateModalOpen(true)}
@@ -297,7 +299,7 @@ const Column: React.FC<ExtendedColumnProps> = memo(
         />
       </div>
     );
-  }
+  },
 );
 
 export default Column;

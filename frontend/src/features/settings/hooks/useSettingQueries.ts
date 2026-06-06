@@ -1,19 +1,21 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { settingApi, NotificationSettingsPayload } from '../api/settingApi';
-import { useAuthStore } from '../../auth/store/useAuthStore';
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { settingApi, NotificationSettingsPayload } from "../api/settingApi";
+import { useAuthStore } from "../../auth/store/useAuthStore";
 
 export const SETTING_KEYS = {
-  profile: ['settings', 'profile'] as const,
-  notifications: ['settings', 'notifications'] as const,
-  sessions: ['settings', 'sessions'] as const,
-  logs: ['settings', 'logs'] as const,
+  profile: ["settings", "profile"] as const,
+  notifications: ["settings", "notifications"] as const,
+  sessions: ["settings", "sessions"] as const,
+  logs: ["settings", "logs"] as const,
 };
 
 const unwrapData = (res: any) => {
   return res?.data?.data ?? res?.data ?? res;
 };
 
-const normalizeNotificationSettings = (raw: any): NotificationSettingsPayload => {
+const normalizeNotificationSettings = (
+  raw: any,
+): NotificationSettingsPayload => {
   return {
     email_notifications: raw?.email_notifications ?? true,
     push_notifications: raw?.push_notifications ?? true,
@@ -46,7 +48,8 @@ export const useUpdateNotifications = () => {
 
   return useMutation({
     mutationFn: async (settingsData: NotificationSettingsPayload) => {
-      const res: any = await settingApi.updateNotificationSettings(settingsData);
+      const res: any =
+        await settingApi.updateNotificationSettings(settingsData);
       return normalizeNotificationSettings(unwrapData(res));
     },
     onSuccess: (updatedData) => {
@@ -100,7 +103,7 @@ export const useUpdateProfile = () => {
       return unwrapData(res);
     },
     onSuccess: (resData) => {
-      const cachedUserRaw = localStorage.getItem('user');
+      const cachedUserRaw = localStorage.getItem("user");
 
       if (cachedUserRaw) {
         const userObj = JSON.parse(cachedUserRaw);
@@ -112,7 +115,7 @@ export const useUpdateProfile = () => {
           userObj.avatarUrl = resData.avatar_url;
         }
 
-        localStorage.setItem('user', JSON.stringify(userObj));
+        localStorage.setItem("user", JSON.stringify(userObj));
       }
 
       try {
@@ -130,11 +133,11 @@ export const useUpdateProfile = () => {
           });
         }
       } catch (error) {
-        console.error('Failed to synchronize memory auth store state:', error);
+        console.error("Failed to synchronize memory auth store state:", error);
       }
 
       queryClient.invalidateQueries({ queryKey: SETTING_KEYS.profile });
-      queryClient.invalidateQueries({ queryKey: ['user', 'me'] });
+      queryClient.invalidateQueries({ queryKey: ["user", "me"] });
     },
   });
 };

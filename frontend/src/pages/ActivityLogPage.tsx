@@ -1,10 +1,5 @@
-import React, {
-  useEffect,
-  startTransition,
-  useMemo,
-  useState,
-} from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useEffect, startTransition, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Activity,
   Clock,
@@ -18,16 +13,16 @@ import {
   KeyRound,
   UserCog,
   Circle,
-} from 'lucide-react';
+} from "lucide-react";
 
-import { useActivityFilters } from '../features/activity/hooks/useActivityFilters';
-import { useInfiniteAdminLogs } from '../features/activity/api/useInfiniteAdminLogs';
-import { activityApi } from '../features/activity/api/activityApi';
-import { useUserStore } from '../features/user/store/useUserStore';
-import { useRolesDictionary } from '../features/rbac/hooks/useRbacQueries';
-import ActivityFilterBar from '../features/activity/components/ActivityFilterBar';
+import { useActivityFilters } from "../features/activity/hooks/useActivityFilters";
+import { useInfiniteAdminLogs } from "../features/activity/api/useInfiniteAdminLogs";
+import { activityApi } from "../features/activity/api/activityApi";
+import { useUserStore } from "../features/user/store/useUserStore";
+import { useRolesDictionary } from "../features/rbac/hooks/useRbacQueries";
+import ActivityFilterBar from "../features/activity/components/ActivityFilterBar";
 
-type AdminActivityTab = 'activity' | 'accounts' | 'security';
+type AdminActivityTab = "activity" | "accounts" | "security";
 
 const ACTIVITY_TABS: Array<{
   key: AdminActivityTab;
@@ -36,113 +31,112 @@ const ACTIVITY_TABS: Array<{
   icon: React.ElementType;
 }> = [
   {
-    key: 'activity',
-    label: 'Nhật ký hoạt động',
-    description: 'Theo dõi toàn bộ thao tác nghiệp vụ trong hệ thống.',
+    key: "activity",
+    label: "Nhật ký hoạt động",
+    description: "Theo dõi toàn bộ thao tác nghiệp vụ trong hệ thống.",
     icon: Activity,
   },
   {
-    key: 'accounts',
-    label: 'Quản lý tài khoản',
-    description: 'Xem trạng thái hoạt động và thông tin role của tất cả tài khoản.',
+    key: "accounts",
+    label: "Quản lý tài khoản",
+    description:
+      "Xem trạng thái hoạt động và thông tin role của tất cả tài khoản.",
     icon: Users,
   },
   {
-    key: 'security',
-    label: 'Bảo mật hệ thống',
-    description: 'Theo dõi các sự kiện bảo mật như tạo tài khoản và đổi mật khẩu.',
+    key: "security",
+    label: "Bảo mật hệ thống",
+    description:
+      "Theo dõi các sự kiện bảo mật như tạo tài khoản và đổi mật khẩu.",
     icon: ShieldCheck,
   },
 ];
 
 const SOURCE_TYPE_STYLES: Record<string, string> = {
   PROJECT:
-    'bg-gradient-to-r from-emerald-50 to-emerald-100 text-emerald-700 border-emerald-200/80',
+    "bg-gradient-to-r from-emerald-50 to-emerald-100 text-emerald-700 border-emerald-200/80",
   BOARD:
-    'bg-gradient-to-r from-indigo-50 to-indigo-100 text-indigo-700 border-indigo-200/80',
-  TASK:
-    'bg-gradient-to-r from-amber-50 to-amber-100 text-amber-700 border-amber-200/80',
-  USER:
-    'bg-gradient-to-r from-sky-50 to-sky-100 text-sky-700 border-sky-200/80',
+    "bg-gradient-to-r from-indigo-50 to-indigo-100 text-indigo-700 border-indigo-200/80",
+  TASK: "bg-gradient-to-r from-amber-50 to-amber-100 text-amber-700 border-amber-200/80",
+  USER: "bg-gradient-to-r from-sky-50 to-sky-100 text-sky-700 border-sky-200/80",
   SYSTEM:
-    'bg-gradient-to-r from-rose-50 to-rose-100 text-rose-700 border-rose-200/80',
+    "bg-gradient-to-r from-rose-50 to-rose-100 text-rose-700 border-rose-200/80",
   SECURITY:
-    'bg-gradient-to-r from-violet-50 to-violet-100 text-violet-700 border-violet-200/80',
+    "bg-gradient-to-r from-violet-50 to-violet-100 text-violet-700 border-violet-200/80",
 };
 
 const ROLE_STYLES: Record<string, string> = {
   SYSTEM_ADMIN:
-    'bg-gradient-to-r from-rose-50 to-red-50 text-rose-700 border-rose-200',
+    "bg-gradient-to-r from-rose-50 to-red-50 text-rose-700 border-rose-200",
   ADMIN:
-    'bg-gradient-to-r from-violet-50 to-purple-50 text-violet-700 border-violet-200',
+    "bg-gradient-to-r from-violet-50 to-purple-50 text-violet-700 border-violet-200",
   MANAGER:
-    'bg-gradient-to-r from-indigo-50 to-blue-50 text-indigo-700 border-indigo-200',
+    "bg-gradient-to-r from-indigo-50 to-blue-50 text-indigo-700 border-indigo-200",
   MEMBER:
-    'bg-gradient-to-r from-slate-50 to-slate-100 text-slate-700 border-slate-200',
-  USER:
-    'bg-gradient-to-r from-sky-50 to-sky-100 text-sky-700 border-sky-200',
+    "bg-gradient-to-r from-slate-50 to-slate-100 text-slate-700 border-slate-200",
+  USER: "bg-gradient-to-r from-sky-50 to-sky-100 text-sky-700 border-sky-200",
   UNKNOWN_ROLE:
-    'bg-gradient-to-r from-slate-50 to-slate-100 text-slate-500 border-slate-200',
+    "bg-gradient-to-r from-slate-50 to-slate-100 text-slate-500 border-slate-200",
 };
 
 const ACTION_STYLES: Record<string, string> = {
-  CREATE: 'text-emerald-600 font-semibold',
-  UPDATE: 'text-amber-600 font-semibold',
-  DELETE: 'text-rose-600 font-semibold',
-  MOVE: 'text-indigo-600 font-semibold',
-  ADD_MEMBER: 'text-sky-600 font-semibold',
-  UPDATE_MEMBER: 'text-violet-600 font-semibold',
-  REMOVE_MEMBER: 'text-rose-600 font-semibold',
-  CHANGE_PASSWORD: 'text-orange-600 font-semibold',
-  CREATE_USER: 'text-emerald-600 font-semibold',
+  CREATE: "text-emerald-600 font-semibold",
+  UPDATE: "text-amber-600 font-semibold",
+  DELETE: "text-rose-600 font-semibold",
+  MOVE: "text-indigo-600 font-semibold",
+  ADD_MEMBER: "text-sky-600 font-semibold",
+  UPDATE_MEMBER: "text-violet-600 font-semibold",
+  REMOVE_MEMBER: "text-rose-600 font-semibold",
+  CHANGE_PASSWORD: "text-orange-600 font-semibold",
+  CREATE_USER: "text-emerald-600 font-semibold",
 };
 
 const ACTION_LABELS: Record<string, string> = {
-  CREATE: 'TẠO MỚI',
-  UPDATE: 'CẬP NHẬT',
-  DELETE: 'XÓA',
-  MOVE: 'DI CHUYỂN',
-  ADD_MEMBER: 'THÊM THÀNH VIÊN',
-  UPDATE_MEMBER: 'CẬP NHẬT THÀNH VIÊN',
-  REMOVE_MEMBER: 'XÓA THÀNH VIÊN',
-  CHANGE_PASSWORD: 'ĐỔI MẬT KHẨU',
-  CREATE_USER: 'TẠO TÀI KHOẢN',
+  CREATE: "TẠO MỚI",
+  UPDATE: "CẬP NHẬT",
+  DELETE: "XÓA",
+  MOVE: "DI CHUYỂN",
+  ADD_MEMBER: "THÊM THÀNH VIÊN",
+  UPDATE_MEMBER: "CẬP NHẬT THÀNH VIÊN",
+  REMOVE_MEMBER: "XÓA THÀNH VIÊN",
+  CHANGE_PASSWORD: "ĐỔI MẬT KHẨU",
+  CREATE_USER: "TẠO TÀI KHOẢN",
 };
 
 const normalizeRoleName = (value?: string | null) => {
-  if (!value) return '';
+  if (!value) return "";
 
   return String(value)
     .trim()
     .toUpperCase()
-    .replace(/\s+/g, '_')
-    .replace(/-/g, '_');
+    .replace(/\s+/g, "_")
+    .replace(/-/g, "_");
 };
 
 const getId = (value: any) => {
-  if (!value) return '';
+  if (!value) return "";
 
-  if (typeof value === 'object') {
-    return String(value._id || value.id || value.user_id || '');
+  if (typeof value === "object") {
+    return String(value._id || value.id || value.user_id || "");
   }
 
   return String(value);
 };
 
 const getInitial = (name?: string | null) => {
-  return String(name || 'S')
+  return String(name || "S")
     .trim()
     .charAt(0)
     .toUpperCase();
 };
 
 const getRelativeTime = (dateString?: string) => {
-  if (!dateString) return 'Không rõ thời gian';
+  if (!dateString) return "Không rõ thời gian";
 
   const date = new Date(dateString);
 
   if (Number.isNaN(date.getTime())) {
-    return 'Không rõ thời gian';
+    return "Không rõ thời gian";
   }
 
   const now = new Date();
@@ -151,30 +145,30 @@ const getRelativeTime = (dateString?: string) => {
   const diffHours = Math.floor(diffMs / 3600000);
   const diffDays = Math.floor(diffMs / 86400000);
 
-  if (diffMins < 1) return 'Vừa xong';
+  if (diffMins < 1) return "Vừa xong";
   if (diffMins < 60) return `${diffMins} phút trước`;
   if (diffHours < 24) return `${diffHours} giờ trước`;
   if (diffDays < 7) return `${diffDays} ngày trước`;
 
-  return date.toLocaleDateString('vi-VN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
+  return date.toLocaleDateString("vi-VN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
   });
 };
 
 const formatDateTime = (value?: string | Date | null) => {
-  if (!value) return 'Không rõ thời gian';
+  if (!value) return "Không rõ thời gian";
 
   const date = value instanceof Date ? value : new Date(value);
 
   if (Number.isNaN(date.getTime())) {
-    return 'Không rõ thời gian';
+    return "Không rõ thời gian";
   }
 
-  return date.toLocaleString('vi-VN', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
+  return date.toLocaleString("vi-VN", {
+    dateStyle: "medium",
+    timeStyle: "short",
   });
 };
 
@@ -230,29 +224,20 @@ const EmptyState = ({
       <Icon size={56} className="text-indigo-400" />
     </div>
 
-    <h3 className="text-xl font-bold text-slate-800 mb-2">
-      {title}
-    </h3>
+    <h3 className="text-xl font-bold text-slate-800 mb-2">{title}</h3>
 
-    <p className="text-slate-500 text-sm max-w-md">
-      {description}
-    </p>
+    <p className="text-slate-500 text-sm max-w-md">{description}</p>
   </div>
 );
 
 const ActivityLogPage = () => {
-  const [activeTab, setActiveTab] = useState<AdminActivityTab>('activity');
-  const [accountSearch, setAccountSearch] = useState('');
+  const [activeTab, setActiveTab] = useState<AdminActivityTab>("activity");
+  const [accountSearch, setAccountSearch] = useState("");
 
   const [filters] = useActivityFilters();
 
-  const {
-    data,
-    isLoading,
-    isFetchingNextPage,
-    fetchNextPage,
-    hasNextPage,
-  } = useInfiniteAdminLogs(filters);
+  const { data, isLoading, isFetchingNextPage, fetchNextPage, hasNextPage } =
+    useInfiniteAdminLogs(filters);
 
   const {
     userDictionary,
@@ -269,9 +254,9 @@ const ActivityLogPage = () => {
     isError: isSecurityError,
     refetch: refetchSecurityLogs,
   } = useQuery({
-    queryKey: ['activity', 'security-logs', 'system'],
+    queryKey: ["activity", "security-logs", "system"],
     queryFn: () => activityApi.getSystemSecurityLogs(0, 100),
-    enabled: activeTab === 'security',
+    enabled: activeTab === "security",
   });
 
   const rolesById = useMemo(() => {
@@ -289,7 +274,7 @@ const ActivityLogPage = () => {
   }, [roles]);
 
   const getRoleName = (value: any) => {
-    if (!value) return 'UNKNOWN_ROLE';
+    if (!value) return "UNKNOWN_ROLE";
 
     const directRole =
       value.role_name ||
@@ -299,11 +284,11 @@ const ActivityLogPage = () => {
       value.role_code ||
       value.roleName;
 
-    if (typeof directRole === 'string' && directRole.trim()) {
+    if (typeof directRole === "string" && directRole.trim()) {
       return normalizeRoleName(directRole);
     }
 
-    if (typeof value.role_id === 'object' && value.role_id?.name) {
+    if (typeof value.role_id === "object" && value.role_id?.name) {
       return normalizeRoleName(value.role_id.name);
     }
 
@@ -313,7 +298,10 @@ const ActivityLogPage = () => {
       return rolesById[roleId];
     }
 
-    if (Array.isArray(value.system_role_ids) && value.system_role_ids.length > 0) {
+    if (
+      Array.isArray(value.system_role_ids) &&
+      value.system_role_ids.length > 0
+    ) {
       const firstRoleId = getId(value.system_role_ids[0]);
 
       if (firstRoleId && rolesById[firstRoleId]) {
@@ -321,7 +309,7 @@ const ActivityLogPage = () => {
       }
     }
 
-    return 'UNKNOWN_ROLE';
+    return "UNKNOWN_ROLE";
   };
 
   const getActorRoleName = (log: any) => {
@@ -336,7 +324,7 @@ const ActivityLogPage = () => {
   };
 
   const formatMessage = (message?: string) => {
-    if (!message) return '';
+    if (!message) return "";
 
     const objectIdRegex = /[0-9a-fA-F]{24}/g;
 
@@ -358,10 +346,12 @@ const ActivityLogPage = () => {
       const roleName = getRoleName(user).toLowerCase();
 
       return (
-        String(user.full_name || user.fullName || user.name || '')
+        String(user.full_name || user.fullName || user.name || "")
           .toLowerCase()
           .includes(keyword) ||
-        String(user.email || '').toLowerCase().includes(keyword) ||
+        String(user.email || "")
+          .toLowerCase()
+          .includes(keyword) ||
         roleName.includes(keyword)
       );
     });
@@ -383,7 +373,7 @@ const ActivityLogPage = () => {
   }, [fetchAllSystemUsers]);
 
   const renderRoleBadge = (roleName: string) => {
-    const normalized = normalizeRoleName(roleName) || 'UNKNOWN_ROLE';
+    const normalized = normalizeRoleName(roleName) || "UNKNOWN_ROLE";
     const style = ROLE_STYLES[normalized] || ROLE_STYLES.UNKNOWN_ROLE;
 
     return (
@@ -398,7 +388,7 @@ const ActivityLogPage = () => {
   const renderAvatar = ({
     avatarUrl,
     name,
-    sizeClass = 'w-10 h-10',
+    sizeClass = "w-10 h-10",
   }: {
     avatarUrl?: string | null;
     name?: string | null;
@@ -410,15 +400,15 @@ const ActivityLogPage = () => {
           <img
             loading="lazy"
             src={avatarUrl}
-            alt={name || 'User'}
+            alt={name || "User"}
             className={`${sizeClass} rounded-full object-cover ring-2 ring-white shadow-sm`}
             onError={(event: any) => {
-              event.currentTarget.style.display = 'none';
+              event.currentTarget.style.display = "none";
 
               const fallback = event.currentTarget.nextSibling;
 
               if (fallback) {
-                fallback.style.display = 'flex';
+                fallback.style.display = "flex";
               }
             }}
           />
@@ -427,7 +417,7 @@ const ActivityLogPage = () => {
         <div
           className={`${sizeClass} rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shadow-sm`}
           style={{
-            display: avatarUrl ? 'none' : 'flex',
+            display: avatarUrl ? "none" : "flex",
           }}
         >
           {getInitial(name)}
@@ -459,26 +449,25 @@ const ActivityLogPage = () => {
           return (
             <React.Fragment key={`page-${pageIndex}`}>
               {logs.map((log: any, logIndex: number) => {
-                const sourceType = String(log?.source_type || log?.source || 'UNKNOWN').toUpperCase();
+                const sourceType = String(
+                  log?.source_type || log?.source || "UNKNOWN",
+                ).toUpperCase();
                 const sourceStyle =
                   SOURCE_TYPE_STYLES[sourceType] ||
-                  'bg-slate-100 text-slate-700 border-slate-200/80';
+                  "bg-slate-100 text-slate-700 border-slate-200/80";
 
-                const action = String(log?.action || 'LOG').toUpperCase();
+                const action = String(log?.action || "LOG").toUpperCase();
                 const actionStyle =
-                  ACTION_STYLES[action] ||
-                  'text-slate-600 font-medium';
+                  ACTION_STYLES[action] || "text-slate-600 font-medium";
 
                 const logId =
-                  log?.id ||
-                  log?._id ||
-                  `fallback-${pageIndex}-${logIndex}`;
+                  log?.id || log?._id || `fallback-${pageIndex}-${logIndex}`;
 
                 const actorName =
                   log?.actor?.full_name ||
                   log?.actor?.fullName ||
                   log?.actor?.name ||
-                  'Hệ thống';
+                  "Hệ thống";
 
                 const actorRoleName = getActorRoleName(log);
 
@@ -519,7 +508,7 @@ const ActivityLogPage = () => {
                               className={`text-xs uppercase mr-1 tracking-wider ${actionStyle}`}
                             >
                               [{ACTION_LABELS[action] || action}]
-                            </span>{' '}
+                            </span>{" "}
                             {formatMessage(log?.message)}
                           </p>
 
@@ -575,7 +564,8 @@ const ActivityLogPage = () => {
               </h2>
 
               <p className="text-sm text-slate-500 mt-1">
-                Theo dõi role và trạng thái online/offline của toàn bộ tài khoản trong hệ thống.
+                Theo dõi role và trạng thái online/offline của toàn bộ tài khoản
+                trong hệ thống.
               </p>
             </div>
 
@@ -620,10 +610,7 @@ const ActivityLogPage = () => {
             {filteredAccountUsers.map((user: any) => {
               const userId = getId(user);
               const fullName =
-                user.full_name ||
-                user.fullName ||
-                user.name ||
-                'Người dùng';
+                user.full_name || user.fullName || user.name || "Người dùng";
 
               const roleName = getRoleName(user);
 
@@ -631,7 +618,7 @@ const ActivityLogPage = () => {
                 user.is_online === true ||
                 user.isOnline === true ||
                 user.online === true ||
-                String(user.session_status || '').toUpperCase() === 'ONLINE';
+                String(user.session_status || "").toUpperCase() === "ONLINE";
 
               const lastActivity =
                 user.last_activity ||
@@ -649,7 +636,7 @@ const ActivityLogPage = () => {
                     {renderAvatar({
                       avatarUrl: user.avatar_url || user.avatarUrl,
                       name: fullName,
-                      sizeClass: 'w-12 h-12',
+                      sizeClass: "w-12 h-12",
                     })}
 
                     <div className="flex-1 min-w-0">
@@ -662,22 +649,26 @@ const ActivityLogPage = () => {
                       </div>
 
                       <p className="text-sm text-slate-500 mt-1 truncate">
-                        {user.email || 'Chưa có email'}
+                        {user.email || "Chưa có email"}
                       </p>
 
                       <div className="mt-4 flex flex-wrap items-center gap-3">
                         <span
                           className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border ${
                             isOnline
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                              : 'bg-slate-50 text-slate-500 border-slate-200'
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              : "bg-slate-50 text-slate-500 border-slate-200"
                           }`}
                         >
                           <Circle
                             size={9}
-                            className={isOnline ? 'fill-emerald-500 text-emerald-500' : 'fill-slate-400 text-slate-400'}
+                            className={
+                              isOnline
+                                ? "fill-emerald-500 text-emerald-500"
+                                : "fill-slate-400 text-slate-400"
+                            }
                           />
-                          {isOnline ? 'Online' : 'Offline'}
+                          {isOnline ? "Online" : "Offline"}
                         </span>
 
                         <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 text-slate-500 border border-slate-200 text-xs font-bold">
@@ -708,7 +699,8 @@ const ActivityLogPage = () => {
               </h2>
 
               <p className="text-sm text-slate-500 mt-1">
-                Ghi nhận các sự kiện bảo mật như SYSTEM_ADMIN tạo tài khoản và người dùng đổi mật khẩu.
+                Ghi nhận các sự kiện bảo mật như SYSTEM_ADMIN tạo tài khoản và
+                người dùng đổi mật khẩu.
               </p>
             </div>
 
@@ -732,7 +724,7 @@ const ActivityLogPage = () => {
           <ActivityLogSkeleton />
         ) : isSecurityError ? (
           <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm font-bold text-rose-700">
-            Không thể tải nhật ký bảo mật hệ thống. Backend cần có endpoint{' '}
+            Không thể tải nhật ký bảo mật hệ thống. Backend cần có endpoint{" "}
             <span className="font-black">GET /api/v1/activities/security</span>.
           </div>
         ) : securityLogs.length === 0 ? (
@@ -751,21 +743,25 @@ const ActivityLogPage = () => {
                 actor.fullName ||
                 actor.name ||
                 log.actor_name ||
-                'Hệ thống';
+                "Hệ thống";
 
               const roleName = getRoleName({
-                ...userDictionary?.[getId(actor.user_id || actor.id || actor._id)],
+                ...userDictionary?.[
+                  getId(actor.user_id || actor.id || actor._id)
+                ],
                 ...actor,
                 role_name: log.role_name || actor.role_name,
                 role_id: log.role_id || actor.role_id,
               });
 
-              const action = String(log.action || log.type || 'SECURITY').toUpperCase();
+              const action = String(
+                log.action || log.type || "SECURITY",
+              ).toUpperCase();
               const message =
                 log.message ||
                 log.details?.message ||
                 log.description ||
-                'Có một sự kiện bảo mật mới.';
+                "Có một sự kiện bảo mật mới.";
 
               return (
                 <div
@@ -774,7 +770,7 @@ const ActivityLogPage = () => {
                 >
                   <div className="flex items-start gap-4">
                     <div className="w-11 h-11 rounded-2xl bg-rose-50 border border-rose-100 text-rose-600 flex items-center justify-center shrink-0">
-                      {action.includes('PASSWORD') ? (
+                      {action.includes("PASSWORD") ? (
                         <KeyRound size={20} />
                       ) : (
                         <ShieldCheck size={20} />
@@ -820,7 +816,7 @@ const ActivityLogPage = () => {
   return (
     <div className="flex-1 bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 h-full overflow-y-auto no-scrollbar p-4 md:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
-        {/* HEADER */}
+        {}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div className="space-y-1">
             <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight flex items-center gap-3 text-slate-800">
@@ -831,12 +827,13 @@ const ActivityLogPage = () => {
             </h1>
 
             <p className="text-sm font-medium text-slate-500 pl-12">
-              Khu vực quản trị dành riêng cho SYSTEM_ADMIN để theo dõi hoạt động, tài khoản và bảo mật hệ thống.
+              Khu vực quản trị dành riêng cho SYSTEM_ADMIN để theo dõi hoạt
+              động, tài khoản và bảo mật hệ thống.
             </p>
           </div>
         </div>
 
-        {/* TAB BAR */}
+        {}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/80 shadow-lg shadow-slate-200/20 p-1 mb-8 w-fit max-w-full overflow-x-auto">
           <div className="flex gap-1 min-w-max">
             {ACTIVITY_TABS.map((tab) => {
@@ -850,8 +847,8 @@ const ActivityLogPage = () => {
                   onClick={() => setActiveTab(tab.key)}
                   className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 active:scale-95 ${
                     isActive
-                      ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-md shadow-indigo-200/50'
-                      : 'text-slate-600 hover:text-indigo-600 hover:bg-indigo-50'
+                      ? "bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-md shadow-indigo-200/50"
+                      : "text-slate-600 hover:text-indigo-600 hover:bg-indigo-50"
                   }`}
                   title={tab.description}
                 >
@@ -863,16 +860,16 @@ const ActivityLogPage = () => {
           </div>
         </div>
 
-        {activeTab === 'activity' && (
+        {activeTab === "activity" && (
           <>
             <ActivityFilterBar />
             {renderActivityTab()}
           </>
         )}
 
-        {activeTab === 'accounts' && renderAccountTab()}
+        {activeTab === "accounts" && renderAccountTab()}
 
-        {activeTab === 'security' && renderSecurityTab()}
+        {activeTab === "security" && renderSecurityTab()}
       </div>
     </div>
   );

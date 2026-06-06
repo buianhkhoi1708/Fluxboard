@@ -1,4 +1,4 @@
-import axiosClient from '../../../lib/axiosClient';
+import axiosClient from "../../../lib/axiosClient";
 
 export interface PaginationMeta {
   page: number;
@@ -99,21 +99,11 @@ export const activityApi = {
       paramsToSend.to = filters.to;
     }
 
-    return axiosClient.get('/activities', {
+    return axiosClient.get("/activities", {
       params: paramsToSend,
     });
   },
 
-  /**
-   * Tab "Bảo mật hệ thống" trong trang Hoạt động.
-   *
-   * Backend tương ứng nên tạo:
-   * GET /api/v1/activities/security?page=0&size=100
-   *
-   * Dữ liệu nên gồm:
-   * - CREATE_USER: SYSTEM_ADMIN tạo tài khoản mới
-   * - CHANGE_PASSWORD: người dùng đổi mật khẩu
-   */
   getSystemSecurityLogs: (
     page = 0,
     size = 100,
@@ -124,7 +114,7 @@ export const activityApi = {
     data: SecurityLog[];
     meta?: PaginationMeta;
   }> => {
-    return axiosClient.get('/activities/security', {
+    return axiosClient.get("/activities/security", {
       params: buildPaginationParams(page, size),
     });
   },

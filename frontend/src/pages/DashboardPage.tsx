@@ -1,19 +1,31 @@
-import React, { useMemo } from 'react';
-import { useDashboardMetrics } from '../features/dashboard/hooks/useDashBoardQueries';
-import { useAuthStore } from '../features/auth/store/useAuthStore';
-import { useRolesDictionary } from '../features/rbac/hooks/useRbacQueries';
+import React, { useMemo } from "react";
+import { useDashboardMetrics } from "../features/dashboard/hooks/useDashBoardQueries";
+import { useAuthStore } from "../features/auth/store/useAuthStore";
+import { useRolesDictionary } from "../features/rbac/hooks/useRbacQueries";
 
-import AdminDashboard from '../features/dashboard/components/AdminDashboard';
-import ManagerDashboard from '../features/dashboard/components/ManagerDashboard';
-import MemberDashboard from '../features/dashboard/components/MemberDashboard';
+import AdminDashboard from "../features/dashboard/components/AdminDashboard";
+import ManagerDashboard from "../features/dashboard/components/ManagerDashboard";
+import MemberDashboard from "../features/dashboard/components/MemberDashboard";
 
-import { LayoutDashboard, RefreshCw, AlertTriangle, Loader2 } from 'lucide-react';
+import {
+  LayoutDashboard,
+  RefreshCw,
+  AlertTriangle,
+  Loader2,
+} from "lucide-react";
 
-const LoadingScreen = ({ message = 'Đang tải dữ liệu...' }: { message?: string }) => (
+const LoadingScreen = ({
+  message = "Đang tải dữ liệu...",
+}: {
+  message?: string;
+}) => (
   <div className="flex flex-col items-center justify-center h-[400px] gap-4">
     <div className="relative">
       <div className="absolute inset-0 bg-indigo-200/30 blur-2xl rounded-full"></div>
-      <Loader2 size={48} className="animate-spin text-indigo-600 relative z-10" />
+      <Loader2
+        size={48}
+        className="animate-spin text-indigo-600 relative z-10"
+      />
     </div>
     <p className="text-sm font-bold text-slate-400 uppercase tracking-widest animate-pulse">
       {message}
@@ -22,29 +34,49 @@ const LoadingScreen = ({ message = 'Đang tải dữ liệu...' }: { message?: s
 );
 
 const normalizeRoleName = (value?: any) => {
-  if (!value) return '';
-  return String(value).trim().toUpperCase().replace(/\s+/g, '_').replace(/-/g, '_');
+  if (!value) return "";
+  return String(value)
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "_")
+    .replace(/-/g, "_");
 };
 
 const getRoleId = (value: any) => {
-  if (!value) return '';
-  if (typeof value === 'object') return String(value._id || value.id || '');
+  if (!value) return "";
+  if (typeof value === "object") return String(value._id || value.id || "");
   return String(value);
 };
 
-const SYSTEM_ADMIN_ROLES = new Set(['SYSTEM_ADMIN', 'ADMIN']);
-const MANAGER_ROLES = new Set(['MANAGER', 'PM', 'LEAD', 'PROJECT_ADMIN', 'PROJECT_MANAGER', 'TEAM_LEAD']);
+const SYSTEM_ADMIN_ROLES = new Set(["SYSTEM_ADMIN", "ADMIN"]);
+const MANAGER_ROLES = new Set([
+  "MANAGER",
+  "PM",
+  "LEAD",
+  "PROJECT_ADMIN",
+  "PROJECT_MANAGER",
+  "TEAM_LEAD",
+]);
 
 const DashboardPage = () => {
   const { user } = useAuthStore();
-  const { data, isLoading: isDashboardLoading, isError, error, refetch } = useDashboardMetrics();
+  const {
+    data,
+    isLoading: isDashboardLoading,
+    isError,
+    error,
+    refetch,
+  } = useDashboardMetrics();
   const { data: rolesList, isLoading: isRolesLoading } = useRolesDictionary();
 
   const currentRoleName = useMemo(() => {
-    if (!user) return 'MEMBER';
+    if (!user) return "MEMBER";
 
     const roles = Array.isArray(rolesList) ? rolesList : [];
-    const roleFromObject = user.role_id && typeof user.role_id === 'object' ? user.role_id.name : null;
+    const roleFromObject =
+      user.role_id && typeof user.role_id === "object"
+        ? user.role_id.name
+        : null;
 
     const directRole =
       roleFromObject ||
@@ -66,7 +98,7 @@ const DashboardPage = () => {
       if (matchedRole?.name) return normalizeRoleName(matchedRole.name);
     }
 
-    return 'MEMBER';
+    return "MEMBER";
   }, [user, rolesList]);
 
   const renderDashboardByRole = () => {
@@ -78,8 +110,8 @@ const DashboardPage = () => {
 
     if (
       MANAGER_ROLES.has(currentRoleName) ||
-      currentRoleName.includes('MANAGER') ||
-      currentRoleName.includes('LEAD')
+      currentRoleName.includes("MANAGER") ||
+      currentRoleName.includes("LEAD")
     ) {
       return <ManagerDashboard data={dashboardData as any} />;
     }
@@ -99,14 +131,22 @@ const DashboardPage = () => {
               Bảng điều khiển
             </h1>
             <p className="text-sm font-medium text-slate-500 pl-12">
-              Chào mừng trở lại, <span className="text-indigo-600 font-bold">{user?.full_name || user?.fullName || 'Khách'}</span>.
+              Chào mừng trở lại,{" "}
+              <span className="text-indigo-600 font-bold">
+                {user?.full_name || user?.fullName || "Khách"}
+              </span>
+              .
             </p>
           </div>
         </div>
 
         {(isRolesLoading || isDashboardLoading) && (
           <LoadingScreen
-            message={isRolesLoading ? 'Đang xác thực quyền truy cập...' : 'Đang tải dữ liệu bảng điều khiển...'}
+            message={
+              isRolesLoading
+                ? "Đang xác thực quyền truy cập..."
+                : "Đang tải dữ liệu bảng điều khiển..."
+            }
           />
         )}
 
@@ -115,9 +155,13 @@ const DashboardPage = () => {
             <div className="p-5 bg-rose-50 rounded-full mb-5">
               <AlertTriangle size={56} className="text-rose-400" />
             </div>
-            <h3 className="text-xl font-bold text-slate-800 mb-2">Hệ thống đang bận</h3>
+            <h3 className="text-xl font-bold text-slate-800 mb-2">
+              Hệ thống đang bận
+            </h3>
             <p className="text-slate-500 text-sm mb-6 max-w-md">
-              {(error as any)?.response?.data?.message || (error as Error)?.message || 'Không thể lấy dữ liệu Bảng điều khiển.'}
+              {(error as any)?.response?.data?.message ||
+                (error as Error)?.message ||
+                "Không thể lấy dữ liệu Bảng điều khiển."}
             </p>
             <button
               onClick={() => refetch()}

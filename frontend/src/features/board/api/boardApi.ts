@@ -1,4 +1,4 @@
-import axiosClient from '../../../lib/axiosClient';
+import axiosClient from "../../../lib/axiosClient";
 
 export interface CreateBoardPayload {
   name: string;
@@ -9,15 +9,19 @@ export interface CreateBoardPayload {
 }
 
 const normalizeRoleName = (value?: string | null) => {
-  if (!value) return '';
-  return String(value).trim().toUpperCase().replace(/\s+/g, '_').replace(/-/g, '_');
+  if (!value) return "";
+  return String(value)
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "_")
+    .replace(/-/g, "_");
 };
 
 const getCurrentUser = () => {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === "undefined") return null;
 
   try {
-    const rawUser = localStorage.getItem('user');
+    const rawUser = localStorage.getItem("user");
     return rawUser ? JSON.parse(rawUser) : null;
   } catch {
     return null;
@@ -25,7 +29,7 @@ const getCurrentUser = () => {
 };
 
 const getUserId = (user: any) => {
-  return String(user?.user_id || user?.id || user?._id || '');
+  return String(user?.user_id || user?.id || user?._id || "");
 };
 
 const getRoleName = (user: any) => {
@@ -40,21 +44,23 @@ const getRoleName = (user: any) => {
 
   if (directRole) return normalizeRoleName(directRole);
 
-  if (user?.role_id && typeof user.role_id === 'object') {
+  if (user?.role_id && typeof user.role_id === "object") {
     return normalizeRoleName(user.role_id.name || user.role_id.code);
   }
 
   if (Array.isArray(user?.system_role_ids)) {
-    const roleName = user.system_role_ids.find((item: any) => normalizeRoleName(item) === 'SYSTEM_ADMIN');
-    if (roleName) return 'SYSTEM_ADMIN';
+    const roleName = user.system_role_ids.find(
+      (item: any) => normalizeRoleName(item) === "SYSTEM_ADMIN",
+    );
+    if (roleName) return "SYSTEM_ADMIN";
   }
 
-  return '';
+  return "";
 };
 
 const getUserVisibilityParams = () => {
   const currentUser = getCurrentUser();
-  const isCurrentSystemAdmin = getRoleName(currentUser) === 'SYSTEM_ADMIN';
+  const isCurrentSystemAdmin = getRoleName(currentUser) === "SYSTEM_ADMIN";
 
   return {
     exclude_system_admin: true,
@@ -68,16 +74,18 @@ export const boardApi = {
     const finalPayload = {
       name: payload.name,
       project_id: payload.projectId || payload.project_id,
-      status: payload.status || 'ACTIVE',
+      status: payload.status || "ACTIVE",
       create_default_cols: payload.create_default_cols,
     };
 
-    const response: any = await axiosClient.post('/boards', finalPayload);
+    const response: any = await axiosClient.post("/boards", finalPayload);
     return response.data || response;
   },
 
   getBoardsByProject: async (projectId: string): Promise<any> => {
-    const response: any = await axiosClient.get(`/boards/projects/${projectId}`);
+    const response: any = await axiosClient.get(
+      `/boards/projects/${projectId}`,
+    );
     return response.data || response;
   },
 
@@ -117,7 +125,7 @@ export const boardApi = {
       project_id: payload.project_id,
     };
 
-    const response: any = await axiosClient.post('/columns', finalPayload);
+    const response: any = await axiosClient.post("/columns", finalPayload);
     return response.data || response;
   },
 
@@ -128,7 +136,10 @@ export const boardApi = {
       project_id: string;
     },
   ) => {
-    const response: any = await axiosClient.put(`/columns/${columnId}`, payload);
+    const response: any = await axiosClient.put(
+      `/columns/${columnId}`,
+      payload,
+    );
     return response.data || response;
   },
 
@@ -147,7 +158,7 @@ export const boardApi = {
   },
 
   createTask: async (taskData: any) => {
-    const response: any = await axiosClient.post('/tasks', taskData);
+    const response: any = await axiosClient.post("/tasks", taskData);
     return response.data || response;
   },
 
@@ -208,7 +219,10 @@ export const boardApi = {
       project_id: string;
     },
   ): Promise<any> => {
-    const response: any = await axiosClient.post(`/tasks/${taskId}/comments`, payload);
+    const response: any = await axiosClient.post(
+      `/tasks/${taskId}/comments`,
+      payload,
+    );
     return response.data || response;
   },
 
@@ -220,7 +234,10 @@ export const boardApi = {
       project_id: string;
     },
   ): Promise<any> => {
-    const response: any = await axiosClient.put(`/tasks/${taskId}/comments/${commentId}`, payload);
+    const response: any = await axiosClient.put(
+      `/tasks/${taskId}/comments/${commentId}`,
+      payload,
+    );
     return response.data || response;
   },
 
@@ -232,7 +249,10 @@ export const boardApi = {
       is_resolved: boolean;
     },
   ): Promise<any> => {
-    const response: any = await axiosClient.patch(`/tasks/${taskId}/comments/${commentId}/resolve`, payload);
+    const response: any = await axiosClient.patch(
+      `/tasks/${taskId}/comments/${commentId}/resolve`,
+      payload,
+    );
     return response.data || response;
   },
 
@@ -245,9 +265,12 @@ export const boardApi = {
     commentId: string;
     projectId: string;
   }): Promise<any> => {
-    const response: any = await axiosClient.delete(`/tasks/${taskId}/comments/${commentId}`, {
-      params: { project_id: projectId },
-    });
+    const response: any = await axiosClient.delete(
+      `/tasks/${taskId}/comments/${commentId}`,
+      {
+        params: { project_id: projectId },
+      },
+    );
 
     return response.data || response;
   },
@@ -255,14 +278,17 @@ export const boardApi = {
   addProjectMember: async (
     projectId: string,
     userId: string,
-    roleIds: string[] = ['MEMBER'],
+    roleIds: string[] = ["MEMBER"],
   ) => {
     const payload = {
       user_id: userId,
       role_ids: roleIds,
     };
 
-    const response: any = await axiosClient.post(`/projects/${projectId}/members`, payload);
+    const response: any = await axiosClient.post(
+      `/projects/${projectId}/members`,
+      payload,
+    );
     return response.data || response;
   },
 
@@ -276,18 +302,18 @@ export const boardApi = {
     fileName: string,
     contentType: string,
   ): Promise<any> => {
-    const response: any = await axiosClient.get('/media/presigned-url', {
+    const response: any = await axiosClient.get("/media/presigned-url", {
       params: { fileName, contentType },
     });
 
     return response.data || response;
   },
 
-  addAttachmentToTask: async (
-    taskId: string,
-    payload: any,
-  ): Promise<any> => {
-    const response: any = await axiosClient.post(`/tasks/${taskId}/attachments`, payload);
+  addAttachmentToTask: async (taskId: string, payload: any): Promise<any> => {
+    const response: any = await axiosClient.post(
+      `/tasks/${taskId}/attachments`,
+      payload,
+    );
     return response.data || response;
   },
 
@@ -295,9 +321,12 @@ export const boardApi = {
     taskId: string,
     projectId: string,
   ): Promise<any> => {
-    const response: any = await axiosClient.get(`/tasks/${taskId}/attachments`, {
-      params: { project_id: projectId },
-    });
+    const response: any = await axiosClient.get(
+      `/tasks/${taskId}/attachments`,
+      {
+        params: { project_id: projectId },
+      },
+    );
 
     return response.data || response;
   },
@@ -305,10 +334,10 @@ export const boardApi = {
   uploadFile: async (file: File): Promise<any> => {
     const formData = new FormData();
 
-    formData.append('file', file);
+    formData.append("file", file);
 
-    const response: any = await axiosClient.post('/media/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+    const response: any = await axiosClient.post("/media/upload", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
     });
 
     return response.data?.data || response.data;
@@ -323,9 +352,12 @@ export const boardApi = {
     attachmentId: string;
     projectId: string;
   }) => {
-    const response: any = await axiosClient.delete(`/tasks/${taskId}/attachments/${attachmentId}`, {
-      params: { project_id: projectId },
-    });
+    const response: any = await axiosClient.delete(
+      `/tasks/${taskId}/attachments/${attachmentId}`,
+      {
+        params: { project_id: projectId },
+      },
+    );
 
     return response.data || response;
   },

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -6,51 +6,47 @@ import {
   Navigate,
   useNavigate,
   useLocation,
-} from 'react-router-dom';
-import { NuqsAdapter } from 'nuqs/adapters/react-router';
-import { useQueryClient } from '@tanstack/react-query';
+} from "react-router-dom";
+import { NuqsAdapter } from "nuqs/adapters/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 
-import MainLayout from './layouts/MainLayout';
-import BoardPage from './pages/BoardPage';
-import { SocketProvider, useSocket } from './context/SocketContext';
-import AdminRBACPage from './pages/AdminRBACPage';
-import WorkspacesPage from './pages/WorkspacesPage';
-import BoardView from './features/board/components/BoardView';
-import AiBoardGeneratorPage from './pages/AiBoardGeneratePage';
-import LoginPage from './pages/LoginPage';
-import ProtectedRoute from './routes/ProtectedRoute';
-import ForgotPasswordPage from './pages/ForgotPasswordPage';
-import ResetPasswordPage from './pages/ResetPasswordPage';
-import DashboardPage from './pages/DashboardPage';
-import SettingsPage from './pages/SettingsPage';
-import ActivityLogPage from './pages/ActivityLogPage';
-import OrganizationPage from './pages/OrganizationPage';
-import ProjectDetailPage from './pages/ProjectDetailPage';
-import CreateUserTab from './features/user/components/CreateUserTab';
-import MyTasksPage from './pages/MyTasksPage';
-import UnauthorizedPage from './pages/UnauthorizedPage';
-import NotificationsPage from './pages/NotificationsPage';
+import MainLayout from "./layouts/MainLayout";
+import BoardPage from "./pages/BoardPage";
+import { SocketProvider, useSocket } from "./context/SocketContext";
+import AdminRBACPage from "./pages/AdminRBACPage";
+import WorkspacesPage from "./pages/WorkspacesPage";
+import BoardView from "./features/board/components/BoardView";
+import AiBoardGeneratorPage from "./pages/AiBoardGeneratePage";
+import LoginPage from "./pages/LoginPage";
+import ProtectedRoute from "./routes/ProtectedRoute";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
+import DashboardPage from "./pages/DashboardPage";
+import SettingsPage from "./pages/SettingsPage";
+import ActivityLogPage from "./pages/ActivityLogPage";
+import OrganizationPage from "./pages/OrganizationPage";
+import ProjectDetailPage from "./pages/ProjectDetailPage";
+import CreateUserTab from "./features/user/components/CreateUserTab";
+import MyTasksPage from "./pages/MyTasksPage";
+import UnauthorizedPage from "./pages/UnauthorizedPage";
+import NotificationsPage from "./pages/NotificationsPage";
 
-import { useAuthStore } from './features/auth/store/useAuthStore';
+import { useAuthStore } from "./features/auth/store/useAuthStore";
 
 const IDLE_TIMEOUT_MS = 20 * 60 * 1000;
-const LAST_ACTIVITY_KEY = 'lastActivityAt';
+const LAST_ACTIVITY_KEY = "lastActivityAt";
 
 const ACTIVITY_EVENTS: Array<keyof WindowEventMap> = [
-  'click',
-  'mousedown',
-  'mousemove',
-  'keydown',
-  'scroll',
-  'wheel',
-  'touchstart',
+  "click",
+  "mousedown",
+  "mousemove",
+  "keydown",
+  "scroll",
+  "wheel",
+  "touchstart",
 ];
 
-const publicPaths = new Set([
-  '/login',
-  '/forgot-password',
-  '/reset-password',
-]);
+const publicPaths = new Set(["/login", "/forgot-password", "/reset-password"]);
 
 const SecurityListener: React.FC = () => {
   const { socket } = useSocket();
@@ -65,7 +61,7 @@ const SecurityListener: React.FC = () => {
       const reason =
         data?.reason ||
         data?.message ||
-        'Phiên đăng nhập của bạn đã bị kết thúc.';
+        "Phiên đăng nhập của bạn đã bị kết thúc.";
 
       console.warn(`[SECURITY] Force logout triggered: ${reason}`);
 
@@ -75,7 +71,7 @@ const SecurityListener: React.FC = () => {
         redirect: false,
       });
 
-      navigate('/login', {
+      navigate("/login", {
         replace: true,
         state: {
           reason,
@@ -86,29 +82,22 @@ const SecurityListener: React.FC = () => {
     const handleProjectRevoked = (data: { message?: string }) => {
       queryClient.clear();
 
-      navigate('/dashboard', {
+      navigate("/dashboard", {
         replace: true,
         state: {
-          reason:
-            data?.message ||
-            'Quyền truy cập dự án của bạn đã thay đổi.',
+          reason: data?.message || "Quyền truy cập dự án của bạn đã thay đổi.",
         },
       });
     };
 
-    /**
-     * Backend trong các phần trước có thể emit FORCE_LOGOUT,
-     * còn FE cũ từng nghe force_logout.
-     * Nghe cả 2 để tránh lệch contract realtime.
-     */
-    socket.on('FORCE_LOGOUT', handleForceLogout);
-    socket.on('force_logout', handleForceLogout);
-    socket.on('PROJECT_REVOKED', handleProjectRevoked);
+    socket.on("FORCE_LOGOUT", handleForceLogout);
+    socket.on("force_logout", handleForceLogout);
+    socket.on("PROJECT_REVOKED", handleProjectRevoked);
 
     return () => {
-      socket.off('FORCE_LOGOUT', handleForceLogout);
-      socket.off('force_logout', handleForceLogout);
-      socket.off('PROJECT_REVOKED', handleProjectRevoked);
+      socket.off("FORCE_LOGOUT", handleForceLogout);
+      socket.off("force_logout", handleForceLogout);
+      socket.off("PROJECT_REVOKED", handleProjectRevoked);
     };
   }, [socket, navigate, queryClient, logout]);
 
@@ -155,17 +144,20 @@ const IdleSessionGuard: React.FC = () => {
         redirect: false,
       });
 
-      navigate('/login', {
+      navigate("/login", {
         replace: true,
         state: {
-          reason: 'Bạn đã không thao tác trong 20 phút. Vui lòng đăng nhập lại.',
+          reason:
+            "Bạn đã không thao tác trong 20 phút. Vui lòng đăng nhập lại.",
         },
       });
     };
 
     const checkIdle = () => {
       const rawLastActivity = localStorage.getItem(LAST_ACTIVITY_KEY);
-      const lastActivity = rawLastActivity ? Number(rawLastActivity) : Date.now();
+      const lastActivity = rawLastActivity
+        ? Number(rawLastActivity)
+        : Date.now();
 
       if (!rawLastActivity || Number.isNaN(lastActivity)) {
         markActivity();
@@ -189,7 +181,7 @@ const IdleSessionGuard: React.FC = () => {
       });
     });
 
-    document.addEventListener('visibilitychange', checkIdle);
+    document.addEventListener("visibilitychange", checkIdle);
 
     const intervalId = window.setInterval(checkIdle, 10000);
 
@@ -198,7 +190,7 @@ const IdleSessionGuard: React.FC = () => {
         window.removeEventListener(eventName, markActivity);
       });
 
-      document.removeEventListener('visibilitychange', checkIdle);
+      document.removeEventListener("visibilitychange", checkIdle);
       window.clearInterval(intervalId);
     };
   }, [token, user, isPublicPath, navigate, queryClient, logout]);
@@ -226,23 +218,32 @@ function App() {
 
             <Route element={<ProtectedRoute />}>
               <Route element={<MainLayout />}>
-                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                <Route
+                  path="/"
+                  element={<Navigate to="/dashboard" replace />}
+                />
 
-                {/* PUBLIC-INTERNAL ROUTES: chỉ cần đăng nhập */}
+                {}
                 <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/board" element={<BoardPage />} />
                 <Route path="/board/:id" element={<BoardView />} />
                 <Route path="/workspaces" element={<WorkspacesPage />} />
-                <Route path="/aigenerateboard" element={<AiBoardGeneratorPage />} />
-                <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
+                <Route
+                  path="/aigenerateboard"
+                  element={<AiBoardGeneratorPage />}
+                />
+                <Route
+                  path="/projects/:projectId"
+                  element={<ProjectDetailPage />}
+                />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/mytasks" element={<MyTasksPage />} />
                 <Route path="/notifications" element={<NotificationsPage />} />
 
-                {/* ADMIN MANAGEMENT ROUTES */}
+                {}
                 <Route
                   element={
-                    <ProtectedRoute allowedRoles={['ADMIN', 'SYSTEM_ADMIN']} />
+                    <ProtectedRoute allowedRoles={["ADMIN", "SYSTEM_ADMIN"]} />
                   }
                 >
                   <Route path="/adminrbac" element={<AdminRBACPage />} />
@@ -250,11 +251,9 @@ function App() {
                   <Route path="/createuser" element={<CreateUserTab />} />
                 </Route>
 
-                {/* SYSTEM_ADMIN ONLY */}
+                {}
                 <Route
-                  element={
-                    <ProtectedRoute allowedRoles={['SYSTEM_ADMIN']} />
-                  }
+                  element={<ProtectedRoute allowedRoles={["SYSTEM_ADMIN"]} />}
                 >
                   <Route path="/activity" element={<ActivityLogPage />} />
                 </Route>

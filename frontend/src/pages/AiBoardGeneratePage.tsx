@@ -28,7 +28,6 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
-// ===================== SUB-COMPONENTS =====================
 const StepIndicator = ({ currentStep }) => (
   <div
     className="flex gap-1.5"
@@ -69,21 +68,18 @@ const ErrorAlert = ({ message }) => {
   );
 };
 
-// ===================== MAIN COMPONENT =====================
 const AiBoardGeneratorPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { projectId: passedProjectId, members: passedMembers } =
     location.state || {};
 
-  // --- 1. GLOBAL STORES ---
   const { projects, fetchProjects } = useProjectStore();
   const { mutateAsync: generateAiBoard, isPending: isGeneratingAi } =
     useGenerateAiBoard();
   const { roles: systemRoles, fetchInitialData: fetchRbacData } =
     useRbacStore();
 
-  // 🚀 FIX 1: RÚT LÕI MẢNG TỪ PHÂN TRANG (Chống Crash)
   const projectList = useMemo(() => {
     if (!projects) return [];
     if (Array.isArray(projects)) return projects;
@@ -98,7 +94,6 @@ const AiBoardGeneratorPage = () => {
     return projectRoles.find((r) => r.name === "VIEWER")?.id;
   }, [systemRoles]);
 
-  // --- 2. LOCAL STATE ---
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [selectedMembers, setSelectedMembers] = useState([]);
@@ -116,7 +111,6 @@ const AiBoardGeneratorPage = () => {
   const [isSyncingRbac, setIsSyncingRbac] = useState(false);
   const [openCreateBoard, setOpenCreateBoard] = useState(false);
 
-  // --- 3. FETCH PROJECT MEMBERS ---
   const {
     data: projectMembersRaw,
     isLoading: isMembersLoading,
@@ -134,7 +128,6 @@ const AiBoardGeneratorPage = () => {
     enabled: !!selectedProjectId,
   });
 
-  // 🚀 FIX 1: Dùng useMemo để "đóng băng" địa chỉ bộ nhớ của mảng
   const projectMembers = useMemo(() => {
     const raw = projectMembersRaw || [];
     return Array.isArray(raw) ? raw : [];
@@ -153,7 +146,6 @@ const AiBoardGeneratorPage = () => {
     }
   }, [projectMembers]);
 
-  // --- 4. AUTO-FILL DATA ---
   useEffect(() => {
     if (passedProjectId) {
       setSelectedProjectId(passedProjectId);
@@ -164,10 +156,8 @@ const AiBoardGeneratorPage = () => {
   useEffect(() => {
     if (projectList.length === 0) fetchProjects();
     if (systemRoles.length === 0) fetchRbacData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // --- 5. HANDLERS ---
   const toggleMember = (userId, existingRoleId) => {
     setSelectedMembers((prev) => {
       const exists = prev.find((m) => m.userId === userId);
@@ -202,13 +192,12 @@ const AiBoardGeneratorPage = () => {
         .filter((m) => m.roleId !== viewerRoleId)
         .map((m) => m.userId);
 
-      // 🚀 CÁCH GỌI MỚI (CHUẨN KHỚP VỚI HOOK ĐÃ FIX):
       const newBoardId = await generateAiBoard({
         project_id: selectedProjectId,
         prompt: prompt,
         member_ids: validAssignees,
         generation_mode: generationMode,
-        project_start_date: startDate // Sếp cứ truyền thẳng như này, cái Hook nó sẽ tự bóc ra và nhét xuống payload
+        project_start_date: startDate,
       });
 
       navigate(`/board/${newBoardId}`);
@@ -229,7 +218,7 @@ const AiBoardGeneratorPage = () => {
   return (
     <div className="flex-1 bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 h-full overflow-y-auto no-scrollbar p-4 md:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
-        {/* ---------- HEADER ---------- */}
+        {}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div className="space-y-1">
             <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight flex items-center gap-3 text-slate-800">
@@ -264,11 +253,11 @@ const AiBoardGeneratorPage = () => {
           </div>
         </div>
 
-        {/* ---------- CONTENT CARD ---------- */}
+        {}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/80 shadow-lg overflow-hidden">
-          {/* Bước nội dung */}
+          {}
           <div className="p-5 md:p-6 lg:p-8">
-            {/* ---------- STEP 1: WORKSPACE ---------- */}
+            {}
             {currentStep === 1 && (
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div>
@@ -327,7 +316,7 @@ const AiBoardGeneratorPage = () => {
               </div>
             )}
 
-            {/* ---------- STEP 2: THÀNH VIÊN & PHÂN QUYỀN ---------- */}
+            {}
             {currentStep === 2 && (
               <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
                 <div>
@@ -391,19 +380,16 @@ const AiBoardGeneratorPage = () => {
                           (member.roleIds && member.roleIds[0]) ||
                           (member.role_ids && member.role_ids[0]);
 
-                        // 1. Lấy đúng ID dù nó là string hay object
                         const roleId = rawRole
                           ? typeof rawRole === "string"
                             ? rawRole
                             : rawRole.id || rawRole._id
                           : "";
 
-                        // 2. So khớp với cả id và _id trong systemRoles
                         const roleObj = systemRoles.find(
                           (r) => r.id === roleId || r._id === roleId,
                         );
 
-                        // 3. Fallback: Nếu không tìm thấy trong systemRoles, thử lấy tên trực tiếp từ rawRole nếu nó là object
                         let roleName = "MEMBER";
                         if (roleObj) {
                           roleName = roleObj.name || roleObj.code || "MEMBER";
@@ -492,7 +478,7 @@ const AiBoardGeneratorPage = () => {
               </div>
             )}
 
-            {/* ---------- STEP 3: AI PROMPT ---------- */}
+            {}
             {currentStep === 3 && (
               <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
                 <div>
@@ -607,7 +593,7 @@ const AiBoardGeneratorPage = () => {
             )}
           </div>
 
-          {/* ---------- FOOTER (NAVIGATION) ---------- */}
+          {}
           <div className="border-t border-slate-200 p-4 md:px-8 flex items-center justify-between bg-white/60 backdrop-blur-sm">
             {currentStep > 1 ? (
               <button
@@ -653,7 +639,7 @@ const AiBoardGeneratorPage = () => {
           </div>
         </div>
 
-        {/* ---------- MODALS ---------- */}
+        {}
         {isMemberModalOpen && (
           <ProjectDetailMemberModal
             isOpen={isMemberModalOpen}
@@ -676,7 +662,7 @@ const AiBoardGeneratorPage = () => {
           }}
         />
 
-        {/* ---------- GENERATING OVERLAY ---------- */}
+        {}
         {isProcessing && (
           <div className="fixed inset-0 z-50 bg-slate-900/90 backdrop-blur-md flex flex-col items-center justify-center text-white">
             <Loader2 className="animate-spin text-indigo-500 mb-4" size={48} />

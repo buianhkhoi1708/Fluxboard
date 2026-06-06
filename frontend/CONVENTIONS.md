@@ -50,10 +50,11 @@ Dự án áp dụng kiến trúc gom nhóm theo tính năng (Feature-driven):
 
 ```typescript
 // Trong tầng api/boardApi.ts
-const response = await axiosClient.get('/boards/123');
+const response = await axiosClient.get("/boards/123");
 // Trả về thẳng response.data.data cho Store/Component xài
 return response.data.data;
 ```
+
 ## 5. Quản lý Trạng thái (State Management)
 
 - Local State (`useState`, `useReducer`): Dành cho UI nội bộ (đóng mở modal, text đang gõ trong input).

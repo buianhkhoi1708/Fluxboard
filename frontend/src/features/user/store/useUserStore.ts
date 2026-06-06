@@ -1,5 +1,5 @@
-import { create } from 'zustand';
-import { userApi } from '../api/userApi';
+import { create } from "zustand";
+import { userApi } from "../api/userApi";
 
 export interface ProjectRoles {
   [projectId: string]: string[];
@@ -19,12 +19,15 @@ export interface User {
 
   email?: string;
 
-  role_id?: string | {
-    _id?: string;
-    id?: string;
-    name?: string;
-    code?: string;
-  } | null;
+  role_id?:
+    | string
+    | {
+        _id?: string;
+        id?: string;
+        name?: string;
+        code?: string;
+      }
+    | null;
 
   role_name?: string;
   roleName?: string;
@@ -65,12 +68,15 @@ export interface IncomingUser {
   avatar_url?: string | null;
   avatarUrl?: string | null;
 
-  role_id?: string | {
-    _id?: string;
-    id?: string;
-    name?: string;
-    code?: string;
-  } | null;
+  role_id?:
+    | string
+    | {
+        _id?: string;
+        id?: string;
+        name?: string;
+        code?: string;
+      }
+    | null;
 
   role_name?: string;
   roleName?: string;
@@ -103,7 +109,7 @@ export interface UserWithContext {
   avatar_url?: string | null;
   email?: string;
 
-  role_id?: User['role_id'];
+  role_id?: User["role_id"];
   role_name?: string;
   role_code?: string;
   system_role?: string;
@@ -137,17 +143,17 @@ interface UserStore {
 }
 
 const normalizeRoleName = (value?: string | null) => {
-  if (!value) return '';
+  if (!value) return "";
 
   return String(value)
     .trim()
     .toUpperCase()
-    .replace(/\s+/g, '_')
-    .replace(/-/g, '_');
+    .replace(/\s+/g, "_")
+    .replace(/-/g, "_");
 };
 
 const getUserId = (user: IncomingUser | User | any) => {
-  return String(user?.user_id || user?.id || user?._id || '');
+  return String(user?.user_id || user?.id || user?._id || "");
 };
 
 const getRoleName = (user: IncomingUser | User | any) => {
@@ -164,7 +170,7 @@ const getRoleName = (user: IncomingUser | User | any) => {
     return normalizeRoleName(directRole);
   }
 
-  if (user?.role_id && typeof user.role_id === 'object') {
+  if (user?.role_id && typeof user.role_id === "object") {
     return normalizeRoleName(user.role_id.name || user.role_id.code);
   }
 
@@ -173,11 +179,11 @@ const getRoleName = (user: IncomingUser | User | any) => {
       const normalized = normalizeRoleName(item);
 
       return (
-        normalized === 'SYSTEM_ADMIN' ||
-        normalized === 'ADMIN' ||
-        normalized === 'MANAGER' ||
-        normalized === 'MEMBER' ||
-        normalized === 'USER'
+        normalized === "SYSTEM_ADMIN" ||
+        normalized === "ADMIN" ||
+        normalized === "MANAGER" ||
+        normalized === "MEMBER" ||
+        normalized === "USER"
       );
     });
 
@@ -186,7 +192,7 @@ const getRoleName = (user: IncomingUser | User | any) => {
     }
   }
 
-  return '';
+  return "";
 };
 
 const getRoleCode = (user: IncomingUser | User | any) => {
@@ -197,36 +203,38 @@ const getRoleCode = (user: IncomingUser | User | any) => {
     user?.role_id?.name ||
     getRoleName(user);
 
-  return normalizeRoleName(directCode) || 'UNKNOWN_ROLE';
+  return normalizeRoleName(directCode) || "UNKNOWN_ROLE";
 };
 
-const getOnlineStatus = (incomingUser: IncomingUser | User, existingUser?: User) => {
+const getOnlineStatus = (
+  incomingUser: IncomingUser | User,
+  existingUser?: User,
+) => {
   const directOnline =
-    incomingUser.is_online ??
-    incomingUser.isOnline ??
-    incomingUser.online;
+    incomingUser.is_online ?? incomingUser.isOnline ?? incomingUser.online;
 
-  if (typeof directOnline === 'boolean') {
+  if (typeof directOnline === "boolean") {
     return directOnline;
   }
 
   const sessionStatus =
-    incomingUser.session_status ||
-    existingUser?.session_status ||
-    '';
+    incomingUser.session_status || existingUser?.session_status || "";
 
-  if (String(sessionStatus).toUpperCase() === 'ONLINE') {
+  if (String(sessionStatus).toUpperCase() === "ONLINE") {
     return true;
   }
 
-  if (String(sessionStatus).toUpperCase() === 'OFFLINE') {
+  if (String(sessionStatus).toUpperCase() === "OFFLINE") {
     return false;
   }
 
   return existingUser?.is_online ?? false;
 };
 
-const getLastActivity = (incomingUser: IncomingUser | User, existingUser?: User) => {
+const getLastActivity = (
+  incomingUser: IncomingUser | User,
+  existingUser?: User,
+) => {
   return (
     incomingUser.last_activity ||
     incomingUser.lastActivity ||
@@ -266,8 +274,9 @@ const normalizeIncomingUser = (
 
   if (!id) return null;
 
-  const roleName = getRoleName(incomingUser) || existingUser?.role_name || '';
-  const roleCode = getRoleCode(incomingUser) || existingUser?.role_code || 'UNKNOWN_ROLE';
+  const roleName = getRoleName(incomingUser) || existingUser?.role_name || "";
+  const roleCode =
+    getRoleCode(incomingUser) || existingUser?.role_code || "UNKNOWN_ROLE";
 
   const existingProjectRoles = existingUser?.project_roles || {};
 
@@ -289,7 +298,7 @@ const normalizeIncomingUser = (
       incomingUser.fullName ||
       incomingUser.name ||
       existingUser?.full_name ||
-      'Unnamed',
+      "Unnamed",
 
     fullName:
       incomingUser.fullName ||
@@ -297,7 +306,7 @@ const normalizeIncomingUser = (
       incomingUser.name ||
       existingUser?.fullName ||
       existingUser?.full_name ||
-      'Unnamed',
+      "Unnamed",
 
     email: incomingUser.email || existingUser?.email,
 
@@ -313,13 +322,10 @@ const normalizeIncomingUser = (
       existingUser?.avatarUrl ??
       null,
 
-    role_id:
-      incomingUser.role_id ??
-      existingUser?.role_id ??
-      null,
+    role_id: incomingUser.role_id ?? existingUser?.role_id ?? null,
 
-    role_name: roleName || existingUser?.role_name || 'UNKNOWN_ROLE',
-    roleName: roleName || existingUser?.roleName || 'UNKNOWN_ROLE',
+    role_name: roleName || existingUser?.role_name || "UNKNOWN_ROLE",
+    roleName: roleName || existingUser?.roleName || "UNKNOWN_ROLE",
 
     role_code: roleCode,
     roleCode: roleCode,
@@ -348,7 +354,7 @@ const normalizeIncomingUser = (
     session_status:
       incomingUser.session_status ||
       existingUser?.session_status ||
-      (getOnlineStatus(incomingUser, existingUser) ? 'ONLINE' : 'OFFLINE'),
+      (getOnlineStatus(incomingUser, existingUser) ? "ONLINE" : "OFFLINE"),
 
     last_activity: getLastActivity(incomingUser, existingUser),
     lastActivity: getLastActivity(incomingUser, existingUser),
@@ -372,7 +378,10 @@ export const useUserStore = create<UserStore>((set, get) => ({
         if (!id) return;
 
         const existingUser = newDict[id];
-        const normalizedUser = normalizeIncomingUser(incomingUser, existingUser);
+        const normalizedUser = normalizeIncomingUser(
+          incomingUser,
+          existingUser,
+        );
 
         if (!normalizedUser) return;
 
@@ -406,7 +415,7 @@ export const useUserStore = create<UserStore>((set, get) => ({
       email: baseUser.email,
 
       role_id: baseUser.role_id,
-      role_name: baseUser.role_name || getRoleName(baseUser) || 'UNKNOWN_ROLE',
+      role_name: baseUser.role_name || getRoleName(baseUser) || "UNKNOWN_ROLE",
       role_code: baseUser.role_code || getRoleCode(baseUser),
       system_role: baseUser.system_role || baseUser.role_name,
 
@@ -424,7 +433,8 @@ export const useUserStore = create<UserStore>((set, get) => ({
       baseUser.project_roles &&
       baseUser.project_roles[currentProjectId]
     ) {
-      result.current_project_role_ids = baseUser.project_roles[currentProjectId];
+      result.current_project_role_ids =
+        baseUser.project_roles[currentProjectId];
     }
 
     return result;
@@ -445,7 +455,7 @@ export const useUserStore = create<UserStore>((set, get) => ({
 
       get().saveUsersToCache(users);
     } catch (error) {
-      console.error('❌ Lỗi lấy danh sách thành viên hệ thống:', error);
+      console.error("❌ Lỗi lấy danh sách thành viên hệ thống:", error);
     } finally {
       set({ isLoading: false });
     }
@@ -474,7 +484,7 @@ export const useUserStore = create<UserStore>((set, get) => ({
         system_role_ids: newRoleIds,
       });
     } catch (error) {
-      console.error('❌ Lỗi cập nhật System Role:', error);
+      console.error("❌ Lỗi cập nhật System Role:", error);
       get().fetchAllSystemUsers();
     }
   },
@@ -490,7 +500,7 @@ export const useUserStore = create<UserStore>((set, get) => ({
     try {
       await userApi.deleteUser(userId);
     } catch (error) {
-      console.error('❌ Lỗi xóa thành viên:', error);
+      console.error("❌ Lỗi xóa thành viên:", error);
       get().fetchAllSystemUsers();
     }
   },

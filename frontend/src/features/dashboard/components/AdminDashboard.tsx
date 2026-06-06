@@ -1,5 +1,5 @@
-import React, { memo } from 'react';
-import type { ReactNode } from 'react';
+import React, { memo } from "react";
+import type { ReactNode } from "react";
 import {
   BarChart,
   Bar,
@@ -9,7 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
   Legend,
-} from 'recharts';
+} from "recharts";
 import {
   MoreVertical,
   Users,
@@ -20,15 +20,18 @@ import {
   Clock,
   AlertTriangle,
   PlayCircle,
-} from 'lucide-react';
-import type { AdminDashboardData } from '../api/dashboardApi';
-import { useGetOrgTree } from '../../organization/hooks/useOrgQueries';
+} from "lucide-react";
+import type { AdminDashboardData } from "../api/dashboardApi";
+import { useGetOrgTree } from "../../organization/hooks/useOrgQueries";
 
 export const AdminDashboardSkeleton = () => (
   <div className="space-y-5 lg:space-y-6 animate-pulse pb-8">
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 lg:gap-6">
       {[...Array(3)].map((_, i) => (
-        <div key={i} className="bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/80 p-5 lg:p-6 shadow-sm">
+        <div
+          key={i}
+          className="bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/80 p-5 lg:p-6 shadow-sm"
+        >
           <div className="flex justify-between items-start mb-3">
             <div className="h-4 w-24 bg-slate-200 rounded-md" />
             <div className="h-8 w-8 bg-slate-200 rounded-xl" />
@@ -44,7 +47,10 @@ export const AdminDashboardSkeleton = () => (
         <div className="h-5 w-48 bg-slate-200 rounded-md" />
         <div className="space-y-3">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="flex items-center justify-between p-4 rounded-2xl bg-slate-100">
+            <div
+              key={i}
+              className="flex items-center justify-between p-4 rounded-2xl bg-slate-100"
+            >
               <div className="flex items-center gap-3.5">
                 <div className="w-10 h-10 rounded-xl bg-slate-200" />
                 <div className="space-y-2">
@@ -79,9 +85,11 @@ const StatCard = ({
   value,
   icon,
   subtitle,
-  className = '',
+  className = "",
 }: StatCardProps) => (
-  <div className={`bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/80 shadow-lg shadow-slate-200/20 p-5 lg:p-6 flex flex-col transition-all duration-300 hover:shadow-xl hover:shadow-indigo-100/20 hover:-translate-y-0.5 ${className}`}>
+  <div
+    className={`bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/80 shadow-lg shadow-slate-200/20 p-5 lg:p-6 flex flex-col transition-all duration-300 hover:shadow-xl hover:shadow-indigo-100/20 hover:-translate-y-0.5 ${className}`}
+  >
     <div className="flex justify-between items-start mb-3">
       <div className="flex items-center gap-2.5">
         {icon && (
@@ -132,14 +140,20 @@ const DeadlineRow = ({
   iconClassName,
   valueClassName,
 }: DeadlineRowProps) => (
-  <div className={`flex items-center justify-between p-4 rounded-2xl border transition-colors ${className}`}>
+  <div
+    className={`flex items-center justify-between p-4 rounded-2xl border transition-colors ${className}`}
+  >
     <div className="flex items-center gap-3.5">
-      <div className={`w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm border ${iconClassName}`}>
+      <div
+        className={`w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm border ${iconClassName}`}
+      >
         {icon}
       </div>
       <div>
         <div className="font-bold text-sm leading-tight">{label}</div>
-        <div className="text-[10px] font-black uppercase tracking-widest mt-1 opacity-80">{subtitle}</div>
+        <div className="text-[10px] font-black uppercase tracking-widest mt-1 opacity-80">
+          {subtitle}
+        </div>
       </div>
     </div>
     <span className={`text-2xl font-black ${valueClassName}`}>{value}</span>
@@ -173,23 +187,42 @@ const AdminDashboard = ({ data }: AdminDashboardProps) => {
 
   const chartData = (data.department_performance || [])
     .filter((dept) => {
-      const deptId = String(dept.department_id || '').toLowerCase();
-      const deptName = String(dept.department_name || '').trim().toLowerCase();
-      return Boolean(deptId) && deptId !== 'unassigned' && deptName !== 'unassigned' && deptName !== 'chưa gán';
+      const deptId = String(dept.department_id || "").toLowerCase();
+      const deptName = String(dept.department_name || "")
+        .trim()
+        .toLowerCase();
+      return (
+        Boolean(deptId) &&
+        deptId !== "unassigned" &&
+        deptName !== "unassigned" &&
+        deptName !== "chưa gán"
+      );
     })
     .map((dept) => {
-      let deptName = dept.department_name || 'Chưa gán';
+      let deptName = dept.department_name || "Chưa gán";
 
-      if (orgDepartments && dept.department_id && dept.department_id !== 'unassigned') {
-        const foundDept = orgDepartments.find((d: any) => String(d.id || d._id) === String(dept.department_id));
+      if (
+        orgDepartments &&
+        dept.department_id &&
+        dept.department_id !== "unassigned"
+      ) {
+        const foundDept = orgDepartments.find(
+          (d: any) => String(d.id || d._id) === String(dept.department_id),
+        );
         if (foundDept) {
-          deptName = foundDept.name || foundDept.department_name || foundDept.list_name || deptName;
+          deptName =
+            foundDept.name ||
+            foundDept.department_name ||
+            foundDept.list_name ||
+            deptName;
         }
       }
 
       const inProgress = Number(dept.in_progress_tasks || 0);
       const atRisk = Number(dept.at_risk_tasks || 0);
-      const completed = Number(dept.completed_tasks || dept.on_track_tasks || 0);
+      const completed = Number(
+        dept.completed_tasks || dept.on_track_tasks || 0,
+      );
       const overdue = Number(dept.overdue_tasks || 0);
 
       return {
@@ -199,7 +232,9 @@ const AdminDashboard = ({ data }: AdminDashboardProps) => {
         overdue,
         raw_in_progress: inProgress,
         at_risk: atRisk,
-        total: Number(dept.total_tasks || inProgress + atRisk + completed + overdue),
+        total: Number(
+          dept.total_tasks || inProgress + atRisk + completed + overdue,
+        ),
       };
     });
 
@@ -233,8 +268,12 @@ const AdminDashboard = ({ data }: AdminDashboardProps) => {
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/80 shadow-lg shadow-slate-200/20 p-6 flex flex-col min-h-[430px] transition-all hover:shadow-xl hover:shadow-indigo-100/20">
           <div className="flex justify-between items-start mb-5 shrink-0">
             <div>
-              <h3 className="font-black text-lg text-slate-800 tracking-tight">Cảnh Báo Deadline</h3>
-              <p className="text-xs text-slate-500 font-medium mt-1">Toàn bộ task trong công ty</p>
+              <h3 className="font-black text-lg text-slate-800 tracking-tight">
+                Cảnh Báo Deadline
+              </h3>
+              <p className="text-xs text-slate-500 font-medium mt-1">
+                Toàn bộ task trong công ty
+              </p>
             </div>
             <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-500 shadow-sm border border-indigo-100">
               <ShieldAlert size={20} strokeWidth={2} />
@@ -284,9 +323,15 @@ const AdminDashboard = ({ data }: AdminDashboardProps) => {
 
             <div className="mt-1 text-center">
               <span className="inline-block text-[11px] font-bold text-slate-500 bg-white px-3.5 py-2 rounded-xl border border-slate-200/80 shadow-sm">
-                Tổng task: <strong className="text-indigo-600 text-[13px] ml-1">{health.total_tasks || 0}</strong>
+                Tổng task:{" "}
+                <strong className="text-indigo-600 text-[13px] ml-1">
+                  {health.total_tasks || 0}
+                </strong>
                 <span className="mx-2 text-slate-300">•</span>
-                Xin gia hạn: <strong className="text-indigo-600 text-[13px] ml-1">{health.total_extensions_this_week || 0}</strong>
+                Xin gia hạn:{" "}
+                <strong className="text-indigo-600 text-[13px] ml-1">
+                  {health.total_extensions_this_week || 0}
+                </strong>
               </span>
             </div>
           </div>
@@ -295,7 +340,9 @@ const AdminDashboard = ({ data }: AdminDashboardProps) => {
         <div className="lg:col-span-2 bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/80 shadow-lg shadow-slate-200/20 p-6 flex flex-col min-h-[430px] transition-all hover:shadow-xl hover:shadow-indigo-100/20">
           <div className="flex justify-between items-start mb-6 shrink-0">
             <div>
-              <h3 className="font-black text-lg text-slate-800 tracking-tight">Trạng thái công việc theo phòng ban</h3>
+              <h3 className="font-black text-lg text-slate-800 tracking-tight">
+                Trạng thái công việc theo phòng ban
+              </h3>
               <p className="text-xs text-slate-500 font-medium mt-1">
                 Xám: đang thực hiện · Xanh: đã hoàn thành · Hồng đỏ: trễ hạn
               </p>
@@ -314,26 +361,38 @@ const AdminDashboard = ({ data }: AdminDashboardProps) => {
                   margin={{ top: 10, right: 10, left: -10, bottom: 0 }}
                   barCategoryGap="30%"
                 >
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke="#e2e8f0"
+                  />
                   <XAxis
                     dataKey="name"
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: '#475569', fontSize: 11, fontWeight: 700 }}
+                    tick={{ fill: "#475569", fontSize: 11, fontWeight: 700 }}
                     dy={10}
                     interval={0}
-                    tickFormatter={(value) => String(value).length > 16 ? `${String(value).slice(0, 16)}...` : String(value)}
+                    tickFormatter={(value) =>
+                      String(value).length > 16
+                        ? `${String(value).slice(0, 16)}...`
+                        : String(value)
+                    }
                   />
                   <YAxis
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: '#475569', fontSize: 11, fontWeight: 700 }}
+                    tick={{ fill: "#475569", fontSize: 11, fontWeight: 700 }}
                     allowDecimals={false}
                   />
                   <Tooltip
-                    cursor={{ fill: '#f8fafc' }}
-                    formatter={(value: number | string, name: string, props: any) => {
-                      if (name === 'Đang thực hiện') {
+                    cursor={{ fill: "#f8fafc" }}
+                    formatter={(
+                      value: number | string,
+                      name: string,
+                      props: any,
+                    ) => {
+                      if (name === "Đang thực hiện") {
                         return [
                           `${value} task`,
                           `Đang thực hiện (${props?.payload?.raw_in_progress || 0}) + nguy cơ trễ (${props?.payload?.at_risk || 0})`,
@@ -342,12 +401,12 @@ const AdminDashboard = ({ data }: AdminDashboardProps) => {
                       return [`${value} task`, name];
                     }}
                     contentStyle={{
-                      borderRadius: '12px',
-                      border: 'none',
-                      boxShadow: '0 8px 20px rgba(0,0,0,0.08)',
+                      borderRadius: "12px",
+                      border: "none",
+                      boxShadow: "0 8px 20px rgba(0,0,0,0.08)",
                       fontWeight: 600,
-                      fontSize: '12px',
-                      padding: '8px 12px',
+                      fontSize: "12px",
+                      padding: "8px 12px",
                     }}
                   />
                   <Legend

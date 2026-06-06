@@ -1,4 +1,4 @@
-import axiosClient from '../../../lib/axiosClient';
+import axiosClient from "../../../lib/axiosClient";
 
 export interface AdminDashboardData {
   organization_kpi: {
@@ -43,7 +43,7 @@ export interface ManagerDashboardData {
     total_points: number;
     completion_rate: number;
     member_count: number;
-    status: 'NO_DATA' | 'IN_PROGRESS' | 'DONE' | string;
+    status: "NO_DATA" | "IN_PROGRESS" | "DONE" | string;
   }>;
   team_deadline_status?: {
     on_track: number;
@@ -56,7 +56,7 @@ export interface ManagerDashboardData {
     story_point: number;
     priority: string;
     due_date: string | null;
-    deadline_status: 'OVERDUE' | 'AT_RISK' | string;
+    deadline_status: "OVERDUE" | "AT_RISK" | string;
     extension_count: number;
     project_id?: string;
     project_name?: string;
@@ -83,7 +83,7 @@ export interface AiDeviationInsight {
   ai_suggested_point: number;
   actual_point: number;
   deviation_percent: number;
-  status: 'ACCURATE' | 'UNDERESTIMATED' | 'OVERESTIMATED' | string;
+  status: "ACCURATE" | "UNDERESTIMATED" | "OVERESTIMATED" | string;
   comment: string;
   tasks_count: number;
   scanned_tasks_count?: number;
@@ -123,8 +123,7 @@ export interface DashboardFilters {
   team_id?: string;
 }
 
-export type DashboardResponse =
-  Partial<AdminDashboardData> &
+export type DashboardResponse = Partial<AdminDashboardData> &
   Partial<ManagerDashboardData> &
   Partial<MemberDashboardData>;
 
@@ -134,16 +133,26 @@ const unwrapResponse = <T = any>(res: any): T => {
 
 export const dashboardApi = {
   getMetrics: async (params?: DashboardFilters): Promise<DashboardResponse> => {
-    const res: any = await axiosClient.get('/dashboard/metrics', { params });
+    const res: any = await axiosClient.get("/dashboard/metrics", { params });
     return unwrapResponse<DashboardResponse>(res);
   },
 
-  getAdminMetrics: async (params?: DashboardFilters): Promise<DashboardResponse> => dashboardApi.getMetrics(params),
-  getManagerMetrics: async (params?: DashboardFilters): Promise<DashboardResponse> => dashboardApi.getMetrics(params),
-  getLeadMetrics: async (params?: DashboardFilters): Promise<DashboardResponse> => dashboardApi.getMetrics(params),
-  getMemberMetrics: async (params?: DashboardFilters): Promise<DashboardResponse> => dashboardApi.getMetrics(params),
+  getAdminMetrics: async (
+    params?: DashboardFilters,
+  ): Promise<DashboardResponse> => dashboardApi.getMetrics(params),
+  getManagerMetrics: async (
+    params?: DashboardFilters,
+  ): Promise<DashboardResponse> => dashboardApi.getMetrics(params),
+  getLeadMetrics: async (
+    params?: DashboardFilters,
+  ): Promise<DashboardResponse> => dashboardApi.getMetrics(params),
+  getMemberMetrics: async (
+    params?: DashboardFilters,
+  ): Promise<DashboardResponse> => dashboardApi.getMetrics(params),
 
-  getAiDeviationInsights: async (projectId: string): Promise<AiDeviationInsight> => {
+  getAiDeviationInsights: async (
+    projectId: string,
+  ): Promise<AiDeviationInsight> => {
     const res: any = await axiosClient.get(`/ai/deviation/${projectId}`);
     return unwrapResponse<AiDeviationInsight>(res);
   },

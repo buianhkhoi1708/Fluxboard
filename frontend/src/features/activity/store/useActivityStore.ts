@@ -1,10 +1,10 @@
-import { create } from 'zustand';
+import { create } from "zustand";
 import {
   activityApi,
   Activity,
   PaginationMeta,
   ActivityFilters,
-} from '../api/activityApi';
+} from "../api/activityApi";
 
 interface ActivityState {
   activities: Activity[];
@@ -68,7 +68,7 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
         loadingMore: false,
       }));
     } catch (error) {
-      console.error('Lỗi fetch activities:', error);
+      console.error("Lỗi fetch activities:", error);
 
       set({
         loading: false,

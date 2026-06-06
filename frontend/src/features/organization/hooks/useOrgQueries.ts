@@ -1,11 +1,11 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { orgApi } from '../api/organizationApi';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { orgApi } from "../api/organizationApi";
 
 export const ORG_QUERY_KEYS = {
-  tree: ['orgTree'] as const,
-  departmentDetail: (id: string) => ['department', id] as const,
-  unassignedUsers: ['unassignedUsers'] as const,
-  searchUsers: (keyword: string) => ['searchUsers', keyword] as const,
+  tree: ["orgTree"] as const,
+  departmentDetail: (id: string) => ["department", id] as const,
+  unassignedUsers: ["unassignedUsers"] as const,
+  searchUsers: (keyword: string) => ["searchUsers", keyword] as const,
 };
 
 const unwrapList = (res: any) => {
@@ -19,10 +19,6 @@ const unwrapList = (res: any) => {
 
   return Array.isArray(payload) ? payload : [];
 };
-
-// ==========================================
-// QUERIES
-// ==========================================
 
 export const useGetOrgTree = (params?: any) => {
   return useQuery({
@@ -49,10 +45,6 @@ export const useGetUnassignedUsers = (params?: any) => {
   });
 };
 
-// ==========================================
-// MUTATIONS
-// ==========================================
-
 export const useCreateDepartment = () => {
   const queryClient = useQueryClient();
 
@@ -60,7 +52,9 @@ export const useCreateDepartment = () => {
     mutationFn: orgApi.createDepartment,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ORG_QUERY_KEYS.tree });
-      queryClient.invalidateQueries({ queryKey: ORG_QUERY_KEYS.unassignedUsers });
+      queryClient.invalidateQueries({
+        queryKey: ORG_QUERY_KEYS.unassignedUsers,
+      });
     },
   });
 };
@@ -74,7 +68,9 @@ export const useUpdateDepartment = () => {
 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ORG_QUERY_KEYS.tree });
-      queryClient.invalidateQueries({ queryKey: ORG_QUERY_KEYS.unassignedUsers });
+      queryClient.invalidateQueries({
+        queryKey: ORG_QUERY_KEYS.unassignedUsers,
+      });
     },
   });
 };
@@ -87,12 +83,12 @@ export const useDeleteDepartment = () => {
 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ORG_QUERY_KEYS.tree });
-      queryClient.invalidateQueries({ queryKey: ORG_QUERY_KEYS.unassignedUsers });
+      queryClient.invalidateQueries({
+        queryKey: ORG_QUERY_KEYS.unassignedUsers,
+      });
     },
   });
 };
-
-// --- TEAM MUTATIONS ---
 
 export const useCreateTeam = () => {
   const queryClient = useQueryClient();
@@ -102,7 +98,9 @@ export const useCreateTeam = () => {
 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ORG_QUERY_KEYS.tree });
-      queryClient.invalidateQueries({ queryKey: ORG_QUERY_KEYS.unassignedUsers });
+      queryClient.invalidateQueries({
+        queryKey: ORG_QUERY_KEYS.unassignedUsers,
+      });
     },
   });
 };
@@ -116,12 +114,12 @@ export const useUpdateTeam = () => {
 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ORG_QUERY_KEYS.tree });
-      queryClient.invalidateQueries({ queryKey: ORG_QUERY_KEYS.unassignedUsers });
+      queryClient.invalidateQueries({
+        queryKey: ORG_QUERY_KEYS.unassignedUsers,
+      });
     },
   });
 };
-
-// --- MEMBER MUTATIONS ---
 
 export const useAssignUserToTeam = () => {
   const queryClient = useQueryClient();
@@ -139,7 +137,9 @@ export const useAssignUserToTeam = () => {
 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ORG_QUERY_KEYS.tree });
-      queryClient.invalidateQueries({ queryKey: ORG_QUERY_KEYS.unassignedUsers });
+      queryClient.invalidateQueries({
+        queryKey: ORG_QUERY_KEYS.unassignedUsers,
+      });
     },
   });
 };
@@ -153,7 +153,9 @@ export const useRemoveUserFromTeam = () => {
 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ORG_QUERY_KEYS.tree });
-      queryClient.invalidateQueries({ queryKey: ORG_QUERY_KEYS.unassignedUsers });
+      queryClient.invalidateQueries({
+        queryKey: ORG_QUERY_KEYS.unassignedUsers,
+      });
     },
   });
 };

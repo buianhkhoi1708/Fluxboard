@@ -1,34 +1,32 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import * as yup from 'yup';
-import { loginSchema } from '../features/auth/schema/auth.schema';
-import { ArrowRight, Loader2, Eye, EyeOff } from 'lucide-react';
-import logoIcon from '../assets/icon.svg';
+import React, { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import * as yup from "yup";
+import { loginSchema } from "../features/auth/schema/auth.schema";
+import { ArrowRight, Loader2, Eye, EyeOff } from "lucide-react";
+import logoIcon from "../assets/icon.svg";
 
-// 1. IMPORT ZUSTAND STORE THAY VÌ REACT QUERY
-import { useAuthStore } from '../features/auth/store/useAuthStore'; 
+import { useAuthStore } from "../features/auth/store/useAuthStore";
 
 const LoginPage = () => {
-  const [formData, setFormData] = useState({ email: '', password: '' });
+  const [formData, setFormData] = useState({ email: "", password: "" });
   const [errors, setErrors] = useState({});
-  const [serverError, setServerError] = useState('');
+  const [serverError, setServerError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  
-  // 2. LẤY HÀM LOGIN VÀ ISLOADING TỪ ZUSTAND STORE
+
   const { login, isLoading } = useAuthStore();
   const navigate = useNavigate();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: '' }));
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
   const handleBlur = async (e) => {
     const { name } = e.target;
     try {
       await loginSchema.validateAt(name, formData);
-      setErrors((prev) => ({ ...prev, [name]: '' }));
+      setErrors((prev) => ({ ...prev, [name]: "" }));
     } catch (err) {
       setErrors((prev) => ({ ...prev, [name]: err.message }));
     }
@@ -36,7 +34,7 @@ const LoginPage = () => {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setServerError('');
+    setServerError("");
     setErrors({});
 
     try {
@@ -48,19 +46,15 @@ const LoginPage = () => {
           validationErrors[error.path] = error.message;
         });
         setErrors(validationErrors);
-        return; 
+        return;
       }
     }
 
-    // 3. GỌI HÀM LOGIN CỦA ZUSTAND
-    // Nó sẽ tự động gọi API, lưu Token, lưu LocalStorage và cập nhật State
     const response = await login(formData.email, formData.password);
-    
+
     if (response.success) {
-      // Thành công -> Chuyển hướng
-      navigate('/dashboard'); 
+      navigate("/dashboard");
     } else {
-      // Thất bại -> Lấy câu báo lỗi từ Zustand (đã được bọc lót kỹ ở store)
       setServerError(response.message);
     }
   };
@@ -85,20 +79,24 @@ const LoginPage = () => {
         </div>
       </div>
 
-      {/* FORM LOGIN */}
+      {}
       <div className="w-full lg:w-[55%] flex items-center justify-center p-8 sm:p-12 lg:p-24 relative bg-white">
         <div className="w-full max-w-md z-10">
           <div className="flex items-center gap-4 mb-12">
-            <img 
-              src={logoIcon} 
-              alt="Fluxboard Logo" 
-              className="w-16 h-16 sm:w-20 sm:h-20 object-contain drop-shadow-md" 
+            <img
+              src={logoIcon}
+              alt="Fluxboard Logo"
+              className="w-16 h-16 sm:w-20 sm:h-20 object-contain drop-shadow-md"
             />
-            <span className="text-4xl sm:text-5xl font-black text-slate-800 tracking-tight">Fluxboard</span>
+            <span className="text-4xl sm:text-5xl font-black text-slate-800 tracking-tight">
+              Fluxboard
+            </span>
           </div>
-          
+
           <h2 className="text-3xl font-black text-slate-800 mb-2">Đăng nhập</h2>
-          <p className="text-base font-medium text-slate-500 mb-8">Chào mừng bạn quay trở lại với Fluxboard.</p>
+          <p className="text-base font-medium text-slate-500 mb-8">
+            Chào mừng bạn quay trở lại với Fluxboard.
+          </p>
 
           {serverError && (
             <div className="mb-6 p-3 bg-rose-50 border border-rose-200 text-rose-600 text-sm font-bold rounded-xl">
@@ -107,41 +105,47 @@ const LoginPage = () => {
           )}
 
           <form onSubmit={handleLogin} className="flex flex-col gap-5">
-            {/* EMAIL */}
+            {}
             <div>
-              <label className="block text-sm font-bold text-slate-700 mt-3 mb-1.5 ml-1">Email</label>
-              <input 
-                type="text" 
+              <label className="block text-sm font-bold text-slate-700 mt-3 mb-1.5 ml-1">
+                Email
+              </label>
+              <input
+                type="text"
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
                 onBlur={handleBlur}
                 className={`w-full border-2 px-4 py-3.5 rounded-xl text-sm font-semibold transition-all outline-none ${
-                  errors.email 
-                    ? 'bg-rose-50 border-rose-300 focus:border-rose-400 focus:ring-4 focus:ring-rose-100' 
-                    : 'bg-white border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100'
+                  errors.email
+                    ? "bg-rose-50 border-rose-300 focus:border-rose-400 focus:ring-4 focus:ring-rose-100"
+                    : "bg-white border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
                 }`}
                 placeholder="email@gmail.com"
               />
               {errors.email && (
-                <span className="text-xs font-bold text-rose-500 mt-1.5 ml-1 block">{errors.email}</span>
+                <span className="text-xs font-bold text-rose-500 mt-1.5 ml-1 block">
+                  {errors.email}
+                </span>
               )}
             </div>
-            
-            {/* PASSWORD */}
+
+            {}
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1.5 ml-1">Mật khẩu</label>
+              <label className="block text-sm font-bold text-slate-700 mb-1.5 ml-1">
+                Mật khẩu
+              </label>
               <div className="relative">
-                <input 
-                  type={showPassword ? "text" : "password"} 
+                <input
+                  type={showPassword ? "text" : "password"}
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
                   onBlur={handleBlur}
                   className={`w-full border-2 pl-4 pr-12 py-3.5 rounded-xl text-sm font-semibold transition-all outline-none ${
-                    errors.password 
-                      ? 'bg-rose-50 border-rose-300 focus:border-rose-400 focus:ring-4 focus:ring-rose-100' 
-                      : 'bg-white border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100'
+                    errors.password
+                      ? "bg-rose-50 border-rose-300 focus:border-rose-400 focus:ring-4 focus:ring-rose-100"
+                      : "bg-white border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
                   }`}
                   placeholder="••••••••"
                 />
@@ -153,24 +157,31 @@ const LoginPage = () => {
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
-              
+
               {errors.password && (
-                <span className="text-xs font-bold text-rose-500 mt-1.5 ml-1 block">{errors.password}</span>
+                <span className="text-xs font-bold text-rose-500 mt-1.5 ml-1 block">
+                  {errors.password}
+                </span>
               )}
             </div>
 
             <div className="flex justify-between items-center mt-1">
-              <Link to="/forgot-password" className="text-sm font-bold text-indigo-600 hover:text-indigo-800 transition-colors">
+              <Link
+                to="/forgot-password"
+                className="text-sm font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
+              >
                 Quên mật khẩu?
               </Link>
             </div>
 
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               disabled={isLoading}
               className="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-indigo-200 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              {isLoading ? <Loader2 className="animate-spin" size={18} /> : (
+              {isLoading ? (
+                <Loader2 className="animate-spin" size={18} />
+              ) : (
                 <>
                   <span>Đăng nhập</span>
                   <ArrowRight size={18} />
@@ -181,7 +192,7 @@ const LoginPage = () => {
         </div>
       </div>
 
-      {/* Hiệu ứng chuyển động của bóng */}
+      {}
       <style>{`
         @keyframes chaotic-float {
           0% { transform: translate(0, 0) scale(1); }
@@ -198,7 +209,6 @@ const LoginPage = () => {
         .animation-delay-4000 { animation-delay: -7s; }
         .animation-delay-6000 { animation-delay: -11s; }
       `}</style>
-      
     </div>
   );
 };

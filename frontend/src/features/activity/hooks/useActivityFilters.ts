@@ -1,14 +1,17 @@
-import { useSearchParams } from 'react-router-dom';
-import { ActivityFilters } from '../api/activityApi'; // Trỏ đúng đường dẫn file API của bạn
+import { useSearchParams } from "react-router-dom";
+import { ActivityFilters } from "../api/activityApi";
 
-export function useActivityFilters(): [ActivityFilters, (newFilters: ActivityFilters) => void] {
+export function useActivityFilters(): [
+  ActivityFilters,
+  (newFilters: ActivityFilters) => void,
+] {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const filters: ActivityFilters = {
-    sourceTypes: searchParams.get('sourceTypes') || undefined,
-    actions: searchParams.get('actions') || undefined,
-    from: searchParams.get('from') || undefined,
-    to: searchParams.get('to') || undefined,
+    sourceTypes: searchParams.get("sourceTypes") || undefined,
+    actions: searchParams.get("actions") || undefined,
+    from: searchParams.get("from") || undefined,
+    to: searchParams.get("to") || undefined,
   };
 
   const setFilters = (newFilters: ActivityFilters) => {

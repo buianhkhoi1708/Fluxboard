@@ -1,12 +1,12 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { projectApi } from '../api/projectDetailApi';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { projectApi } from "../api/projectDetailApi";
 
 export const PROJECT_KEYS = {
-  all: ['projects'] as const,
+  all: ["projects"] as const,
   detail: (projectId: string) =>
-    [...PROJECT_KEYS.all, 'detail', projectId] as const,
+    [...PROJECT_KEYS.all, "detail", projectId] as const,
   members: (projectId: string) =>
-    [...PROJECT_KEYS.all, 'members', projectId] as const,
+    [...PROJECT_KEYS.all, "members", projectId] as const,
 };
 
 export const useProjectDetail = (projectId: string) => {
@@ -50,7 +50,8 @@ export const useUpdateProjectInfo = (projectId: string) => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (payload: any) => projectApi.updateProjectInfo(projectId, payload),
+    mutationFn: (payload: any) =>
+      projectApi.updateProjectInfo(projectId, payload),
 
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -86,7 +87,8 @@ export const useUpdateProjectMember = (projectId: string) => {
       memberId: string;
       roleIds: string[];
       isActive: boolean;
-    }) => projectApi.updateProjectMember(projectId, memberId, roleIds, isActive),
+    }) =>
+      projectApi.updateProjectMember(projectId, memberId, roleIds, isActive),
 
     onSuccess: () => {
       queryClient.invalidateQueries({

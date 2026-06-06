@@ -1,28 +1,31 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { boardApi, CreateBoardPayload } from '../api/boardApi';
-import { useUserStore } from '../../user/store/useUserStore';
-import { useAuthStore } from '../../auth/store/useAuthStore';
-import { Board, Task } from '../types/index';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { boardApi, CreateBoardPayload } from "../api/boardApi";
+import { useUserStore } from "../../user/store/useUserStore";
+import { useAuthStore } from "../../auth/store/useAuthStore";
+import { Board, Task } from "../types/index";
 
 export const BOARD_QUERY_KEYS = {
-  boardsByProject: (projectId: string) => ['boards', 'project', projectId] as const,
-  boardDetail: (boardId: string) => ['board', boardId] as const,
-  projectMembers: (projectId: string) => ['members', 'project', projectId] as const,
-  taskComments: (taskId: string, projectId: string) => ['task-comments', taskId, projectId] as const,
+  boardsByProject: (projectId: string) =>
+    ["boards", "project", projectId] as const,
+  boardDetail: (boardId: string) => ["board", boardId] as const,
+  projectMembers: (projectId: string) =>
+    ["members", "project", projectId] as const,
+  taskComments: (taskId: string, projectId: string) =>
+    ["task-comments", taskId, projectId] as const,
 };
 
 const normalizeRoleName = (value?: string | null) => {
-  if (!value) return '';
+  if (!value) return "";
 
   return String(value)
     .trim()
     .toUpperCase()
-    .replace(/\s+/g, '_')
-    .replace(/-/g, '_');
+    .replace(/\s+/g, "_")
+    .replace(/-/g, "_");
 };
 
 const getUserId = (user: any) => {
-  return String(user?.user_id || user?.id || user?._id || '');
+  return String(user?.user_id || user?.id || user?._id || "");
 };
 
 const getRoleName = (user: any) => {
@@ -37,24 +40,26 @@ const getRoleName = (user: any) => {
 
   if (directRole) return normalizeRoleName(directRole);
 
-  if (user?.role_id && typeof user.role_id === 'object') {
+  if (user?.role_id && typeof user.role_id === "object") {
     return normalizeRoleName(user.role_id.name || user.role_id.code);
   }
 
   if (Array.isArray(user?.system_role_ids)) {
-    const roleName = user.system_role_ids.find((item: any) => normalizeRoleName(item) === 'SYSTEM_ADMIN');
-    if (roleName) return 'SYSTEM_ADMIN';
+    const roleName = user.system_role_ids.find(
+      (item: any) => normalizeRoleName(item) === "SYSTEM_ADMIN",
+    );
+    if (roleName) return "SYSTEM_ADMIN";
   }
 
-  return '';
+  return "";
 };
 
 const isSystemAdminUser = (user: any) => {
-  return getRoleName(user) === 'SYSTEM_ADMIN';
+  return getRoleName(user) === "SYSTEM_ADMIN";
 };
 
 const isCurrentUserSystemAdmin = () => {
-  return getRoleName(useAuthStore.getState().user) === 'SYSTEM_ADMIN';
+  return getRoleName(useAuthStore.getState().user) === "SYSTEM_ADMIN";
 };
 
 const shouldExposeUserInAssignableList = (candidate: any) => {
@@ -62,7 +67,10 @@ const shouldExposeUserInAssignableList = (candidate: any) => {
   if (!isSystemAdminUser(candidate)) return true;
 
   const currentUser = useAuthStore.getState().user;
-  return isCurrentUserSystemAdmin() && getUserId(currentUser) === getUserId(candidate);
+  return (
+    isCurrentUserSystemAdmin() &&
+    getUserId(currentUser) === getUserId(candidate)
+  );
 };
 
 const extractList = (res: any) => {
@@ -98,7 +106,7 @@ export const useGetBoardDetail = (boardId: string) => {
 
       const formattedBoard = {
         ...coreData,
-        board_name: coreData?.name || 'Bảng công việc',
+        board_name: coreData?.name || "Bảng công việc",
         columns: Array.isArray(coreData?.column_order_ids)
           ? coreData.column_order_ids.map((col: any) => ({
               ...col,
@@ -116,7 +124,7 @@ export const useGetBoardDetail = (boardId: string) => {
             const members = filterAssignableUsers(extractList(res));
             useUserStore.getState().saveUsersToCache(members, projectId);
           })
-          .catch((err) => console.error('❌ Lỗi đồng bộ members:', err));
+          .catch((err) => console.error("❌ Lỗi đồng bộ members:", err));
       }
 
       return formattedBoard as unknown as Board;
@@ -231,7 +239,7 @@ export const useGetTaskComments = (taskId: string, projectId: string) => {
       const res: any = await boardApi.getTaskComments(taskId, projectId);
       return extractList(res);
     },
-    enabled: !!taskId && !!projectId && String(projectId) !== 'undefined',
+    enabled: !!taskId && !!projectId && String(projectId) !== "undefined",
   });
 };
 
@@ -256,7 +264,10 @@ export const useAddTaskComment = () => {
 
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
-        queryKey: BOARD_QUERY_KEYS.taskComments(variables.taskId, variables.projectId),
+        queryKey: BOARD_QUERY_KEYS.taskComments(
+          variables.taskId,
+          variables.projectId,
+        ),
       });
 
       queryClient.invalidateQueries({
@@ -289,7 +300,10 @@ export const useUpdateTaskComment = () => {
 
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
-        queryKey: BOARD_QUERY_KEYS.taskComments(variables.taskId, variables.projectId),
+        queryKey: BOARD_QUERY_KEYS.taskComments(
+          variables.taskId,
+          variables.projectId,
+        ),
       });
 
       queryClient.invalidateQueries({
@@ -322,7 +336,10 @@ export const useResolveTaskComment = () => {
 
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
-        queryKey: BOARD_QUERY_KEYS.taskComments(variables.taskId, variables.projectId),
+        queryKey: BOARD_QUERY_KEYS.taskComments(
+          variables.taskId,
+          variables.projectId,
+        ),
       });
 
       queryClient.invalidateQueries({
@@ -349,7 +366,10 @@ export const useDeleteTaskComment = () => {
 
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
-        queryKey: BOARD_QUERY_KEYS.taskComments(variables.taskId, variables.projectId),
+        queryKey: BOARD_QUERY_KEYS.taskComments(
+          variables.taskId,
+          variables.projectId,
+        ),
       });
 
       queryClient.invalidateQueries({
@@ -467,7 +487,7 @@ export const useAddAttachmentToTask = () => {
       });
 
       queryClient.invalidateQueries({
-        queryKey: ['task-attachments', variables.taskId],
+        queryKey: ["task-attachments", variables.taskId],
       });
     },
   });
@@ -477,13 +497,8 @@ export const useUpdateBoard = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({
-      boardId,
-      payload,
-    }: {
-      boardId: string;
-      payload: any;
-    }) => boardApi.updateBoard(boardId, payload),
+    mutationFn: ({ boardId, payload }: { boardId: string; payload: any }) =>
+      boardApi.updateBoard(boardId, payload),
 
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
@@ -491,7 +506,7 @@ export const useUpdateBoard = () => {
       });
 
       queryClient.invalidateQueries({
-        queryKey: ['workspaces'],
+        queryKey: ["workspaces"],
       });
     },
   });
@@ -515,7 +530,7 @@ export const useDeleteBoard = () => {
       });
 
       queryClient.invalidateQueries({
-        queryKey: ['workspaces'],
+        queryKey: ["workspaces"],
       });
     },
   });
@@ -526,25 +541,22 @@ export const useUploadFile = () => {
     mutationFn: (file: File) => boardApi.uploadFile(file),
 
     onSuccess: (data) => {
-      console.log('Upload thành công! URL:', data?.url);
+      console.log("Upload thành công! URL:", data?.url);
     },
 
     onError: (error) => {
-      console.error('Lỗi upload file:', error);
+      console.error("Lỗi upload file:", error);
     },
   });
 };
 
 export const useGetTaskAttachments = (taskId: string, projectId: string) => {
   return useQuery({
-    queryKey: ['task-attachments', taskId, projectId],
+    queryKey: ["task-attachments", taskId, projectId],
 
     queryFn: () => boardApi.getTaskAttachments(taskId, projectId),
 
-    enabled:
-      !!taskId &&
-      !!projectId &&
-      String(projectId) !== 'undefined',
+    enabled: !!taskId && !!projectId && String(projectId) !== "undefined",
   });
 };
 
@@ -565,7 +577,7 @@ export const useDeleteAttachment = () => {
 
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
-        queryKey: ['task-attachments', variables.taskId, variables.projectId],
+        queryKey: ["task-attachments", variables.taskId, variables.projectId],
       });
 
       queryClient.invalidateQueries({

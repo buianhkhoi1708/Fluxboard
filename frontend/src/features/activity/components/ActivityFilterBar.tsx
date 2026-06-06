@@ -1,54 +1,54 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   FunnelIcon,
   ArrowPathIcon,
   CalendarDaysIcon,
   ClockIcon,
-} from '@heroicons/react/24/outline';
-import { useActivityFilters } from '../hooks/useActivityFilters';
+} from "@heroicons/react/24/outline";
+import { useActivityFilters } from "../hooks/useActivityFilters";
 
 const SOURCE_OPTIONS = [
-  { value: '', label: 'Tất cả' },
-  { value: 'PROJECT', label: '📁 Project' },
-  { value: 'BOARD', label: '📌 Board' },
-  { value: 'TASK', label: '✅ Task' },
-  { value: 'USER', label: '👤 User' },
-  { value: 'SYSTEM', label: '⚙️ System' },
-  { value: 'SECURITY', label: '🛡️ Security' },
+  { value: "", label: "Tất cả" },
+  { value: "PROJECT", label: "📁 Project" },
+  { value: "BOARD", label: "📌 Board" },
+  { value: "TASK", label: "✅ Task" },
+  { value: "USER", label: "👤 User" },
+  { value: "SYSTEM", label: "⚙️ System" },
+  { value: "SECURITY", label: "🛡️ Security" },
 ];
 
 const ACTION_OPTIONS = [
-  { value: '', label: 'Tất cả' },
-  { value: 'CREATE', label: '✨ Tạo mới' },
-  { value: 'UPDATE', label: '✏️ Cập nhật' },
-  { value: 'DELETE', label: '🗑️ Xóa' },
-  { value: 'MOVE', label: '🔄 Chuyển trạng thái' },
-  { value: 'ADD_MEMBER', label: '👥 Thêm thành viên' },
-  { value: 'UPDATE_MEMBER', label: '🧩 Cập nhật thành viên' },
-  { value: 'REMOVE_MEMBER', label: '🚫 Xóa thành viên' },
-  { value: 'CREATE_USER', label: '🆕 Tạo tài khoản' },
-  { value: 'CHANGE_PASSWORD', label: '🔐 Đổi mật khẩu' },
-  { value: 'EXTENSION_REQUEST', label: '⏰ Xin dời hạn' },
-  { value: 'EXTENSION_APPROVE', label: '✅ Duyệt dời hạn' },
-  { value: 'EXTENSION_REJECT', label: '❌ Từ chối dời hạn' },
+  { value: "", label: "Tất cả" },
+  { value: "CREATE", label: "✨ Tạo mới" },
+  { value: "UPDATE", label: "✏️ Cập nhật" },
+  { value: "DELETE", label: "🗑️ Xóa" },
+  { value: "MOVE", label: "🔄 Chuyển trạng thái" },
+  { value: "ADD_MEMBER", label: "👥 Thêm thành viên" },
+  { value: "UPDATE_MEMBER", label: "🧩 Cập nhật thành viên" },
+  { value: "REMOVE_MEMBER", label: "🚫 Xóa thành viên" },
+  { value: "CREATE_USER", label: "🆕 Tạo tài khoản" },
+  { value: "CHANGE_PASSWORD", label: "🔐 Đổi mật khẩu" },
+  { value: "EXTENSION_REQUEST", label: "⏰ Xin dời hạn" },
+  { value: "EXTENSION_APPROVE", label: "✅ Duyệt dời hạn" },
+  { value: "EXTENSION_REJECT", label: "❌ Từ chối dời hạn" },
 ];
 
 const ActivityFilterBar = () => {
   const [filters, setFilters] = useActivityFilters();
 
   const [localFilters, setLocalFilters] = useState({
-    action: filters?.actions || '',
-    source_type: filters?.sourceTypes || '',
-    startDate: filters?.from ? filters.from.split('T')[0] : '',
-    endDate: filters?.to ? filters.to.split('T')[0] : '',
+    action: filters?.actions || "",
+    source_type: filters?.sourceTypes || "",
+    startDate: filters?.from ? filters.from.split("T")[0] : "",
+    endDate: filters?.to ? filters.to.split("T")[0] : "",
   });
 
   useEffect(() => {
     setLocalFilters({
-      action: filters?.actions || '',
-      source_type: filters?.sourceTypes || '',
-      startDate: filters?.from ? filters.from.split('T')[0] : '',
-      endDate: filters?.to ? filters.to.split('T')[0] : '',
+      action: filters?.actions || "",
+      source_type: filters?.sourceTypes || "",
+      startDate: filters?.from ? filters.from.split("T")[0] : "",
+      endDate: filters?.to ? filters.to.split("T")[0] : "",
     });
   }, [filters.actions, filters.sourceTypes, filters.from, filters.to]);
 
@@ -77,10 +77,10 @@ const ActivityFilterBar = () => {
 
   const handleClearFilter = () => {
     setLocalFilters({
-      action: '',
-      source_type: '',
-      startDate: '',
-      endDate: '',
+      action: "",
+      source_type: "",
+      startDate: "",
+      endDate: "",
     });
 
     setFilters({
@@ -97,7 +97,7 @@ const ActivityFilterBar = () => {
         onSubmit={handleApplyFilter}
         className="flex flex-col lg:flex-row lg:items-end gap-4"
       >
-        {/* Phạm vi */}
+        {}
         <div className="flex-1 min-w-[140px]">
           <label className="block text-xs font-semibold text-slate-500 mb-1.5 tracking-wide">
             Phạm vi
@@ -114,14 +114,14 @@ const ActivityFilterBar = () => {
             className="w-full text-sm p-2.5 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all duration-200 cursor-pointer"
           >
             {SOURCE_OPTIONS.map((option) => (
-              <option key={option.value || 'all'} value={option.value}>
+              <option key={option.value || "all"} value={option.value}>
                 {option.label}
               </option>
             ))}
           </select>
         </div>
 
-        {/* Hành động */}
+        {}
         <div className="flex-1 min-w-[140px]">
           <label className="block text-xs font-semibold text-slate-500 mb-1.5 tracking-wide">
             Hành động
@@ -138,14 +138,14 @@ const ActivityFilterBar = () => {
             className="w-full text-sm p-2.5 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all duration-200 cursor-pointer"
           >
             {ACTION_OPTIONS.map((option) => (
-              <option key={option.value || 'all'} value={option.value}>
+              <option key={option.value || "all"} value={option.value}>
                 {option.label}
               </option>
             ))}
           </select>
         </div>
 
-        {/* Từ ngày */}
+        {}
         <div className="flex-1 min-w-[150px]">
           <label className="text-xs font-semibold text-slate-500 mb-1.5 tracking-wide flex items-center gap-1">
             <CalendarDaysIcon className="w-3.5 h-3.5" />
@@ -165,7 +165,7 @@ const ActivityFilterBar = () => {
           />
         </div>
 
-        {/* Đến ngày */}
+        {}
         <div className="flex-1 min-w-[150px]">
           <label className="text-xs font-semibold text-slate-500 mb-1.5 tracking-wide flex items-center gap-1">
             <ClockIcon className="w-3.5 h-3.5" />
@@ -185,7 +185,7 @@ const ActivityFilterBar = () => {
           />
         </div>
 
-        {/* Nút hành động */}
+        {}
         <div className="flex gap-3 lg:w-auto w-full">
           <button
             type="submit"

@@ -1,8 +1,8 @@
-import { useQuery } from '@tanstack/react-query';
-import axiosClient from '../../../lib/axiosClient';
+import { useQuery } from "@tanstack/react-query";
+import axiosClient from "../../../lib/axiosClient";
 
 export const RBAC_KEYS = {
-  roles: ['rbac', 'roles'] as const,
+  roles: ["rbac", "roles"] as const,
 };
 
 export interface Role {
@@ -30,7 +30,7 @@ export const useRolesDictionary = () => {
     queryKey: RBAC_KEYS.roles,
 
     queryFn: async (): Promise<Role[]> => {
-      const res: any = await axiosClient.get('/rbac/roles');
+      const res: any = await axiosClient.get("/rbac/roles");
       return extractRoles(res);
     },
 

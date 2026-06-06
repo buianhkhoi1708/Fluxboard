@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import Logo from '../../src/assets/icon.svg';
-import { User } from 'lucide-react';
-import { useAuthStore } from '../features/auth/store/useAuthStore';
-import { useRoleAccess } from '../features/rbac/hooks/useRoleAccess';
+import React, { useState } from "react";
+import Logo from "../../src/assets/icon.svg";
+import { User } from "lucide-react";
+import { useAuthStore } from "../features/auth/store/useAuthStore";
+import { useRoleAccess } from "../features/rbac/hooks/useRoleAccess";
 
-import NotificationDropdown from '../features/notification/components/NotificationDropdown';
+import NotificationDropdown from "../features/notification/components/NotificationDropdown";
 
 const TopNavbar = () => {
   const { user, logout } = useAuthStore();
@@ -12,12 +12,12 @@ const TopNavbar = () => {
 
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
-  const userName = user?.full_name || user?.fullName || 'Khách';
+  const userName = user?.full_name || user?.fullName || "Khách";
   const userInitial = userName.charAt(0).toUpperCase();
   const avatarUrl = user?.avatar_url || user?.avatarUrl;
 
   const handleUserProfile = () => {
-    window.location.href = '/settings';
+    window.location.href = "/settings";
   };
 
   return (
@@ -65,10 +65,10 @@ const TopNavbar = () => {
                   {userName}
                 </p>
                 <p className="text-[11px] font-medium text-slate-400 truncate">
-                  {user?.email || 'Chưa có email'}
+                  {user?.email || "Chưa có email"}
                 </p>
                 <span className="inline-block mt-1.5 px-2 py-0.5 bg-indigo-50 text-indigo-600 text-[9px] font-black uppercase rounded-md border border-indigo-100">
-                  {currentRoleName || 'Thành viên'}
+                  {currentRoleName || "Thành viên"}
                 </span>
               </div>
 

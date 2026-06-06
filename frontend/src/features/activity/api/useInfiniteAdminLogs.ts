@@ -1,9 +1,9 @@
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from "@tanstack/react-query";
 import {
   activityApi,
   ActivityFilters,
   ActivityListResponse,
-} from './activityApi';
+} from "./activityApi";
 
 const unwrapActivityResponse = (res: any): ActivityListResponse => {
   if (res?.success !== undefined && (Array.isArray(res?.data) || res?.meta)) {
@@ -19,7 +19,7 @@ const unwrapActivityResponse = (res: any): ActivityListResponse => {
 
 export function useInfiniteAdminLogs(filters: ActivityFilters) {
   return useInfiniteQuery({
-    queryKey: ['adminLogs', 'infinite', filters],
+    queryKey: ["adminLogs", "infinite", filters],
 
     queryFn: async ({ pageParam = 0 }) => {
       const res: any = await activityApi.getAdminLogs(pageParam, 20, filters);

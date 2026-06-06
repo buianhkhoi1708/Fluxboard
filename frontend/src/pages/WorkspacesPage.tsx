@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useMemo } from "react";
-import ReactDOM from "react-dom"; // 🆕 Import để dùng Portal
+import ReactDOM from "react-dom";
 import { Link } from "react-router-dom";
 import { useUserStore } from "../features/user/store/useUserStore";
 import { useWorkspaces } from "../features/workspaces/hooks/useWorkspaceQueries";
@@ -22,7 +22,6 @@ import {
   useDeleteBoard,
 } from "../features/board/hooks/useBoardQueries";
 
-// ------- Component Skeleton khi tải -------
 const WorkspaceSkeleton = () => (
   <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/80 shadow-lg p-5 md:p-6 animate-pulse">
     <div className="flex items-center justify-between mb-5 pb-4 border-b border-slate-100">
@@ -46,7 +45,6 @@ const WorkspaceSkeleton = () => (
   </div>
 );
 
-// ---------- Modal sửa tên bảng ----------
 const EditBoardNameModal = ({ isOpen, onClose, onSave, initialName }) => {
   const [name, setName] = useState(initialName || "");
   if (!isOpen) return null;
@@ -96,7 +94,6 @@ const EditBoardNameModal = ({ isOpen, onClose, onSave, initialName }) => {
   );
 };
 
-// ---------- Modal xác nhận xóa ----------
 const ConfirmDeleteBoardModal = ({ isOpen, onClose, onConfirm, boardName }) => {
   if (!isOpen) return null;
 
@@ -135,7 +132,6 @@ const ConfirmDeleteBoardModal = ({ isOpen, onClose, onConfirm, boardName }) => {
   );
 };
 
-// ------- Component Chính -------
 const WorkspacesPage = () => {
   const getUser = useUserStore((state) => state.getUser);
   const { mutate: updateBoard } = useUpdateBoard();
@@ -151,7 +147,6 @@ const WorkspacesPage = () => {
     null,
   );
 
-  // 🆕 State cho modal sửa và xóa bảng
   const [editingBoard, setEditingBoard] = useState<{
     id: string;
     name: string;
@@ -161,7 +156,6 @@ const WorkspacesPage = () => {
     name: string;
   } | null>(null);
 
-  // 🚀 Làm phẳng & loại trùng lặp dữ liệu từ các trang
   const allProjects = useMemo(() => {
     if (!data?.pages) return [];
     const flatData = data.pages.flatMap((page) => page.data || page || []);
@@ -182,7 +176,6 @@ const WorkspacesPage = () => {
     );
   }, [allProjects, searchTerm]);
 
-  // Intersection Observer cho infinite scroll
   const observer = useRef<IntersectionObserver | null>(null);
   const triggerRef = useCallback(
     (node: HTMLDivElement | null) => {
@@ -200,24 +193,18 @@ const WorkspacesPage = () => {
     [isLoading, isFetchingNextPage, hasNextPage, fetchNextPage],
   );
 
-  // Hàm xử lý đổi tên bảng (gọi API)
   const handleUpdateBoardName = (boardId: string, newName: string) => {
     if (newName.trim() && boardId) {
       updateBoard({ boardId, payload: { name: newName.trim() } });
     }
   };
 
-  // Hàm xử lý xóa bảng
-  const handleDeleteBoard = (boardId: string) => {
-    // projectId cần lấy từ context, ta có thể tìm từ workspace hiện tại.
-    // Nhưng deleteBoard API chỉ cần boardId và projectId, chúng ta sẽ truyền projectId từ workspace.
-    // Để đơn giản, ta lưu thêm projectId khi mở modal xóa (sẽ bổ sung state)
-  };
+  const handleDeleteBoard = (boardId: string) => {};
 
   return (
     <div className="flex-1 bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 h-full overflow-y-auto no-scrollbar p-4 md:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
-        {/* HEADER */}
+        {}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div className="space-y-1">
             <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight flex items-center gap-3 text-slate-800">
@@ -256,7 +243,7 @@ const WorkspacesPage = () => {
           </div>
         </div>
 
-        {/* KHUNG TẢI (SKELETON) */}
+        {}
         {isLoading && (
           <div className="space-y-6">
             {[...Array(2)].map((_, i) => (
@@ -265,7 +252,7 @@ const WorkspacesPage = () => {
           </div>
         )}
 
-        {/* TRẠNG THÁI TRỐNG */}
+        {}
         {!isLoading && filteredProjects.length === 0 && (
           <div className="bg-white/80 backdrop-blur-sm border border-dashed border-indigo-200 rounded-2xl p-16 flex flex-col items-center justify-center text-center shadow-sm transition-all">
             <div className="p-5 bg-indigo-50 rounded-full mb-5 animate-bounce-slow">
@@ -294,7 +281,7 @@ const WorkspacesPage = () => {
           </div>
         )}
 
-        {/* DANH SÁCH KHÔNG GIAN LÀM VIỆC */}
+        {}
         {!isLoading && filteredProjects.length > 0 && (
           <div className="space-y-8">
             {filteredProjects.map((workspace, index) => {
@@ -312,7 +299,7 @@ const WorkspacesPage = () => {
                   key={workspaceId}
                   className="bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200/80 shadow-lg shadow-slate-200/20 p-5 md:p-6 transition-all duration-300 hover:shadow-xl hover:shadow-indigo-100/20 hover:border-indigo-200/60 hover:-translate-y-0.5"
                 >
-                  {/* Đầu mục không gian làm việc */}
+                  {}
                   <div className="flex items-center justify-between mb-5 pb-4 border-b border-slate-100">
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-md shadow-indigo-200/50 shrink-0 transition-transform duration-200 group-hover:scale-105">
@@ -334,7 +321,7 @@ const WorkspacesPage = () => {
                             <LayoutGrid size={12} /> {boardsData.length} bảng
                           </span>
 
-                          {/* Xem trước thành viên */}
+                          {}
                           <Link
                             to={`/projects/${workspaceId}?tab=members`}
                             title="Quản lý thành viên"
@@ -411,7 +398,7 @@ const WorkspacesPage = () => {
                     </Link>
                   </div>
 
-                  {/* Lưới bảng */}
+                  {}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     {boardsData.map((boardItem) => {
                       const b = boardItem.board || boardItem;
@@ -420,7 +407,7 @@ const WorkspacesPage = () => {
 
                       return (
                         <div key={boardId} className="group relative">
-                          {/* 🚀 Menu 3 chấm - giờ dùng modal thay vì prompt/confirm */}
+                          {}
                           <div className="absolute top-2 right-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button
                               onClick={(e) => {
@@ -475,7 +462,7 @@ const WorkspacesPage = () => {
                       );
                     })}
 
-                    {/* Nút thêm bảng */}
+                    {}
                     <button
                       onClick={() => {
                         setSelectedProjectId(workspaceId);
@@ -495,7 +482,7 @@ const WorkspacesPage = () => {
               );
             })}
 
-            {/* Chỉ báo tải trang tiếp theo */}
+            {}
             {isFetchingNextPage && (
               <div className="flex justify-center py-4">
                 <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full shadow-sm border border-slate-200 text-sm text-slate-500 animate-pulse">
@@ -507,7 +494,7 @@ const WorkspacesPage = () => {
           </div>
         )}
 
-        {/* Các Modal */}
+        {}
         <CreateProjectModal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
@@ -519,7 +506,7 @@ const WorkspacesPage = () => {
           onSuccess={() => setIsBoardModalOpen(false)}
         />
 
-        {/* 🆕 Modal sửa tên bảng */}
+        {}
         <EditBoardNameModal
           isOpen={!!editingBoard}
           onClose={() => setEditingBoard(null)}
@@ -530,7 +517,7 @@ const WorkspacesPage = () => {
           }}
         />
 
-        {/* 🆕 Modal xác nhận xóa bảng */}
+        {}
         <ConfirmDeleteBoardModal
           isOpen={!!deletingBoard}
           onClose={() => setDeletingBoard(null)}
@@ -547,8 +534,6 @@ const WorkspacesPage = () => {
         />
       </div>
     </div>
-
-    
   );
 };
 

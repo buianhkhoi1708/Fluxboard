@@ -15,7 +15,6 @@ import { useGetOrgTree } from "../hooks/useOrgQueries";
 import { orgApi } from "../api/organizationApi";
 import { OrgMember } from "../types/orgTypes";
 
-// 🚀 TÍNH NĂNG: Click ra ngoài để tự động đóng Dropdown
 function useOnClickOutside(
   ref: React.RefObject<any>,
   handler: (event: MouseEvent | TouchEvent) => void,
@@ -184,7 +183,7 @@ const OrgFormModal: React.FC<OrgFormModalProps> = ({
   const handleSelectLead = (user: OrgMember) => {
     setFormData((prev) => ({
       ...prev,
-      // 🚀 FIX: Phải lấy _id
+
       leadId: user._id || user.id || user.user_id || "",
       leadName: user.full_name || user.fullName || user.name || "",
     }));
@@ -193,7 +192,6 @@ const OrgFormModal: React.FC<OrgFormModalProps> = ({
   };
 
   const toggleSelectMember = (user: any) => {
-    // 🚀 FIX: Lấy đúng _id để hàm filter/some chạy đúng
     const targetId = user._id || user.id;
     const isSelected = selectedMembers.some(
       (m) => (m._id || m.id) === targetId,
@@ -248,9 +246,7 @@ const OrgFormModal: React.FC<OrgFormModalProps> = ({
         if (activeTeamId) {
           const assignPromises = [];
 
-          // SỬA CHỖ NÀY: Hãy chắc chắn activeTeamId không phải là undefined/null
           if (activeTeamId) {
-            // 1. Gán Leader
             if (formData.leadId) {
               assignPromises.push(
                 orgApi.assignUserToTeam(
@@ -261,7 +257,6 @@ const OrgFormModal: React.FC<OrgFormModalProps> = ({
               );
             }
 
-            // 2. Gán Members
             selectedMembers.forEach((member) => {
               const memberIdToAssign = member._id || member.id;
               if (memberIdToAssign !== formData.leadId) {
@@ -356,7 +351,6 @@ const OrgFormModal: React.FC<OrgFormModalProps> = ({
                     -- Chọn phòng ban --
                   </option>
                   {orgTree.map((dept: any) => (
-                    // 🚀 FIX KEY
                     <option
                       key={dept._id || dept.id || Math.random()}
                       value={dept._id || dept.id}
@@ -416,7 +410,7 @@ const OrgFormModal: React.FC<OrgFormModalProps> = ({
             </div>
           </div>
 
-          {/* LEADER SEARCH */}
+          {}
           <div className="relative z-30" ref={leadDropdownRef}>
             <label className="block text-sm font-bold text-slate-700 mb-2">
               Chỉ định Leader
@@ -473,7 +467,6 @@ const OrgFormModal: React.FC<OrgFormModalProps> = ({
                     </li>
                   ) : searchResults.length > 0 ? (
                     searchResults.map((u) => (
-                      // 🚀 FIX KEY
                       <li
                         key={u._id || u.id || u.user_id}
                         onClick={() => handleSelectLead(u)}
@@ -504,7 +497,7 @@ const OrgFormModal: React.FC<OrgFormModalProps> = ({
             )}
           </div>
 
-          {/* MULTI-SELECT MEMBERS */}
+          {}
           {mode === "TEAM" && (
             <div
               className="pt-4 border-t border-slate-100 relative z-20"
@@ -522,7 +515,6 @@ const OrgFormModal: React.FC<OrgFormModalProps> = ({
               {selectedMembers.length > 0 && (
                 <div className="flex flex-wrap gap-2 mb-3">
                   {selectedMembers.map((m) => (
-                    // 🚀 FIX KEY
                     <div
                       key={m._id || m.id}
                       className="bg-indigo-50 border border-indigo-100 text-indigo-700 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-2 group shadow-sm transition-all"
@@ -560,7 +552,6 @@ const OrgFormModal: React.FC<OrgFormModalProps> = ({
                   <ul className="max-h-56 overflow-y-auto custom-scrollbar py-2">
                     {unassignedUsers.length > 0 ? (
                       unassignedUsers.map((u) => {
-                        // 🚀 FIX KEY & LOGIC
                         const userId = u._id || u.id;
                         const isSelected = selectedMembers.some(
                           (m) => (m._id || m.id) === userId,
